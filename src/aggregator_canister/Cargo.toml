@@ -1,0 +1,12 @@
+[package]
+name = "aggregator_canister"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aggregator = { path = "../aggregator" }
+ic-cdk = { workspace = true }
+ic-cdk-macros = { workspace = true }
+
+[lib]
+crate-type = ["cdylib"]
