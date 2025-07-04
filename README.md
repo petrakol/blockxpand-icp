@@ -15,6 +15,9 @@ cargo build
 cargo build --target wasm32-unknown-unknown --release -p aggregator_wasm
 ```
 
+All dependencies are pinned in `Cargo.toml` using workspace versions so that
+local and CI builds produce identical WASM binaries.
+
 ## Testing
 
 ```bash
