@@ -1,0 +1,8 @@
+# Ignore build artifacts
+/target
+.dfx
+*.wasm
+
+# macOS metadata
+.DS_Store
+

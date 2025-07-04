@@ -1,0 +1,5 @@
+[build]
+rustflags = ["--remap-path-prefix", "/workspace/blockxpand-icp=."]
+
+[term]
+verbose = true

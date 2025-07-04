@@ -1,7 +1,12 @@
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn integration_test_placeholder() {
-        assert_eq!(2 + 2, 4);
+    use blockxpand_icp::get_holdings;
+    use candid::Principal;
+
+    #[tokio::test]
+    async fn integration_get_holdings() {
+        let principal = Principal::from_text("aaaaa-aa").unwrap();
+        let holdings = get_holdings(principal).await;
+        assert_eq!(holdings.len(), 4);
     }
 }
