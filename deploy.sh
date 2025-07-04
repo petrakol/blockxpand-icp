@@ -2,5 +2,5 @@
 set -e
 
 # Example deployment step using dfx
-# Replace canister name and network as needed.
-dfx deploy --network ic
+# Deploys to a small test subnet so reviewers can try the canister.
+dfx deploy --network ci-test

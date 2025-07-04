@@ -16,5 +16,12 @@ jobs:
       - name: Run Clippy
         run: cargo clippy -- -D warnings
       - name: Run Tests
-        run: cargo test
+        run: cargo test --all
+      - name: Integration (dfx)
+        run: |
+          dfx start --background
+          dfx deploy
+          dfx canister call aggregator get_holdings '(principal "aaaaa-aa")'
+      - name: Deploy to test net
+        run: ./deploy.sh
 
