@@ -4,8 +4,8 @@
     "aggregator": {
       "type": "custom",
       "candid": "candid/aggregator.did",
-      "wasm": "target/wasm32-unknown-unknown/release/aggregator.wasm",
-      "build": "cargo build --target wasm32-unknown-unknown --release -p aggregator",
+      "wasm": "target/wasm32-unknown-unknown/release/aggregator_canister.wasm",
+      "build": "cargo build --quiet --target wasm32-unknown-unknown --release -p aggregator_canister",
       "metadata": [
         { "name": "candid:service" }
       ]

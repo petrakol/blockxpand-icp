@@ -18,12 +18,14 @@ jobs:
     - name: Install dfx
       uses: dfinity/setup-dfx@main
     - name: Run Clippy
-      run: cargo clippy -- -D warnings
+      run: cargo clippy --quiet -- -D warnings
     - name: Run Tests
-      run: cargo test --all
+      run: cargo test --quiet --all
     - name: Integration (dfx)
       run: |
-        dfx start --background
+        set -e
+        dfx start --background --clean
+        trap 'dfx stop' EXIT
         dfx deploy
         dfx canister call aggregator get_holdings '(principal "aaaaa-aa")'
     - name: Deploy to test net
