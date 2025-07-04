@@ -24,7 +24,7 @@ jobs:
     - name: Integration (dfx)
       run: |
         set -e
-        dfx start --background
+        dfx start --background --clean
         trap 'dfx stop' EXIT
         dfx deploy
         dfx canister call aggregator get_holdings '(principal "aaaaa-aa")'
