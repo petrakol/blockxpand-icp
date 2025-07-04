@@ -5,6 +5,7 @@ pub mod neuron_fetcher;
 
 use bx_core::Holding;
 use candid::Principal;
+use futures::join;
 
 #[cfg(target_arch = "wasm32")]
 fn now() -> u64 {
@@ -31,10 +32,16 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         }
     }
 
+    let (mut ledger, mut neuron, mut dex) = join!(
+        ledger_fetcher::fetch(principal),
+        neuron_fetcher::fetch(principal),
+        dex_fetchers::fetch(principal)
+    );
+
     let mut holdings = Vec::new();
-    holdings.extend(ledger_fetcher::fetch(principal).await);
-    holdings.extend(neuron_fetcher::fetch(principal).await);
-    holdings.extend(dex_fetchers::fetch(principal).await);
+    holdings.append(&mut ledger);
+    holdings.append(&mut neuron);
+    holdings.append(&mut dex);
 
     {
         let mut cache = cache::get_mut();

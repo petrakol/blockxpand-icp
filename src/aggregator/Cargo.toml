@@ -12,6 +12,7 @@ ic-cdk-macros = { workspace = true }
 tokio = { workspace = true }
 once_cell = "=1.19.0"
 bx_core = { path = "../bx_core" }
+futures = { workspace = true }
 
 [dev-dependencies]
 
