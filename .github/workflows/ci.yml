@@ -23,7 +23,9 @@ jobs:
       run: cargo test --quiet --all
     - name: Integration (dfx)
       run: |
+        set -e
         dfx start --background
+        trap 'dfx stop' EXIT
         dfx deploy
         dfx canister call aggregator get_holdings '(principal "aaaaa-aa")'
     - name: Deploy to test net
