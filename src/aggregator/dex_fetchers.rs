@@ -1,5 +1,5 @@
 use candid::Principal;
-pub async fn fetch(principal: Principal) -> Vec<super::Holding> {
+pub async fn fetch(_principal: Principal) -> Vec<super::Holding> {
     vec![
         super::Holding {
             source: "ICPSwap".to_string(),
