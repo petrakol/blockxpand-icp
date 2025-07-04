@@ -28,7 +28,7 @@ The repository includes a minimal `dfx.json` so integration tests can deploy the
 
 ## Development workflow
 
-1. Install Rust and `dfx`.
+1. Install Rust and `dfx`, and add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
 2. Run `cargo test --all` and `cargo clippy -- -D warnings` before pushing.
 3. On pull requests the GitHub Actions workflow runs tests, clippy, and a test
    deployment via `deploy.sh`.
