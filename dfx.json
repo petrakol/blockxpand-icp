@@ -5,7 +5,10 @@
       "type": "custom",
       "candid": "candid/aggregator.did",
       "wasm": "target/wasm32-unknown-unknown/release/aggregator.wasm",
-      "build": "cargo build --target wasm32-unknown-unknown --release -p aggregator"
+      "build": "cargo build --target wasm32-unknown-unknown --release -p aggregator",
+      "metadata": [
+        { "name": "candid:service" }
+      ]
     }
   },
   "networks": {

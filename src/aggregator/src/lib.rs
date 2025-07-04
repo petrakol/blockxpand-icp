@@ -19,6 +19,7 @@ fn now() -> u64 {
         .as_nanos() as u64
 }
 
+#[ic_cdk_macros::query]
 pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
     let now = now();
     {
