@@ -1,0 +1,17 @@
+{
+  "dfx": "0.20.1",
+  "canisters": {
+    "aggregator": {
+      "type": "custom",
+      "candid": "candid/aggregator.did",
+      "wasm": "target/wasm32-unknown-unknown/release/aggregator.wasm",
+      "build": "cargo build --target wasm32-unknown-unknown --release -p aggregator"
+    }
+  },
+  "networks": {
+    "local": {"bind": "127.0.0.1:4943", "type": "ephemeral"},
+    "ci-test": {"type": "ephemeral"}
+  },
+  "defaults": {"build": {"packtool": ""}},
+  "version": 1
+}

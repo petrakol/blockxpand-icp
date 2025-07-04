@@ -1,0 +1,10 @@
+type Holding = record {
+  source: text;
+  token: text;
+  amount: text;
+  status: text;
+};
+
+service: {
+  "get_holdings": (principal) -> (vec Holding) query;
+};

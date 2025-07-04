@@ -24,6 +24,7 @@ cargo test --all
 
 The `deploy.sh` script illustrates deployment using `dfx` to a test subnet. CI
 includes a deploy step so reviewers can access the resulting canister ID.
+The repository includes a minimal `dfx.json` so integration tests can deploy the canister.
 
 ## Development workflow
 
