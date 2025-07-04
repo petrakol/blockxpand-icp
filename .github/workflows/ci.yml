@@ -7,21 +7,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy
-      - name: Run Clippy
-        run: cargo clippy -- -D warnings
-      - name: Run Tests
-        run: cargo test --all
-      - name: Integration (dfx)
-        run: |
-          dfx start --background
-          dfx deploy
-          dfx canister call aggregator get_holdings '(principal "aaaaa-aa")'
-      - name: Deploy to test net
-        run: ./deploy.sh
+    - uses: actions/checkout@v4
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: clippy
+    - name: Install dfx
+      uses: dfinity/setup-dfx@v1
+    - name: Run Clippy
+      run: cargo clippy -- -D warnings
+    - name: Run Tests
+      run: cargo test --all
+    - name: Integration (dfx)
+      run: |
+        dfx start --background
+        dfx deploy
+        dfx canister call aggregator get_holdings '(principal "aaaaa-aa")'
+    - name: Deploy to test net
+      run: ./deploy.sh
 
