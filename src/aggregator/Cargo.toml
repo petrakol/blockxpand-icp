@@ -14,6 +14,6 @@ once_cell = "=1.19.0"
 bx_core = { path = "../bx_core" }
 
 [dev-dependencies]
+
 [lib]
 crate-type = ["rlib"]
-
