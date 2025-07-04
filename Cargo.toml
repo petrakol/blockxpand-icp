@@ -12,7 +12,7 @@ candid = { workspace = true }
 tokio = { workspace = true }
 
 [workspace]
-members = ["src/bx_core", "src/aggregator"]
+members = ["src/bx_core", "src/aggregator", "src/aggregator_wasm"]
 
 [workspace.dependencies]
 async-trait = "=0.1.88"

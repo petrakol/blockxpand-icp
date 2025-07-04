@@ -17,5 +17,5 @@ bx_core = { path = "../bx_core" }
 
 [dev-dependencies]
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
 
