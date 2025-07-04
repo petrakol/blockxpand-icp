@@ -12,6 +12,8 @@ calls to mimic network latency. Results are cached in-canister for 60&nbsp;s.
 
 ```bash
 cargo build
+# build the WASM canister
+cargo build --target wasm32-unknown-unknown --release -p aggregator_wasm
 ```
 
 ## Testing
