@@ -20,7 +20,7 @@ jobs:
     - name: Run Clippy
       run: cargo clippy -- -D warnings
     - name: Run Tests
-      run: cargo test --all
+      run: cargo test --quiet --all
     - name: Integration (dfx)
       run: |
         dfx start --background
