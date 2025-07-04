@@ -2,7 +2,7 @@ pub mod dex_fetchers;
 pub mod ledger_fetcher;
 pub mod neuron_fetcher;
 
-use crate::Holding;
+use bx_core::Holding;
 use candid::Principal;
 
 pub async fn get_holdings(principal: Principal) -> Vec<Holding> {

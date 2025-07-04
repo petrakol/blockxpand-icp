@@ -1,13 +1,15 @@
 use candid::Principal;
-pub async fn fetch(_principal: Principal) -> Vec<super::Holding> {
+use bx_core::Holding;
+
+pub async fn fetch(_principal: Principal) -> Vec<Holding> {
     vec![
-        super::Holding {
+        Holding {
             source: "ICPSwap".to_string(),
             token: "ICP".to_string(),
             amount: "57.32".to_string(),
             status: "lp_escrow".to_string(),
         },
-        super::Holding {
+        Holding {
             source: "Sonic".to_string(),
             token: "ckBTC".to_string(),
             amount: "0.041".to_string(),

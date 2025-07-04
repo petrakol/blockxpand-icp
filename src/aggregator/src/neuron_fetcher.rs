@@ -1,6 +1,8 @@
 use candid::Principal;
-pub async fn fetch(_principal: Principal) -> Vec<super::Holding> {
-    vec![super::Holding {
+use bx_core::Holding;
+
+pub async fn fetch(_principal: Principal) -> Vec<Holding> {
+    vec![Holding {
         source: "neuron".to_string(),
         token: "ICP".to_string(),
         amount: "1200".to_string(),

@@ -1,6 +1,11 @@
 # BlockXpand ICP Aggregator
 
-This project aggregates ICP balances from the ledger, NNS neurons and popular DEXs. The current implementation contains stubbed modules and an aggregation interface that returns sample data.
+This repository is organised as a Cargo workspace with two crates:
+
+- `core` – shared models such as the `Holding` struct
+- `aggregator` – canister logic exposing `get_holdings`
+
+The fetcher implementations are placeholders but demonstrate how the workspace is laid out.
 
 ## Building
 
