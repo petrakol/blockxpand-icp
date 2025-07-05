@@ -25,10 +25,12 @@
 - **Sub-250 ms** responses, < 3 B cycles/query keeps infra costs trivial.  
 - Built with **Rust + IC-CDK**, ready for multi-chain adapters (ckBTC/ETH).  
 
-This repository is organised as a Cargo workspace with two crates:
+This repository is organised as a Cargo workspace with four crates:
 
-- `core` – shared models such as the `Holding` struct
-- `aggregator` – canister logic exposing `get_holdings`
+- `bx_core` – shared models such as the `Holding` struct
+- `aggregator` – balance‑fetching logic used by the canister
+- `aggregator_canister` – exposes the aggregator as a canister
+- `mock_ledger_canister` – deterministic ledger used in tests
 
 Balances are fetched from the ICP ledger and any additional ICRC-1 ledgers
 listed in `config/ledgers.toml`. Metadata (symbol and decimals) is cached for
@@ -62,12 +64,17 @@ ckBTC = "abcd2-saaaa-aaaaa-aaaaq-cai"
 
 Use the `LEDGER_URL` environment variable to override the replica URL when
 running locally.
+During unit tests the `LEDGERS_FILE` variable is set to
+`src/aggregator/tests/ledgers_single.toml`, which references the mock ledger
+canister.
 
 ## Deployment
 
 The `deploy.sh` script illustrates deployment using `dfx` to a local test network.
 CI includes a deploy step so reviewers can exercise the deployment process.
-The repository includes a minimal `dfx.json` so integration tests can deploy the canister.
+The repository includes a minimal `dfx.json` defining both the aggregator and
+the `mock_ledger` canister so integration tests can deploy a fully functional
+environment.
 
 ## Development workflow
 
