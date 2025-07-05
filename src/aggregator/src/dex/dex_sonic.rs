@@ -110,6 +110,45 @@ fn format_amount(n: Nat, _decimals: u8) -> String {
     n.0.to_string()
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos() as u64
+}
+
+#[cfg(target_arch = "wasm32")]
+fn now() -> u64 {
+    ic_cdk::api::time()
+}
+
+#[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
+async fn claim_impl(principal: Principal) -> Result<u64, String> {
+    use crate::{cache, ledger_fetcher::LEDGERS};
+    let router_id = match std::env::var("SONIC_ROUTER") {
+        Ok(v) => match Principal::from_text(v) {
+            Ok(p) => p,
+            Err(_) => return Err("router".into()),
+        },
+        Err(_) => return Err("router".into()),
+    };
+    let ledger = LEDGERS.get(0).cloned().ok_or("ledger")?;
+    let agent = get_agent().await;
+    let arg = Encode!(&principal, &ledger).unwrap();
+    let bytes = agent
+        .update(&router_id, "claim")
+        .with_arg(arg)
+        .call_and_wait()
+        .await
+        .map_err(|e| e.to_string())?;
+    let spent: u64 = Decode!(&bytes, u64).unwrap_or_default();
+    let holdings = fetch_positions_impl(principal).await;
+    let mut cache = cache::get_mut();
+    cache.insert(principal, (holdings, now()));
+    Ok(spent)
+}
+
 #[async_trait]
 impl DexAdapter for SonicAdapter {
     async fn fetch_positions(&self, principal: Principal) -> Vec<Holding> {
@@ -118,6 +157,11 @@ impl DexAdapter for SonicAdapter {
 
     async fn claimable_rewards(&self, _principal: Principal) -> Vec<RewardInfo> {
         Vec::new()
+    }
+
+    #[cfg(feature = "claim")]
+    async fn claim_rewards(&self, principal: Principal) -> Result<u64, String> {
+        claim_impl(principal).await
     }
 }
 

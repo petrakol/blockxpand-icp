@@ -43,3 +43,20 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
     }
     holdings
 }
+
+#[cfg(feature = "claim")]
+pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
+    use dex::{dex_icpswap::IcpswapAdapter, dex_sonic::SonicAdapter, dex_infinity::InfinityAdapter, DexAdapter};
+    let adapters: Vec<Box<dyn DexAdapter>> = vec![
+        Box::new(IcpswapAdapter),
+        Box::new(SonicAdapter),
+        Box::new(InfinityAdapter),
+    ];
+    let mut spent = Vec::new();
+    for a in adapters {
+        if let Ok(c) = a.claim_rewards(principal).await {
+            spent.push(c);
+        }
+    }
+    spent
+}

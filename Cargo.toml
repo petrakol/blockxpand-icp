@@ -11,7 +11,7 @@ bx_core = { path = "src/bx_core" }
 candid = { workspace = true }
 tokio = { workspace = true }
 tempfile = "3"
-aggregator = { path = "src/aggregator", features = ["live-test"] }
+aggregator = { path = "src/aggregator", features = ["live-test", "claim"] }
 ic-agent = { workspace = true }
 
 [workspace]

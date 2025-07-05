@@ -1,5 +1,6 @@
 use candid::{CandidType, Principal};
-use ic_cdk_macros::query;
+use ic_cdk_macros::{query, update};
+use candid::Nat;
 use serde::Deserialize;
 
 #[derive(CandidType, Deserialize, Clone)]
@@ -60,6 +61,13 @@ fn get_user_positions(_p: Principal) -> Vec<PositionInfo> {
             auto_compound: true,
         },
     ]
+}
+
+#[candid::candid_method(update)]
+#[update]
+async fn claim(p: Principal, ledger: Principal) -> u64 {
+    let _ : () = ic_cdk::call(ledger, "credit", (p, Nat::from(25_000_000u64))).await.unwrap();
+    5_000
 }
 
 ic_cdk::export_candid!();

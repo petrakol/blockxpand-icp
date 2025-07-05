@@ -35,6 +35,11 @@ impl DexAdapter for InfinityAdapter {
     async fn claimable_rewards(&self, _principal: Principal) -> Vec<RewardInfo> {
         Vec::new()
     }
+
+    #[cfg(feature = "claim")]
+    async fn claim_rewards(&self, _principal: Principal) -> Result<u64, String> {
+        Ok(0)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]

@@ -32,4 +32,5 @@ once_cell = { workspace = true }
 
 [features]
 live-test = []
+claim = []
 

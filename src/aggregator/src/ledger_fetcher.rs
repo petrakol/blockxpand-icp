@@ -47,7 +47,7 @@ struct LedgersConfig {
 }
 
 #[cfg(target_arch = "wasm32")]
-static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
+pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
     let cfg: LedgersConfig =
         toml::from_str(include_str!("../../../config/ledgers.toml")).expect("invalid config");
     cfg.ledgers
@@ -57,7 +57,7 @@ static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
 });
 
 #[cfg(not(target_arch = "wasm32"))]
-static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
+pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
     let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
     let text = std::fs::read_to_string(path).expect("cannot read ledgers.toml");
     let cfg: LedgersConfig = toml::from_str(&text).expect("invalid config");

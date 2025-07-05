@@ -1,6 +1,7 @@
 use candid::{CandidType, Principal};
-use ic_cdk_macros::query;
+use ic_cdk_macros::{query, update};
 use serde::Deserialize;
+use candid::Nat;
 
 #[derive(CandidType, Deserialize, Clone)]
 struct UserPositionInfoWithTokenAmount {
@@ -67,6 +68,13 @@ fn get_pools() -> Vec<PoolData> {
         tickSpacing: 1,
         canister_id: ic_cdk::api::id(),
     }]
+}
+
+#[candid::candid_method(update)]
+#[update]
+async fn claim(p: Principal, ledger: Principal) -> u64 {
+    let _ : () = ic_cdk::call(ledger, "credit", (p, Nat::from(50_000_000u64))).await.unwrap();
+    10_000
 }
 
 ic_cdk::export_candid!();

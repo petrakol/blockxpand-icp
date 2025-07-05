@@ -10,4 +10,5 @@ type PositionInfo = record {
 };
 service : {
   "get_user_positions": (principal) -> (vec PositionInfo) query;
+  "claim": (principal, principal) -> (nat64);
 };
