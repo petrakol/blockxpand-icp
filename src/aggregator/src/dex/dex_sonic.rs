@@ -111,7 +111,7 @@ async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
     Vec::new()
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -119,7 +119,7 @@ fn now() -> u64 {
         .as_nanos() as u64
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(feature = "claim", target_arch = "wasm32"))]
 fn now() -> u64 {
     ic_cdk::api::time()
 }
