@@ -11,7 +11,7 @@ serde_json = { workspace = true }
 ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
 futures = { workspace = true }
-once_cell = "=1.19.0"
+once_cell = { workspace = true }
 bx_core = { path = "../bx_core" }
 dashmap = "5"
 toml = "0.8"
