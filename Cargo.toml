@@ -10,6 +10,7 @@ bx_core = { path = "src/bx_core" }
 [dev-dependencies]
 candid = { workspace = true }
 tokio = { workspace = true }
+tempfile = "3"
 
 [workspace]
 members = ["src/bx_core", "src/aggregator", "src/aggregator_canister", "src/mock_ledger_canister"]
