@@ -37,6 +37,10 @@ listed in `config/ledgers.toml`. Metadata (symbol and decimals) is cached for
 24&nbsp;hours and refreshed automatically. Results are cached in-canister for
 60&nbsp;s.
 
+Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
+`src/aggregator/src/dex`. Reward claiming APIs are gated by the optional
+`claim` feature flag.
+
 ## Building
 
 ```bash
@@ -47,6 +51,8 @@ cargo build --quiet
 
 ```bash
 cargo test --quiet --all
+# run reward-claim tests with
+# cargo test --quiet --all --features claim
 ```
 
 ## Performance instrumentation

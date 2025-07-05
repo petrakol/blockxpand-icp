@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use blockxpand_icp::{get_holdings, Holding};
-    use candid::{Decode, Encode, Principal};
+    use candid::{Decode, Encode, Nat, Principal};
     use ic_agent::{identity::AnonymousIdentity, Agent};
     use std::io::Write;
     use std::path::Path;
@@ -9,10 +9,6 @@ mod tests {
     use tempfile::{NamedTempFile, TempDir};
 
     fn ensure_dfx() -> bool {
-        if Command::new("dfx").arg("--version").output().is_ok() {
-            return true;
-        }
-        let _ = Command::new("./install_dfx.sh").status();
         Command::new("dfx").arg("--version").output().is_ok()
     }
 
@@ -139,6 +135,230 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn integration_icpswap_positions() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let ledger_id = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+        let dex_id = match deploy(replica.dir.path(), "mock_icpswap") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock icpswap; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("ICPSWAP_FACTORY", &dex_id);
+
+        let principal = Principal::anonymous();
+        let holdings = get_holdings(principal).await;
+        assert!(holdings.iter().any(|h| h.source == "ICPSwap"));
+    }
+
+    #[tokio::test]
+    async fn integration_sonic_positions() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let ledger_id = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+        let dex_id = match deploy(replica.dir.path(), "mock_sonic") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock sonic; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("SONIC_ROUTER", &dex_id);
+
+        let principal = Principal::anonymous();
+        let holdings = get_holdings(principal).await;
+        assert!(holdings.iter().any(|h| h.source == "Sonic"));
+    }
+
+    #[tokio::test]
+    async fn integration_infinity_positions() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let ledger_id = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+        let dex_id = match deploy(replica.dir.path(), "mock_infinity") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock infinity; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("INFINITY_VAULT", &dex_id);
+
+        let principal = Principal::anonymous();
+        let holdings = get_holdings(principal).await;
+        assert!(holdings.iter().any(|h| h.source == "InfinitySwap"));
+    }
+
+    #[cfg(feature = "claim")]
+    #[tokio::test]
+    async fn integration_reward_claim() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let ledger_id = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+        let icpswap_id = match deploy(replica.dir.path(), "mock_icpswap") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock icpswap; skipping test");
+                return;
+            }
+        };
+        let sonic_id = match deploy(replica.dir.path(), "mock_sonic") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock sonic; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("ICPSWAP_FACTORY", &icpswap_id);
+        std::env::set_var("SONIC_ROUTER", &sonic_id);
+
+        let agent = Agent::builder()
+            .with_url("http://127.0.0.1:4943")
+            .with_identity(AnonymousIdentity {})
+            .build()
+            .unwrap();
+        let _ = agent.fetch_root_key().await;
+
+        #[derive(candid::CandidType)]
+        struct Account {
+            owner: Principal,
+            subaccount: Option<Vec<u8>>,
+        }
+
+        let principal = Principal::anonymous();
+        let balance_before_bytes = agent
+            .query(
+                &Principal::from_text(&ledger_id).unwrap(),
+                "icrc1_balance_of",
+            )
+            .with_arg(
+                candid::Encode!(&Account {
+                    owner: principal,
+                    subaccount: None
+                })
+                .unwrap(),
+            )
+            .call()
+            .await
+            .unwrap();
+        let before: candid::Nat = candid::Decode!(&balance_before_bytes, candid::Nat).unwrap();
+
+        blockxpand_icp::claim_all_rewards(principal).await;
+
+        let balance_after_bytes = agent
+            .query(
+                &Principal::from_text(&ledger_id).unwrap(),
+                "icrc1_balance_of",
+            )
+            .with_arg(
+                candid::Encode!(&Account {
+                    owner: principal,
+                    subaccount: None
+                })
+                .unwrap(),
+            )
+            .call()
+            .await
+            .unwrap();
+        let after: candid::Nat = candid::Decode!(&balance_after_bytes, candid::Nat).unwrap();
+        assert!(after.0 > before.0);
+    }
+
+    #[tokio::test]
     async fn integration_multiple_ledgers_error() {
         if !ensure_dfx() {
             eprintln!("dfx not found; skipping integration test");
@@ -174,5 +394,12 @@ mod tests {
         assert_eq!(holdings[0].status, "liquid");
         assert_eq!(holdings[1].token, "unknown");
         assert_eq!(holdings[1].status, "error");
+    }
+
+    #[tokio::test]
+    async fn pool_registry_graphql() {
+        aggregator::pool_registry::refresh().await;
+        let out = blockxpand_icp::pools_graphql("query { pools { id } }".into());
+        assert!(out.contains("pool1"));
     }
 }
