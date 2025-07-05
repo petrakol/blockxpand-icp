@@ -3,6 +3,7 @@ pub mod dex;
 pub mod dex_fetchers;
 pub mod ledger_fetcher;
 pub mod neuron_fetcher;
+pub mod pool_registry;
 
 use bx_core::Holding;
 use candid::Principal;
@@ -59,4 +60,9 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
         }
     }
     spent
+}
+
+#[ic_cdk_macros::query]
+pub fn pools_graphql(query: String) -> String {
+    pool_registry::graphql(query)
 }

@@ -378,4 +378,11 @@ mod tests {
         assert_eq!(holdings[1].token, "unknown");
         assert_eq!(holdings[1].status, "error");
     }
+
+    #[tokio::test]
+    async fn pool_registry_graphql() {
+        aggregator::pool_registry::refresh().await;
+        let out = blockxpand_icp::pools_graphql("query { pools { id } }".into());
+        assert!(out.contains("pool1"));
+    }
 }
