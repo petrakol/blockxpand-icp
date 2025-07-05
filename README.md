@@ -25,11 +25,14 @@ cargo test --quiet --all
 ## Ledger configuration
 
 The file `config/ledgers.toml` lists all ICRC-1 ledger canisters that should be
-queried. Each entry maps a human name to its canister ID:
+queried. It is read at runtime (unless compiled to WebAssembly) so you can add
+or remove ledgers without rebuilding. Set `LEDGERS_FILE` to override the path.
+Each entry under `[ledgers]` maps a human name to its canister ID:
 
 ```toml
 [ledgers]
 ICP = "rwlgt-iiaaa-aaaaa-aaaaa-cai"
+ckBTC = "abcd2-saaaa-aaaaa-aaaaq-cai"
 ```
 
 Use the `LEDGER_URL` environment variable to override the replica URL when
