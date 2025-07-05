@@ -1,11 +1,11 @@
 use super::{DexAdapter, RewardInfo};
+use crate::{format::format_amount, lp_cache};
 use async_trait::async_trait;
 use bx_core::Holding;
 use candid::{CandidType, Decode, Encode, Nat, Principal};
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use crate::lp_cache;
 
 #[derive(CandidType, Deserialize)]
 struct Token {
@@ -122,7 +122,8 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
                 });
             }
             temp
-        }).await;
+        })
+        .await;
         out.extend(holdings);
     }
     out
@@ -186,23 +187,6 @@ async fn pool_height(_agent: &ic_agent::Agent, _cid: Principal) -> Option<u64> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn format_amount(n: Nat, decimals: u8) -> String {
-    use num_bigint::BigUint;
-    use num_integer::Integer;
-    let div = BigUint::from(10u32).pow(decimals as u32);
-    let (q, r) = n.0.div_rem(&div);
-    let mut frac = r.to_str_radix(10);
-    while frac.len() < decimals as usize {
-        frac.insert(0, '0');
-    }
-    if decimals == 0 {
-        q.to_str_radix(10)
-    } else {
-        format!("{}.{frac}", q.to_str_radix(10))
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
 fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -225,7 +209,10 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
         },
         Err(_) => return Err("factory".into()),
     };
-    let ledger = crate::ledger_fetcher::LEDGERS.get(0).cloned().ok_or("ledger")?;
+    let ledger = crate::ledger_fetcher::LEDGERS
+        .get(0)
+        .cloned()
+        .ok_or("ledger")?;
     let agent = get_agent().await;
     let arg = Encode!().unwrap();
     let bytes = agent
@@ -257,8 +244,8 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck_macros::quickcheck;
     use once_cell::sync::Lazy;
+    use quickcheck_macros::quickcheck;
     use std::sync::Mutex;
 
     static LAST_QUERY: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(vec![]));

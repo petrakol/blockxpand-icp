@@ -1,9 +1,9 @@
 use super::{DexAdapter, RewardInfo};
+use crate::{format::format_amount, lp_cache};
 use async_trait::async_trait;
 use bx_core::Holding;
 use candid::{CandidType, Decode, Encode, Nat, Principal};
 use serde::Deserialize;
-use crate::lp_cache;
 
 #[derive(CandidType, Deserialize, Clone)]
 struct Token {
@@ -84,7 +84,8 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
             }
         }
         temp
-    }).await;
+    })
+    .await;
     holdings
 }
 
@@ -108,28 +109,6 @@ async fn pool_height(_agent: &ic_agent::Agent, _router: Principal) -> Option<u64
 #[cfg(target_arch = "wasm32")]
 async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
     Vec::new()
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn format_amount(n: Nat, decimals: u8) -> String {
-    use num_bigint::BigUint;
-    use num_integer::Integer;
-    let div = BigUint::from(10u32).pow(decimals as u32);
-    let (q, r) = n.0.div_rem(&div);
-    let mut frac = r.to_str_radix(10);
-    while frac.len() < decimals as usize {
-        frac.insert(0, '0');
-    }
-    if decimals == 0 {
-        q.to_str_radix(10)
-    } else {
-        format!("{}.{frac}", q.to_str_radix(10))
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-fn format_amount(n: Nat, _decimals: u8) -> String {
-    n.0.to_string()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -190,8 +169,8 @@ impl DexAdapter for SonicAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck_macros::quickcheck;
     use candid::Principal;
+    use quickcheck_macros::quickcheck;
 
     #[tokio::test]
     async fn empty_without_env() {
