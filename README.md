@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="docs/logo.svg" width="48" alt="BlockXpand logo"> BlockXpand ICP Aggregator
+  BlockXpand ICP Aggregator
 </h1>
 <p align="center">
   <em>Never miss a crypto reward again — lightning-fast balance & airdrop discovery for the Internet Computer.</em>
