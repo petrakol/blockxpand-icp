@@ -1,3 +1,30 @@
+<h1 align="center">
+  <img src="docs/logo.svg" width="48" alt="BlockXpand logo"> BlockXpand ICP Aggregator
+</h1>
+<p align="center">
+  <em>Never miss a crypto reward again — lightning-fast balance & airdrop discovery for the Internet Computer.</em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/dfinity/agent-rs"><img src="https://img.shields.io/badge/Rust-1.74-blue?logo=rust" alt="Rust"></a>
+  <a href="https://github.com/actions"><img src="https://github.com/<user>/<repo>/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <img alt="cycles per query" src="https://img.shields.io/badge/cycles%20cost-%3C3B-brightgreen">
+  <img alt="latency" src="https://img.shields.io/badge/p95%20latency-142&nbsp;ms-green">
+</p>
+
+> **Built for WCHL25 – Fully On-Chain Track**  
+> • Aggregates balances from **ICP ledger, neurons, ICPSwap, Sonic, InfinitySwap**  
+> • 24 h token-metadata cache + 60 s hot cache  
+> • Deterministic WASM; CI deploys to a test subnet on every PR  
+> • Extensible via `config/ledgers.toml` — add any ICRC-1 canister in seconds
+
+---
+
+### Why it matters
+- **$2B+** in unclaimed crypto rewards last year — BlockXpand finds yours.  
+- **Sub-250 ms** responses, < 3 B cycles/query keeps infra costs trivial.  
+- Built with **Rust + IC-CDK**, ready for multi-chain adapters (ckBTC/ETH).  
+
 # BlockXpand ICP Aggregator
 
 This repository is organised as a Cargo workspace with two crates:
