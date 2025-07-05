@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use blockxpand_icp::{get_holdings, Holding};
-    use candid::{Decode, Encode, Principal, Nat};
+    use candid::{Decode, Encode, Nat, Principal};
     use ic_agent::{identity::AnonymousIdentity, Agent};
     use std::io::Write;
     use std::path::Path;
@@ -9,10 +9,6 @@ mod tests {
     use tempfile::{NamedTempFile, TempDir};
 
     fn ensure_dfx() -> bool {
-        if Command::new("dfx").arg("--version").output().is_ok() {
-            return true;
-        }
-        let _ = Command::new("./install_dfx.sh").status();
         Command::new("dfx").arg("--version").output().is_ok()
     }
 
@@ -318,12 +314,24 @@ mod tests {
         let _ = agent.fetch_root_key().await;
 
         #[derive(candid::CandidType)]
-        struct Account { owner: Principal, subaccount: Option<Vec<u8>> }
+        struct Account {
+            owner: Principal,
+            subaccount: Option<Vec<u8>>,
+        }
 
         let principal = Principal::anonymous();
         let balance_before_bytes = agent
-            .query(&Principal::from_text(&ledger_id).unwrap(), "icrc1_balance_of")
-            .with_arg(candid::Encode!(&Account { owner: principal, subaccount: None }).unwrap())
+            .query(
+                &Principal::from_text(&ledger_id).unwrap(),
+                "icrc1_balance_of",
+            )
+            .with_arg(
+                candid::Encode!(&Account {
+                    owner: principal,
+                    subaccount: None
+                })
+                .unwrap(),
+            )
             .call()
             .await
             .unwrap();
@@ -332,8 +340,17 @@ mod tests {
         blockxpand_icp::claim_all_rewards(principal).await;
 
         let balance_after_bytes = agent
-            .query(&Principal::from_text(&ledger_id).unwrap(), "icrc1_balance_of")
-            .with_arg(candid::Encode!(&Account { owner: principal, subaccount: None }).unwrap())
+            .query(
+                &Principal::from_text(&ledger_id).unwrap(),
+                "icrc1_balance_of",
+            )
+            .with_arg(
+                candid::Encode!(&Account {
+                    owner: principal,
+                    subaccount: None
+                })
+                .unwrap(),
+            )
             .call()
             .await
             .unwrap();
