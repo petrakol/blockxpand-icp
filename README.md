@@ -78,7 +78,7 @@ environment.
 
 ## Development workflow
 
-1. Install Rust and `dfx`, and add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
+1. Install Rust and run `./install_dfx.sh` to install `dfx`, then add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
 2. Run `cargo test --quiet --all` and `cargo clippy --quiet -- -D warnings` before pushing.
 3. On pull requests the GitHub Actions workflow runs tests, clippy, and a test
    deployment via `deploy.sh`.

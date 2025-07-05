@@ -8,10 +8,13 @@ mod tests {
 
     #[tokio::test]
     async fn integration_get_holdings() {
-        // Skip the test if `dfx` is not installed.
+        // Ensure `dfx` is installed for this test.
         if Command::new("dfx").arg("--version").output().is_err() {
-            eprintln!("dfx not found; skipping integration test");
-            return;
+            let _ = Command::new("./install_dfx.sh").status();
+            if Command::new("dfx").arg("--version").output().is_err() {
+                eprintln!("dfx not found; skipping integration test");
+                return;
+            }
         }
 
         // Start a local replica and ensure it is stopped at the end.
