@@ -18,6 +18,15 @@
       "metadata": [
         { "name": "candid:service" }
       ]
+    },
+    "mock_icpswap": {
+      "type": "custom",
+      "candid": "candid/mock_icpswap.did",
+      "wasm": "target/wasm32-unknown-unknown/release/mock_icpswap_canister.wasm",
+      "build": "cargo build --quiet --target wasm32-unknown-unknown --release -p mock_icpswap_canister",
+      "metadata": [
+        { "name": "candid:service" }
+      ]
     }
   },
   "networks": {
