@@ -1,0 +1,227 @@
+use super::{DexAdapter, RewardInfo};
+use async_trait::async_trait;
+use bx_core::Holding;
+use candid::{CandidType, Decode, Encode, Nat, Principal};
+use dashmap::DashMap;
+use num_traits::cast::ToPrimitive;
+use once_cell::sync::Lazy;
+use serde::Deserialize;
+use crate::lp_cache;
+
+pub struct InfinityAdapter;
+
+#[derive(CandidType, Deserialize)]
+struct VaultPosition {
+    ledger: Principal,
+    subaccount: Vec<u8>,
+}
+
+static META_CACHE: Lazy<DashMap<Principal, (String, u8, u64)>> = Lazy::new(DashMap::new);
+const META_TTL_NS: u64 = 86_400_000_000_000; // 24h
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn get_agent() -> ic_agent::Agent {
+    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
+    let agent = ic_agent::Agent::builder().with_url(url).build().unwrap();
+    let _ = agent.fetch_root_key().await;
+    agent
+}
+
+#[async_trait]
+impl DexAdapter for InfinityAdapter {
+    async fn fetch_positions(&self, principal: Principal) -> Vec<Holding> {
+        fetch_positions_impl(principal).await
+    }
+
+    async fn claimable_rewards(&self, _principal: Principal) -> Vec<RewardInfo> {
+        Vec::new()
+    }
+
+    #[cfg(feature = "claim")]
+    async fn claim_rewards(&self, _principal: Principal) -> Result<u64, String> {
+        Ok(0)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
+    let vault_id = match std::env::var("INFINITY_VAULT") {
+        Ok(v) => match Principal::from_text(v) {
+            Ok(p) => p,
+            Err(_) => return Vec::new(),
+        },
+        Err(_) => return Vec::new(),
+    };
+    let agent = get_agent().await;
+    let arg = Encode!(&principal).unwrap();
+    let bytes = match agent
+        .query(&vault_id, "get_user_positions")
+        .with_arg(arg)
+        .call()
+        .await
+    {
+        Ok(b) => b,
+        Err(_) => return Vec::new(),
+    };
+    let positions: Vec<VaultPosition> = Decode!(&bytes, Vec<VaultPosition>).unwrap_or_default();
+    let height = pool_height(&agent, vault_id).await.unwrap_or(0);
+    let holdings = lp_cache::get_or_fetch(principal, "infinity", height, || async {
+        let mut temp = Vec::new();
+        for pos in positions {
+            let (symbol, decimals) = match fetch_meta(&agent, pos.ledger).await {
+                Some(v) => v,
+                None => continue,
+            };
+            let bal = match balance_of(&agent, pos.ledger, vault_id, pos.subaccount.clone()).await {
+                Some(n) => n,
+                None => continue,
+            };
+            temp.push(Holding {
+                source: "InfinitySwap".into(),
+                token: symbol,
+                amount: format_amount(bal, decimals),
+                status: "lp_escrow".into(),
+            });
+        }
+        temp
+    }).await;
+    holdings
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
+    Vec::new()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn balance_of(
+    agent: &ic_agent::Agent,
+    ledger: Principal,
+    owner: Principal,
+    sub: Vec<u8>,
+) -> Option<Nat> {
+    #[derive(CandidType)]
+    struct Account {
+        owner: Principal,
+        subaccount: Option<Vec<u8>>,
+    }
+    let arg = Encode!(&Account {
+        owner,
+        subaccount: Some(sub),
+    })
+    .unwrap();
+    let bytes = agent
+        .query(&ledger, "icrc1_balance_of")
+        .with_arg(arg)
+        .call()
+        .await
+        .ok()?;
+    Decode!(&bytes, Nat).ok()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(String, u8)> {
+    if let Some(e) = META_CACHE.get(&ledger) {
+        if e.value().2 > now() {
+            return Some((e.value().0.clone(), e.value().1));
+        }
+    }
+    let arg = Encode!().unwrap();
+    let bytes = agent
+        .query(&ledger, "icrc1_metadata")
+        .with_arg(arg)
+        .call()
+        .await
+        .ok()?;
+    let items: Vec<(String, candid::types::value::IDLValue)> =
+        Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>).ok()?;
+    let mut symbol = String::new();
+    let mut decimals = 0u8;
+    use candid::types::value::IDLValue as Val;
+    for (k, v) in items {
+        match (k.as_str(), v) {
+            ("icrc1:symbol", Val::Text(s)) => symbol = s,
+            ("icrc1:decimals", Val::Nat(n)) => decimals = n.0.to_u64().unwrap_or(0) as u8,
+            ("icrc1:decimals", Val::Nat8(n)) => decimals = n,
+            ("icrc1:decimals", Val::Nat16(n)) => decimals = n as u8,
+            ("icrc1:decimals", Val::Nat32(n)) => decimals = n as u8,
+            ("icrc1:decimals", Val::Nat64(n)) => decimals = n as u8,
+            _ => {}
+        }
+    }
+    META_CACHE.insert(ledger, (symbol.clone(), decimals, now() + META_TTL_NS));
+    Some((symbol, decimals))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn pool_height(agent: &ic_agent::Agent, vault: Principal) -> Option<u64> {
+    let arg = Encode!().unwrap();
+    let bytes = agent
+        .query(&vault, "block_height")
+        .with_arg(arg)
+        .call()
+        .await
+        .ok()?;
+    Decode!(&bytes, u64).ok()
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn pool_height(_agent: &ic_agent::Agent, _vault: Principal) -> Option<u64> {
+    None
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn format_amount(n: Nat, decimals: u8) -> String {
+    use num_bigint::BigUint;
+    use num_integer::Integer;
+    let div = BigUint::from(10u32).pow(decimals as u32);
+    let (q, r) = n.0.div_rem(&div);
+    let mut frac = r.to_str_radix(10);
+    while frac.len() < decimals as usize {
+        frac.insert(0, '0');
+    }
+    if decimals == 0 {
+        q.to_str_radix(10)
+    } else {
+        format!("{}.{frac}", q.to_str_radix(10))
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn format_amount(n: Nat, _decimals: u8) -> String {
+    n.0.to_string()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos() as u64
+}
+
+#[cfg(target_arch = "wasm32")]
+fn now() -> u64 {
+    ic_cdk::api::time()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use candid::Principal;
+
+    #[tokio::test]
+    async fn empty_without_env() {
+        std::env::remove_var("INFINITY_VAULT");
+        let adapter = InfinityAdapter;
+        let res = adapter.fetch_positions(Principal::anonymous()).await;
+        assert!(res.is_empty());
+    }
+
+    #[quickcheck]
+    fn fuzz_decode_position(data: Vec<u8>) -> bool {
+        let _ = Decode!(&data, Vec<VaultPosition>);
+        true
+    }
+}

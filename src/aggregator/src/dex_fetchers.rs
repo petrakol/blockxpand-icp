@@ -1,28 +1,20 @@
+use crate::dex::dex_icpswap::IcpswapAdapter;
+use crate::dex::dex_infinity::InfinityAdapter;
+use crate::dex::dex_sonic::SonicAdapter;
+use crate::dex::DexAdapter;
 use bx_core::Holding;
 use candid::Principal;
+use futures::future::join_all;
 
-#[cfg(target_arch = "wasm32")]
-async fn sleep_ms(_: u64) {}
-
-#[cfg(not(target_arch = "wasm32"))]
-async fn sleep_ms(ms: u64) {
-    tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
-}
-
-pub async fn fetch(_principal: Principal) -> Vec<Holding> {
-    sleep_ms(10).await;
-    vec![
-        Holding {
-            source: "ICPSwap".to_string(),
-            token: "ICP".to_string(),
-            amount: "57.32".to_string(),
-            status: "lp_escrow".to_string(),
-        },
-        Holding {
-            source: "Sonic".to_string(),
-            token: "ckBTC".to_string(),
-            amount: "0.041".to_string(),
-            status: "lp_escrow".to_string(),
-        },
-    ]
+pub async fn fetch(principal: Principal) -> Vec<Holding> {
+    let adapters: Vec<Box<dyn DexAdapter>> = vec![
+        Box::new(IcpswapAdapter),
+        Box::new(SonicAdapter),
+        Box::new(InfinityAdapter),
+    ];
+    let futs = adapters.into_iter().map(|a| {
+        let p = principal.clone();
+        async move { a.fetch_positions(p).await }
+    });
+    join_all(futs).await.into_iter().flatten().collect()
 }

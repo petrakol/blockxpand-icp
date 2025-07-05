@@ -7,4 +7,5 @@ type Holding = record {
 
 service: {
   "get_holdings": (principal) -> (vec Holding) query;
+  "pools_graphql": (text) -> (text) query;
 };

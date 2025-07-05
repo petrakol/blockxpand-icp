@@ -37,6 +37,19 @@ listed in `config/ledgers.toml`. Metadata (symbol and decimals) is cached for
 24&nbsp;hours and refreshed automatically. Results are cached in-canister for
 60&nbsp;s.
 
+Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
+`src/aggregator/src/dex`. Reward claiming APIs are gated by the optional
+`claim` feature flag.
+
+### Key features
+
+- **Height-aware LP cache** with weekly eviction keeps DEX lookups fast
+- **Nightly pool registry refresh** loads metadata from `data/pools.toml`
+- **GraphQL endpoint** (`pools_graphql`) exposes pool metadata to front‑ends
+- Optional **reward claiming** via `claim_all_rewards` when built with
+  `--features claim`
+- All fetchers run **concurrently** for minimal latency
+
 ## Building
 
 ```bash
@@ -47,6 +60,8 @@ cargo build --quiet
 
 ```bash
 cargo test --quiet --all
+# run reward-claim tests with
+# cargo test --quiet --all --features claim
 ```
 
 ## Ledger configuration
@@ -80,9 +95,16 @@ environment.
 
 1. Install Rust and run `./install_dfx.sh` to install `dfx`, then add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
    Set `DFX_TARBALL` to a pre-downloaded archive to install offline.
-2. Run `cargo test --quiet --all` and `cargo clippy --quiet -- -D warnings` before pushing.
-   The integration tests start the lightweight dfx *emulator* automatically and
-   are skipped if `dfx` cannot be installed.
+2. Run `cargo test --quiet --all` (add `--features claim` to exercise reward claiming) and
+   `cargo clippy --quiet -- -D warnings` before pushing. If clippy is missing,
+   install it with `rustup component add clippy`.
+   Integration tests start the lightweight dfx *emulator* automatically and are
+   skipped if `dfx` is not available.
 3. On pull requests the GitHub Actions workflow runs tests, clippy, and a test
    deployment via `deploy.sh`.
+
+## Further reading
+
+- [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) summarises the latest security audit
+- [docs/DEX_API_matrix.md](docs/DEX_API_matrix.md) lists known DEX canister APIs
 

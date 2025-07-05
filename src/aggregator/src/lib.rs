@@ -1,7 +1,10 @@
 pub mod cache;
+pub mod dex;
 pub mod dex_fetchers;
 pub mod ledger_fetcher;
 pub mod neuron_fetcher;
+pub mod pool_registry;
+pub mod lp_cache;
 
 use bx_core::Holding;
 use candid::Principal;
@@ -41,4 +44,26 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         cache.insert(principal, (holdings.clone(), now));
     }
     holdings
+}
+
+#[cfg(feature = "claim")]
+pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
+    use dex::{dex_icpswap::IcpswapAdapter, dex_sonic::SonicAdapter, dex_infinity::InfinityAdapter, DexAdapter};
+    let adapters: Vec<Box<dyn DexAdapter>> = vec![
+        Box::new(IcpswapAdapter),
+        Box::new(SonicAdapter),
+        Box::new(InfinityAdapter),
+    ];
+    let mut spent = Vec::new();
+    for a in adapters {
+        if let Ok(c) = a.claim_rewards(principal).await {
+            spent.push(c);
+        }
+    }
+    spent
+}
+
+#[ic_cdk_macros::query]
+pub fn pools_graphql(query: String) -> String {
+    pool_registry::graphql(query)
 }
