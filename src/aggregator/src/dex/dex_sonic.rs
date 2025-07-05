@@ -1,7 +1,7 @@
-use candid::Principal;
-use bx_core::Holding;
 use super::{DexAdapter, RewardInfo};
 use async_trait::async_trait;
+use bx_core::Holding;
+use candid::Principal;
 
 pub struct SonicAdapter;
 
@@ -32,7 +32,16 @@ mod tests {
     #[tokio::test]
     async fn stub_data() {
         let adapter = SonicAdapter;
-        assert_eq!(adapter.fetch_positions(Principal::anonymous()).await.len(), 1);
-        assert_eq!(adapter.claimable_rewards(Principal::anonymous()).await.len(), 1);
+        assert_eq!(
+            adapter.fetch_positions(Principal::anonymous()).await.len(),
+            1
+        );
+        assert_eq!(
+            adapter
+                .claimable_rewards(Principal::anonymous())
+                .await
+                .len(),
+            1
+        );
     }
 }

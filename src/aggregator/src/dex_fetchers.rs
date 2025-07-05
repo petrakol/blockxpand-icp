@@ -1,9 +1,9 @@
+use crate::dex::dex_icpswap::IcpswapAdapter;
+use crate::dex::dex_infinity::InfinityAdapter;
+use crate::dex::dex_sonic::SonicAdapter;
+use crate::dex::DexAdapter;
 use bx_core::Holding;
 use candid::Principal;
-use crate::dex::DexAdapter;
-use crate::dex::dex_icpswap::IcpswapAdapter;
-use crate::dex::dex_sonic::SonicAdapter;
-use crate::dex::dex_infinity::InfinityAdapter;
 
 #[cfg(target_arch = "wasm32")]
 async fn sleep_ms(_: u64) {}
