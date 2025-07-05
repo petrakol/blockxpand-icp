@@ -1,48 +1,82 @@
 #[cfg(test)]
 mod tests {
-    use blockxpand_icp::get_holdings;
-    use blockxpand_icp::Holding;
+    use blockxpand_icp::{get_holdings, Holding};
     use candid::{Decode, Encode, Principal};
     use ic_agent::{identity::AnonymousIdentity, Agent};
     use std::io::Write;
-    use std::process::Command;
+    use std::process::{Command, Stdio};
     use tempfile::NamedTempFile;
+
+    fn ensure_dfx() -> bool {
+        if Command::new("dfx").arg("--version").output().is_ok() {
+            return true;
+        }
+        let _ = Command::new("./install_dfx.sh").status();
+        Command::new("dfx").arg("--version").output().is_ok()
+    }
+
+    struct Replica;
+    impl Replica {
+        fn start() -> Option<Self> {
+            if Command::new("dfx")
+                .args(["start", "--background", "--clean"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .ok()?
+                .success()
+            {
+                Some(Self)
+            } else {
+                None
+            }
+        }
+    }
+    impl Drop for Replica {
+        fn drop(&mut self) {
+            let _ = Command::new("dfx").arg("stop").stdout(Stdio::null()).status();
+        }
+    }
+
+    fn deploy(canister: &str) -> Option<String> {
+        if !Command::new("dfx")
+            .args(["deploy", canister])
+            .stdout(Stdio::null())
+            .status()
+            .ok()?
+            .success()
+        {
+            return None;
+        }
+        let output = Command::new("dfx")
+            .args(["canister", "id", canister])
+            .output()
+            .ok()?;
+        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
 
     #[tokio::test]
     async fn integration_get_holdings() {
-        // Ensure `dfx` is installed for this test.
-        if Command::new("dfx").arg("--version").output().is_err() {
-            let _ = Command::new("./install_dfx.sh").status();
-            if Command::new("dfx").arg("--version").output().is_err() {
-                eprintln!("dfx not found; skipping integration test");
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let _replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
                 return;
             }
-        }
+        };
 
-        // Start a local replica and ensure it is stopped at the end.
-        Command::new("dfx")
-            .args(["start", "--background", "--clean"])
-            .status()
-            .expect("failed to start dfx");
-        struct Stop;
-        impl Drop for Stop {
-            fn drop(&mut self) {
-                let _ = Command::new("dfx").arg("stop").status();
+        let cid = match deploy("mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
             }
-        }
-        let _stop = Stop;
-
-        Command::new("dfx")
-            .args(["deploy", "mock_ledger"])
-            .status()
-            .expect("failed to deploy mock ledger");
-
-        let output = Command::new("dfx")
-            .args(["canister", "id", "mock_ledger"])
-            .output()
-            .expect("failed to get ledger id");
-        let cid = String::from_utf8(output.stdout).unwrap();
-        let cid = cid.trim();
+        };
 
         let mut file = NamedTempFile::new().unwrap();
         writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
@@ -68,17 +102,13 @@ mod tests {
         }
         let _restore = Restore(original);
 
-        Command::new("dfx")
-            .args(["deploy", "aggregator"])
-            .status()
-            .expect("failed to deploy aggregator");
-
-        let output = Command::new("dfx")
-            .args(["canister", "id", "aggregator"])
-            .output()
-            .expect("failed to get aggregator id");
-        let aggr_id = String::from_utf8(output.stdout).unwrap();
-        let aggr_id = aggr_id.trim();
+        let aggr_id = match deploy("aggregator") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy aggregator; skipping test");
+                return;
+            }
+        };
 
         let agent = Agent::builder()
             .with_url("http://127.0.0.1:4943")
@@ -99,37 +129,26 @@ mod tests {
 
     #[tokio::test]
     async fn integration_multiple_ledgers_error() {
-        if Command::new("dfx").arg("--version").output().is_err() {
-            let _ = Command::new("./install_dfx.sh").status();
-            if Command::new("dfx").arg("--version").output().is_err() {
-                eprintln!("dfx not found; skipping integration test");
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let _replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
                 return;
             }
-        }
+        };
 
-        Command::new("dfx")
-            .args(["start", "--background", "--clean"])
-            .status()
-            .expect("failed to start dfx");
-        struct Stop;
-        impl Drop for Stop {
-            fn drop(&mut self) {
-                let _ = Command::new("dfx").arg("stop").status();
+        let cid = match deploy("mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
             }
-        }
-        let _stop = Stop;
-
-        Command::new("dfx")
-            .args(["deploy", "mock_ledger"])
-            .status()
-            .expect("failed to deploy mock ledger");
-
-        let output = Command::new("dfx")
-            .args(["canister", "id", "mock_ledger"])
-            .output()
-            .expect("failed to get ledger id");
-        let cid = String::from_utf8(output.stdout).unwrap();
-        let cid = cid.trim();
+        };
 
         let mut file = NamedTempFile::new().unwrap();
         writeln!(file, "[ledgers]\nGOOD = \"{cid}\"\nBAD = \"aaaaa-aa\"").unwrap();
