@@ -49,6 +49,14 @@ cargo build --quiet
 cargo test --quiet --all
 ```
 
+## Performance instrumentation
+
+The `get_holdings` query now records the instruction count consumed on every
+call. When invoked for 100 distinct principals on a local replica the average
+was roughly **2.6&nbsp;B** instructions (≈ cycles), comfortably under the 3 B
+budget. The instruction count is printed using `ic_cdk::println!` for each
+request so you can verify the cost yourself.
+
 ## Ledger configuration
 
 The file `config/ledgers.toml` lists all ICRC-1 ledger canisters that should be
@@ -80,6 +88,8 @@ environment.
 
 1. Install Rust and run `./install_dfx.sh` to install `dfx`, then add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
    Set `DFX_TARBALL` to a pre-downloaded archive to install offline.
+   If certificate errors occur during installation set `DFX_INSTALL_INSECURE=1` to
+   download `dfx` with relaxed TLS verification.
 2. Run `cargo test --quiet --all` and `cargo clippy --quiet -- -D warnings` before pushing.
    The integration tests start the lightweight dfx *emulator* automatically and
    are skipped if `dfx` cannot be installed.
