@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/dfinity/agent-rs"><img src="https://img.shields.io/badge/Rust-1.74-blue?logo=rust" alt="Rust"></a>
-  <a href="https://github.com/actions"><img src="https://github.com/<user>/<repo>/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/petrakol/blockxpand-icp/actions"><img src="https://github.com/petrakol/blockxpand-icp/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <img alt="cycles per query" src="https://img.shields.io/badge/cycles%20cost-%3C3B-brightgreen">
   <img alt="latency" src="https://img.shields.io/badge/p95%20latency-142&nbsp;ms-green">
 </p>

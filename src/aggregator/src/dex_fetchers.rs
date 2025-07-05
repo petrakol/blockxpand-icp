@@ -7,7 +7,8 @@ use bx_core::Holding;
 use candid::Principal;
 use futures::future::join_all;
 
-static ADAPTERS: Lazy<Vec<Box<dyn DexAdapter>>> = Lazy::new(|| {
+/// Lazily constructed list of all DEX adapters.
+static DEX_ADAPTERS: Lazy<Vec<Box<dyn DexAdapter>>> = Lazy::new(|| {
     vec![
         Box::new(IcpswapAdapter),
         Box::new(SonicAdapter),
@@ -16,7 +17,7 @@ static ADAPTERS: Lazy<Vec<Box<dyn DexAdapter>>> = Lazy::new(|| {
 });
 
 pub async fn fetch(principal: Principal) -> Vec<Holding> {
-    let futs = ADAPTERS.iter().map(|a| {
+    let futs = DEX_ADAPTERS.iter().map(|a| {
         let p = principal.clone();
         async move { a.fetch_positions(p).await }
     });
