@@ -25,8 +25,6 @@
 - **Sub-250 ms** responses, < 3 B cycles/query keeps infra costs trivial.  
 - Built with **Rust + IC-CDK**, ready for multi-chain adapters (ckBTC/ETH).  
 
-# BlockXpand ICP Aggregator
-
 This repository is organised as a Cargo workspace with two crates:
 
 - `core` – shared models such as the `Holding` struct
