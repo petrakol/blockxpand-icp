@@ -337,16 +337,16 @@ fn format_amount(nat: Nat, decimals: u8) -> String {
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
-pub(super) fn set_mock_metadata(resp: Result<Vec<(String, candid::types::value::IDLValue)>, String>) {
+pub(super) fn set_mock_metadata(
+    resp: Result<Vec<(String, candid::types::value::IDLValue)>, String>,
+) {
     *MOCK_METADATA.lock().unwrap() = resp;
 }
-
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 pub(super) fn set_mock_balance(resp: Result<Nat, String>) {
     *MOCK_BALANCE.lock().unwrap() = resp;
 }
-
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 pub(super) fn set_now(value: u64) {
