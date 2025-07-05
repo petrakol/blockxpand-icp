@@ -1,13 +1,19 @@
 use candid::{CandidType, Nat, Principal};
 use ic_cdk_macros::{query, update};
 use once_cell::sync::Lazy;
-use std::sync::Mutex;
 use serde::Deserialize;
+use std::sync::Mutex;
 
 #[derive(CandidType, Deserialize, Clone)]
 struct Position {
     ledger: Principal,
     subaccount: Vec<u8>,
+}
+
+#[derive(CandidType, Deserialize)]
+struct Account {
+    owner: Principal,
+    subaccount: Option<Vec<u8>>,
 }
 
 static HEIGHT: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
@@ -38,7 +44,7 @@ fn icrc1_metadata() -> Vec<(String, candid::types::value::IDLValue)> {
 
 #[candid::candid_method(query)]
 #[query]
-fn icrc1_balance_of(_a: (Principal, Option<Vec<u8>>)) -> Nat {
+fn icrc1_balance_of(_a: Account) -> Nat {
     Nat::from(1_000_000_000u64)
 }
 
