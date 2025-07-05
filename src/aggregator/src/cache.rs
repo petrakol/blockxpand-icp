@@ -1,8 +1,8 @@
+use bx_core::Holding;
+use candid::Principal;
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
-use candid::Principal;
-use bx_core::Holding;
 
 pub type Cache = HashMap<Principal, (Vec<Holding>, u64)>;
 

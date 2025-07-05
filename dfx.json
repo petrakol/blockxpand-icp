@@ -9,6 +9,15 @@
       "metadata": [
         { "name": "candid:service" }
       ]
+    },
+    "mock_ledger": {
+      "type": "custom",
+      "candid": "candid/mock_ledger.did",
+      "wasm": "target/wasm32-unknown-unknown/release/mock_ledger_canister.wasm",
+      "build": "cargo build --quiet --target wasm32-unknown-unknown --release -p mock_ledger_canister",
+      "metadata": [
+        { "name": "candid:service" }
+      ]
     }
   },
   "networks": {
