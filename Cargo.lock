@@ -183,6 +183,7 @@ dependencies = [
  "aggregator",
  "bx_core",
  "candid",
+ "ic-agent",
  "tempfile",
  "tokio",
 ]
