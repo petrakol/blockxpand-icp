@@ -60,7 +60,7 @@ cargo test --quiet --all
 The `get_holdings` query now records the instruction count consumed on every
 call. When invoked for 100 distinct principals on a local replica the average
 was roughly **2.6&nbsp;B** instructions (≈ cycles), comfortably under the 3 B
-budget. The instruction count is printed using `ic_cdk::println!` for each
+budget. The instruction count is printed using `ic_cdk::print` for each
 request so you can verify the cost yourself.
 
 ## Ledger configuration
