@@ -4,6 +4,7 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 use dashmap::DashMap;
 use futures::future::join_all;
+use std::future::Future;
 use num_traits::cast::ToPrimitive;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -29,6 +30,26 @@ static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
 
 struct Meta { symbol: String, decimals: u8, expires: u64 }
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn with_retry<F, Fut, T>(mut f: F) -> Result<T, ic_agent::AgentError>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, ic_agent::AgentError>>,
+{
+    let mut delay = 100u64;
+    for attempt in 0..3 {
+        match f().await {
+            Ok(v) => return Ok(v),
+            Err(_e) if attempt < 2 => {
+                tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                delay *= 2;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!()
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn get_agent() -> Agent {
@@ -68,9 +89,10 @@ pub async fn fetch(principal: Principal) -> Vec<Holding> {
         async move {
         let (symbol, decimals) = match fetch_metadata(&agent, cid).await {
             Ok(v) => v,
-            Err(_) => return Holding { source: "ledger".into(), token: "unknown".into(), amount: "0".into(), status: "error".into() },
+            Err(_) =>
+                return Holding { source: "ledger".into(), token: "unknown".into(), amount: "0".into(), status: "error".into() },
         };
-        match icrc1_balance_of(&agent, cid, principal).await {
+        match with_retry(|| icrc1_balance_of(&agent, cid, principal)).await {
             Ok(nat) => Holding {
                 source: "ledger".into(),
                 token: symbol,
@@ -92,7 +114,7 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8), i
     if let Some(meta) = META_CACHE.get(&cid) {
         if meta.expires > now() { return Ok((meta.symbol.clone(), meta.decimals)); }
     }
-    let items = icrc1_metadata(agent, cid).await?;
+    let items = with_retry(|| icrc1_metadata(agent, cid)).await?;
     let mut symbol = String::new();
     let mut decimals: u8 = 0;
     for (k, v) in items {
