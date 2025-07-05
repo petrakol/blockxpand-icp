@@ -41,6 +41,9 @@ static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
         .collect()
 });
 
+/// Duration that cached metadata remains valid (24h, in nanoseconds)
+const META_TTL_NS: u64 = 86_400_000_000_000;
+
 #[derive(Clone)]
 struct Meta {
     symbol: String,
@@ -80,18 +83,37 @@ async fn get_agent() -> Agent {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn icrc1_metadata(agent: &Agent, canister_id: Principal) -> Result<Vec<(String, candid::types::value::IDLValue)>, ic_agent::AgentError> {
+async fn icrc1_metadata(
+    agent: &Agent,
+    canister_id: Principal,
+) -> Result<Vec<(String, candid::types::value::IDLValue)>, ic_agent::AgentError> {
     let arg = candid::Encode!().unwrap();
-    let bytes = agent.query(&canister_id, "icrc1_metadata").with_arg(arg).call().await?;
-    let res: Vec<(String, candid::types::value::IDLValue)> = candid::Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>).unwrap();
+    let bytes = agent
+        .query(&canister_id, "icrc1_metadata")
+        .with_arg(arg)
+        .call()
+        .await?;
+    let res: Vec<(String, candid::types::value::IDLValue)> =
+        candid::Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>).unwrap();
     Ok(res)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn icrc1_balance_of(agent: &Agent, canister_id: Principal, owner: Principal) -> Result<Nat, ic_agent::AgentError> {
+async fn icrc1_balance_of(
+    agent: &Agent,
+    canister_id: Principal,
+    owner: Principal,
+) -> Result<Nat, ic_agent::AgentError> {
     #[derive(candid::CandidType)]
-    struct Account { owner: Principal, subaccount: Option<Vec<u8>> }
-    let arg = candid::Encode!(&Account { owner, subaccount: None }).unwrap();
+    struct Account {
+        owner: Principal,
+        subaccount: Option<Vec<u8>>,
+    }
+    let arg = candid::Encode!(&Account {
+        owner,
+        subaccount: None
+    })
+    .unwrap();
     let bytes = agent
         .query(&canister_id, "icrc1_balance_of")
         .with_arg(arg)
@@ -148,7 +170,9 @@ async fn fetch_metadata(
     cid: Principal,
 ) -> Result<(String, u8, u64), ic_agent::AgentError> {
     if let Some(meta) = META_CACHE.get(&cid) {
-        if meta.expires > now() { return Ok((meta.symbol.clone(), meta.decimals, meta.fee)); }
+        if meta.expires > now() {
+            return Ok((meta.symbol.clone(), meta.decimals, meta.fee));
+        }
     }
     let items = with_retry(|| icrc1_metadata(agent, cid)).await?;
     let encoded = Encode!(&items).unwrap();
@@ -159,7 +183,7 @@ async fn fetch_metadata(
                 cid,
                 Meta {
                     hash,
-                    expires: now() + 86_400_000_000_000,
+                    expires: now() + META_TTL_NS,
                     ..meta.clone()
                 },
             );
@@ -193,7 +217,7 @@ async fn fetch_metadata(
             decimals,
             fee,
             hash,
-            expires: now() + 86_400_000_000_000,
+            expires: now() + META_TTL_NS,
         },
     );
     Ok((symbol, decimals, fee))
