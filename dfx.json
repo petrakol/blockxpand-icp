@@ -36,6 +36,15 @@
       "metadata": [
         { "name": "candid:service" }
       ]
+    },
+    "mock_infinity": {
+      "type": "custom",
+      "candid": "candid/mock_infinity.did",
+      "wasm": "target/wasm32-unknown-unknown/release/mock_infinity_canister.wasm",
+      "build": "cargo build --quiet --target wasm32-unknown-unknown --release -p mock_infinity_canister",
+      "metadata": [
+        { "name": "candid:service" }
+      ]
     }
   },
   "networks": {

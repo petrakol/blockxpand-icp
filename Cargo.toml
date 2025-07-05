@@ -15,7 +15,15 @@ aggregator = { path = "src/aggregator", features = ["live-test"] }
 ic-agent = { workspace = true }
 
 [workspace]
-members = ["src/bx_core", "src/aggregator", "src/aggregator_canister", "src/mock_ledger_canister", "src/mock_icpswap_canister", "src/mock_sonic_canister"]
+members = [
+    "src/bx_core",
+    "src/aggregator",
+    "src/aggregator_canister",
+    "src/mock_ledger_canister",
+    "src/mock_icpswap_canister",
+    "src/mock_sonic_canister",
+    "src/mock_infinity_canister",
+]
 
 [workspace.dependencies]
 async-trait = "=0.1.88"
