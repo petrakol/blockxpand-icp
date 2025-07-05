@@ -19,13 +19,26 @@ fn now() -> u64 {
         .as_nanos() as u64
 }
 
+#[cfg(target_arch = "wasm32")]
+fn instructions() -> u64 {
+    ic_cdk::api::instruction_counter()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn instructions() -> u64 {
+    0
+}
+
 #[ic_cdk_macros::query]
 pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
+    let start = instructions();
     let now = now();
     {
         let cache = cache::get_mut();
         if let Some((cached, ts)) = cache.get(&principal).cloned() {
             if now - ts < 60_000_000_000 {
+                let used = instructions().saturating_sub(start);
+                ic_cdk::println!("get_holdings took {used} instructions");
                 return cached;
             }
         }
@@ -40,5 +53,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         let mut cache = cache::get_mut();
         cache.insert(principal, (holdings.clone(), now));
     }
+    let used = instructions().saturating_sub(start);
+    ic_cdk::println!("get_holdings took {used} instructions");
     holdings
 }
