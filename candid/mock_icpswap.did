@@ -6,5 +6,7 @@ service : {
   "get_user_positions_by_principal": (principal) -> (vec UserPositionInfoWithTokenAmount) query;
   "metadata": () -> (PoolMetadata) query;
   "get_pools": () -> (vec PoolData) query;
+  "block_height": () -> (nat64) query;
+  "advance_block": () -> ();
   "claim": (principal, principal) -> (nat64);
 };

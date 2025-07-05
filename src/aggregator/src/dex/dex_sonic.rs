@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use bx_core::Holding;
 use candid::{CandidType, Decode, Encode, Nat, Principal};
 use serde::Deserialize;
+use crate::lp_cache;
 
 #[derive(CandidType, Deserialize, Clone)]
 struct Token {
@@ -54,33 +55,54 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         Err(_) => return Vec::new(),
     };
     let positions: Vec<PositionInfo> = Decode!(&bytes, Vec<PositionInfo>).unwrap_or_default();
-    let mut out = Vec::new();
-    for pos in positions {
-        let a0 = format_amount(pos.token_a_amount, pos.token_a.decimals);
-        out.push(Holding {
-            source: "Sonic".into(),
-            token: pos.token_a.address.clone(),
-            amount: a0,
-            status: "lp_escrow".into(),
-        });
-        let a1 = format_amount(pos.token_b_amount, pos.token_b.decimals);
-        out.push(Holding {
-            source: "Sonic".into(),
-            token: pos.token_b.address.clone(),
-            amount: a1,
-            status: "lp_escrow".into(),
-        });
-        if !pos.auto_compound {
-            let ra = format_amount(pos.reward_amount, pos.reward_token.decimals);
-            out.push(Holding {
+    let height = pool_height(&agent, router_id).await.unwrap_or(0);
+    let holdings = lp_cache::get_or_fetch(principal, "sonic", height, || async {
+        let mut temp = Vec::new();
+        for pos in positions {
+            let a0 = format_amount(pos.token_a_amount, pos.token_a.decimals);
+            temp.push(Holding {
                 source: "Sonic".into(),
-                token: pos.reward_token.address.clone(),
-                amount: ra,
+                token: pos.token_a.address.clone(),
+                amount: a0,
                 status: "lp_escrow".into(),
             });
+            let a1 = format_amount(pos.token_b_amount, pos.token_b.decimals);
+            temp.push(Holding {
+                source: "Sonic".into(),
+                token: pos.token_b.address.clone(),
+                amount: a1,
+                status: "lp_escrow".into(),
+            });
+            if !pos.auto_compound {
+                let ra = format_amount(pos.reward_amount, pos.reward_token.decimals);
+                temp.push(Holding {
+                    source: "Sonic".into(),
+                    token: pos.reward_token.address.clone(),
+                    amount: ra,
+                    status: "lp_escrow".into(),
+                });
+            }
         }
-    }
-    out
+        temp
+    }).await;
+    holdings
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn pool_height(agent: &ic_agent::Agent, router: Principal) -> Option<u64> {
+    let arg = Encode!().unwrap();
+    let bytes = agent
+        .query(&router, "block_height")
+        .with_arg(arg)
+        .call()
+        .await
+        .ok()?;
+    Decode!(&bytes, u64).ok()
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn pool_height(_agent: &ic_agent::Agent, _router: Principal) -> Option<u64> {
+    None
 }
 
 #[cfg(target_arch = "wasm32")]

@@ -1,5 +1,7 @@
 use candid::{CandidType, Nat, Principal};
-use ic_cdk_macros::query;
+use ic_cdk_macros::{query, update};
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
 use serde::Deserialize;
 
 #[derive(CandidType, Deserialize, Clone)]
@@ -7,6 +9,8 @@ struct Position {
     ledger: Principal,
     subaccount: Vec<u8>,
 }
+
+static HEIGHT: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
 
 #[candid::candid_method(query)]
 #[query]
@@ -36,6 +40,19 @@ fn icrc1_metadata() -> Vec<(String, candid::types::value::IDLValue)> {
 #[query]
 fn icrc1_balance_of(_a: (Principal, Option<Vec<u8>>)) -> Nat {
     Nat::from(1_000_000_000u64)
+}
+
+#[candid::candid_method(query)]
+#[query]
+fn block_height() -> u64 {
+    *HEIGHT.lock().unwrap()
+}
+
+#[candid::candid_method(update)]
+#[update]
+fn advance_block() {
+    let mut h = HEIGHT.lock().unwrap();
+    *h += 1;
 }
 
 ic_cdk::export_candid!();

@@ -5,5 +5,8 @@ use aggregator::pool_registry;
 fn init() {
     ic_cdk::spawn(async { pool_registry::refresh().await });
     #[cfg(target_arch = "wasm32")]
-    pool_registry::schedule_refresh();
+    {
+        pool_registry::schedule_refresh();
+        aggregator::lp_cache::schedule_eviction();
+    }
 }

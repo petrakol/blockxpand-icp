@@ -1,5 +1,7 @@
 use candid::{CandidType, Principal};
 use ic_cdk_macros::{query, update};
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
 use candid::Nat;
 use serde::Deserialize;
 
@@ -19,6 +21,8 @@ struct PositionInfo {
     reward_amount: u64,
     auto_compound: bool,
 }
+
+static HEIGHT: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
 
 #[candid::candid_method(query)]
 #[query]
@@ -61,6 +65,19 @@ fn get_user_positions(_p: Principal) -> Vec<PositionInfo> {
             auto_compound: true,
         },
     ]
+}
+
+#[candid::candid_method(query)]
+#[query]
+fn block_height() -> u64 {
+    *HEIGHT.lock().unwrap()
+}
+
+#[candid::candid_method(update)]
+#[update]
+fn advance_block() {
+    let mut h = HEIGHT.lock().unwrap();
+    *h += 1;
 }
 
 #[candid::candid_method(update)]

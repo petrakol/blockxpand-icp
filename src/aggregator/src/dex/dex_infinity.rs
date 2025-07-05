@@ -6,6 +6,7 @@ use dashmap::DashMap;
 use num_traits::cast::ToPrimitive;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
+use crate::lp_cache;
 
 pub struct InfinityAdapter;
 
@@ -63,24 +64,28 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         Err(_) => return Vec::new(),
     };
     let positions: Vec<VaultPosition> = Decode!(&bytes, Vec<VaultPosition>).unwrap_or_default();
-    let mut out = Vec::new();
-    for pos in positions {
-        let (symbol, decimals) = match fetch_meta(&agent, pos.ledger).await {
-            Some(v) => v,
-            None => continue,
-        };
-        let bal = match balance_of(&agent, pos.ledger, vault_id, pos.subaccount.clone()).await {
-            Some(n) => n,
-            None => continue,
-        };
-        out.push(Holding {
-            source: "InfinitySwap".into(),
-            token: symbol,
-            amount: format_amount(bal, decimals),
-            status: "lp_escrow".into(),
-        });
-    }
-    out
+    let height = pool_height(&agent, vault_id).await.unwrap_or(0);
+    let holdings = lp_cache::get_or_fetch(principal, "infinity", height, || async {
+        let mut temp = Vec::new();
+        for pos in positions {
+            let (symbol, decimals) = match fetch_meta(&agent, pos.ledger).await {
+                Some(v) => v,
+                None => continue,
+            };
+            let bal = match balance_of(&agent, pos.ledger, vault_id, pos.subaccount.clone()).await {
+                Some(n) => n,
+                None => continue,
+            };
+            temp.push(Holding {
+                source: "InfinitySwap".into(),
+                token: symbol,
+                amount: format_amount(bal, decimals),
+                status: "lp_escrow".into(),
+            });
+        }
+        temp
+    }).await;
+    holdings
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -146,6 +151,23 @@ async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(Strin
     }
     META_CACHE.insert(ledger, (symbol.clone(), decimals, now() + META_TTL_NS));
     Some((symbol, decimals))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn pool_height(agent: &ic_agent::Agent, vault: Principal) -> Option<u64> {
+    let arg = Encode!().unwrap();
+    let bytes = agent
+        .query(&vault, "block_height")
+        .with_arg(arg)
+        .call()
+        .await
+        .ok()?;
+    Decode!(&bytes, u64).ok()
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn pool_height(_agent: &ic_agent::Agent, _vault: Principal) -> Option<u64> {
+    None
 }
 
 #[cfg(not(target_arch = "wasm32"))]

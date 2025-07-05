@@ -1,5 +1,7 @@
 use candid::{CandidType, Principal};
 use ic_cdk_macros::{query, update};
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
 use serde::Deserialize;
 use candid::Nat;
 
@@ -25,6 +27,8 @@ struct PoolData {
     tickSpacing: i32,
     canister_id: Principal,
 }
+
+static HEIGHT: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
 
 #[candid::candid_method(query)]
 #[query]
@@ -68,6 +72,19 @@ fn get_pools() -> Vec<PoolData> {
         tickSpacing: 1,
         canister_id: ic_cdk::api::id(),
     }]
+}
+
+#[candid::candid_method(query)]
+#[query]
+fn block_height() -> u64 {
+    *HEIGHT.lock().unwrap()
+}
+
+#[candid::candid_method(update)]
+#[update]
+fn advance_block() {
+    let mut h = HEIGHT.lock().unwrap();
+    *h += 1;
 }
 
 #[candid::candid_method(update)]
