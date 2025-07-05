@@ -38,7 +38,10 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         if let Some((cached, ts)) = cache.get(&principal).cloned() {
             if now - ts < 60_000_000_000 {
                 let used = instructions().saturating_sub(start);
-                ic_cdk::println!("get_holdings took {used} instructions");
+                ic_cdk::println!(
+                    "get_holdings took {used} instructions ({:.2} B)",
+                    used as f64 / 1_000_000_000f64
+                );
                 return cached;
             }
         }
@@ -54,6 +57,9 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         cache.insert(principal, (holdings.clone(), now));
     }
     let used = instructions().saturating_sub(start);
-    ic_cdk::println!("get_holdings took {used} instructions");
+    ic_cdk::println!(
+        "get_holdings took {used} instructions ({:.2} B)",
+        used as f64 / 1_000_000_000f64
+    );
     holdings
 }
