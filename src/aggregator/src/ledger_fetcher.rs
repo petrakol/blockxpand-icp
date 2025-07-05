@@ -339,6 +339,12 @@ pub(super) fn set_mock_metadata(resp: Result<Vec<(String, candid::types::value::
 
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
+pub(super) fn set_mock_balance(resp: Result<Nat, String>) {
+    *MOCK_BALANCE.lock().unwrap() = resp;
+}
+
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
 pub(super) fn set_now(value: u64) {
     *TEST_NOW.lock().unwrap() = value;
 }
@@ -420,5 +426,52 @@ mod tests {
         .unwrap();
         assert_eq!(result, 5);
         assert_eq!(attempts, 3);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    #[serial_test::serial]
+    async fn fetch_happy_path() {
+        std::env::set_var("LEDGERS_FILE", "tests/ledgers_single.toml");
+        once_cell::sync::Lazy::force(&LEDGERS);
+        set_mock_metadata(Ok(vec![
+            ("icrc1:symbol".into(), IDLValue::Text("AAA".into())),
+            ("icrc1:decimals".into(), IDLValue::Nat8(2)),
+        ]));
+        set_mock_balance(Ok(Nat::from(1234u64)));
+        let principal = Principal::from_text("aaaaa-aa").unwrap();
+        let res = fetch(principal).await;
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].token, "AAA");
+        assert_eq!(res[0].amount, "12.34");
+        assert_eq!(res[0].status, "liquid");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    #[serial_test::serial]
+    async fn fetch_balance_error() {
+        std::env::set_var("LEDGERS_FILE", "tests/ledgers_single.toml");
+        once_cell::sync::Lazy::force(&LEDGERS);
+        set_mock_metadata(Ok(vec![
+            ("icrc1:symbol".into(), IDLValue::Text("AAA".into())),
+            ("icrc1:decimals".into(), IDLValue::Nat8(2)),
+        ]));
+        set_mock_balance(Err("oops".into()));
+        let principal = Principal::from_text("aaaaa-aa").unwrap();
+        let res = fetch(principal).await;
+        assert_eq!(res[0].status, "error");
+        assert_eq!(res[0].amount, "0");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    #[serial_test::serial]
+    async fn fetch_metadata_error() {
+        std::env::set_var("LEDGERS_FILE", "tests/ledgers_single.toml");
+        once_cell::sync::Lazy::force(&LEDGERS);
+        set_mock_metadata(Err("bad".into()));
+        set_mock_balance(Ok(Nat::from(10u64)));
+        let principal = Principal::from_text("aaaaa-aa").unwrap();
+        let res = fetch(principal).await;
+        assert_eq!(res[0].token, "unknown");
+        assert_eq!(res[0].status, "error");
     }
 }
