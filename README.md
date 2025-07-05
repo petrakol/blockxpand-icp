@@ -44,8 +44,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 ### Key features
 
 - **Height-aware LP cache** with weekly eviction keeps DEX lookups fast
-- **Nightly pool registry refresh** loads metadata from `data/pools.toml`
-- **GraphQL endpoint** (`pools_graphql`) exposes pool metadata to front‑ends
+- **Unified pool registry** refreshed nightly from `data/pools.toml` and
+  exported via the `pools_graphql` endpoint
 - Optional **reward claiming** via `claim_all_rewards` when built with
   `--features claim`
 - All fetchers run **concurrently** for minimal latency
