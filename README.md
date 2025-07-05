@@ -88,6 +88,8 @@ environment.
 
 1. Install Rust and run `./install_dfx.sh` to install `dfx`, then add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
    Set `DFX_TARBALL` to a pre-downloaded archive to install offline.
+   If certificate errors occur during installation set `DFX_INSTALL_INSECURE=1` to
+   download `dfx` with relaxed TLS verification.
 2. Run `cargo test --quiet --all` and `cargo clippy --quiet -- -D warnings` before pushing.
    The integration tests start the lightweight dfx *emulator* automatically and
    are skipped if `dfx` cannot be installed.
