@@ -32,9 +32,21 @@ struct LedgersConfig {
     ledgers: std::collections::HashMap<String, String>,
 }
 
+#[cfg(target_arch = "wasm32")]
 static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
     let cfg: LedgersConfig =
         toml::from_str(include_str!("../../../config/ledgers.toml")).expect("invalid config");
+    cfg.ledgers
+        .values()
+        .map(|id| Principal::from_text(id).expect("invalid principal"))
+        .collect()
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
+    let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    let text = std::fs::read_to_string(path).expect("cannot read ledgers.toml");
+    let cfg: LedgersConfig = toml::from_str(&text).expect("invalid config");
     cfg.ledgers
         .values()
         .map(|id| Principal::from_text(id).expect("invalid principal"))
