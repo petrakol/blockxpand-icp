@@ -78,8 +78,11 @@ environment.
 
 ## Development workflow
 
-1. Install Rust and `dfx`, and add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
+1. Install Rust and run `./install_dfx.sh` to install `dfx`, then add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
+   Set `DFX_TARBALL` to a pre-downloaded archive to install offline.
 2. Run `cargo test --quiet --all` and `cargo clippy --quiet -- -D warnings` before pushing.
+   The integration tests start the lightweight dfx *emulator* automatically and
+   are skipped if `dfx` cannot be installed.
 3. On pull requests the GitHub Actions workflow runs tests, clippy, and a test
    deployment via `deploy.sh`.
 

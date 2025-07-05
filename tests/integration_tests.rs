@@ -1,12 +1,178 @@
 #[cfg(test)]
 mod tests {
-    use blockxpand_icp::get_holdings;
-    use candid::Principal;
+    use blockxpand_icp::{get_holdings, Holding};
+    use candid::{Decode, Encode, Principal};
+    use ic_agent::{identity::AnonymousIdentity, Agent};
+    use std::io::Write;
+    use std::path::Path;
+    use std::process::{Command, Stdio};
+    use tempfile::{NamedTempFile, TempDir};
+
+    fn ensure_dfx() -> bool {
+        if Command::new("dfx").arg("--version").output().is_ok() {
+            return true;
+        }
+        let _ = Command::new("./install_dfx.sh").status();
+        Command::new("dfx").arg("--version").output().is_ok()
+    }
+
+    struct Replica {
+        dir: TempDir,
+    }
+    impl Replica {
+        fn start() -> Option<Self> {
+            let dir = TempDir::new().ok()?;
+            if Command::new("dfx")
+                .args(["start", "--background", "--clean", "--emulator"])
+                .current_dir(dir.path())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .ok()?
+                .success()
+            {
+                Some(Self { dir })
+            } else {
+                None
+            }
+        }
+    }
+    impl Drop for Replica {
+        fn drop(&mut self) {
+            let _ = Command::new("dfx")
+                .arg("stop")
+                .current_dir(self.dir.path())
+                .stdout(Stdio::null())
+                .status();
+        }
+    }
+
+    fn deploy(dir: &Path, canister: &str) -> Option<String> {
+        if !Command::new("dfx")
+            .args(["deploy", canister, "--network", "emulator"])
+            .current_dir(dir)
+            .stdout(Stdio::null())
+            .status()
+            .ok()?
+            .success()
+        {
+            return None;
+        }
+        let output = Command::new("dfx")
+            .args(["canister", "id", canister, "--network", "emulator"])
+            .current_dir(dir)
+            .output()
+            .ok()?;
+        Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
 
     #[tokio::test]
     async fn integration_get_holdings() {
-        let principal = Principal::from_text("aaaaa-aa").unwrap();
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let cid = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+
+        let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await;
         assert_eq!(holdings.len(), 4);
+        assert_eq!(holdings[0].token, "MOCK");
+        assert_eq!(holdings[0].status, "liquid");
+
+        // Deploy the aggregator canister using the mock ledger.
+        let cfg_path = std::path::Path::new("config/ledgers.toml");
+        let original = std::fs::read_to_string(cfg_path).unwrap();
+        std::fs::write(cfg_path, format!("[ledgers]\nICP = \"{cid}\"\n")).unwrap();
+        struct Restore(String);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                let _ = std::fs::write("config/ledgers.toml", &self.0);
+            }
+        }
+        let _restore = Restore(original);
+
+        let aggr_id = match deploy(replica.dir.path(), "aggregator") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy aggregator; skipping test");
+                return;
+            }
+        };
+
+        let agent = Agent::builder()
+            .with_url("http://127.0.0.1:4943")
+            .with_identity(AnonymousIdentity {})
+            .build()
+            .unwrap();
+        let _ = agent.fetch_root_key().await;
+        let arg = candid::Encode!(&Principal::anonymous()).unwrap();
+        let bytes = agent
+            .query(&Principal::from_text(aggr_id).unwrap(), "get_holdings")
+            .with_arg(arg)
+            .call()
+            .await
+            .unwrap();
+        let res: Vec<Holding> = candid::Decode!(&bytes, Vec<Holding>).unwrap();
+        assert_eq!(res.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn integration_multiple_ledgers_error() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let cid = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nGOOD = \"{cid}\"\nBAD = \"aaaaa-aa\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+
+        let principal = Principal::anonymous();
+        let holdings = get_holdings(principal).await;
+        assert_eq!(holdings.len(), 5);
+        assert_eq!(holdings[0].token, "MOCK");
+        assert_eq!(holdings[0].status, "liquid");
+        assert_eq!(holdings[1].token, "unknown");
+        assert_eq!(holdings[1].status, "error");
     }
 }
