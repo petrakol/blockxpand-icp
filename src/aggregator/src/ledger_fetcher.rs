@@ -1,5 +1,9 @@
 use bx_core::Holding;
-use candid::{Decode, Encode, Nat, Principal};
+#[cfg(not(test))]
+use candid::Decode;
+#[cfg(not(test))]
+use candid::Encode;
+use candid::{Nat, Principal};
 use dashmap::DashMap;
 use futures::future::join_all;
 use num_traits::cast::ToPrimitive;
@@ -438,6 +442,7 @@ mod tests {
             ("icrc1:decimals".into(), IDLValue::Nat8(2)),
         ]));
         set_mock_balance(Ok(Nat::from(1234u64)));
+        META_CACHE.clear();
         let principal = Principal::from_text("aaaaa-aa").unwrap();
         let res = fetch(principal).await;
         assert_eq!(res.len(), 1);
@@ -456,6 +461,7 @@ mod tests {
             ("icrc1:decimals".into(), IDLValue::Nat8(2)),
         ]));
         set_mock_balance(Err("oops".into()));
+        META_CACHE.clear();
         let principal = Principal::from_text("aaaaa-aa").unwrap();
         let res = fetch(principal).await;
         assert_eq!(res[0].status, "error");
@@ -469,6 +475,7 @@ mod tests {
         once_cell::sync::Lazy::force(&LEDGERS);
         set_mock_metadata(Err("bad".into()));
         set_mock_balance(Ok(Nat::from(10u64)));
+        META_CACHE.clear();
         let principal = Principal::from_text("aaaaa-aa").unwrap();
         let res = fetch(principal).await;
         assert_eq!(res[0].token, "unknown");
