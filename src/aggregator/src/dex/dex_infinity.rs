@@ -166,7 +166,7 @@ async fn pool_height(agent: &ic_agent::Agent, vault: Principal) -> Option<u64> {
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn pool_height(_agent: &ic_agent::Agent, _vault: Principal) -> Option<u64> {
+async fn pool_height(_vault: Principal) -> Option<u64> {
     None
 }
 

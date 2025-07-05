@@ -26,6 +26,7 @@ pub fn list() -> Vec<PoolMeta> {
     REGISTRY.read().unwrap().values().cloned().collect()
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn refresh() {
     let path = std::env::var("POOLS_FILE").unwrap_or_else(|_| "data/pools.toml".into());
     let content = match tokio::fs::read_to_string(&path).await {
@@ -42,6 +43,9 @@ pub async fn refresh() {
     }
     *REGISTRY.write().unwrap() = map;
 }
+
+#[cfg(target_arch = "wasm32")]
+pub async fn refresh() {}
 
 #[cfg(target_arch = "wasm32")]
 pub fn schedule_refresh() {

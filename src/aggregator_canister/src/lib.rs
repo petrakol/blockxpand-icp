@@ -3,6 +3,7 @@ use aggregator::pool_registry;
 
 #[ic_cdk_macros::init]
 fn init() {
+    #[cfg(not(target_arch = "wasm32"))]
     ic_cdk::spawn(async { pool_registry::refresh().await });
     #[cfg(target_arch = "wasm32")]
     {
