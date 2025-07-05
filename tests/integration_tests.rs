@@ -23,7 +23,7 @@ mod tests {
         fn start() -> Option<Self> {
             let dir = TempDir::new().ok()?;
             if Command::new("dfx")
-                .args(["start", "--background", "--clean"])
+                .args(["start", "--background", "--clean", "--emulator"])
                 .current_dir(dir.path())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -49,7 +49,7 @@ mod tests {
 
     fn deploy(dir: &Path, canister: &str) -> Option<String> {
         if !Command::new("dfx")
-            .args(["deploy", canister])
+            .args(["deploy", canister, "--network", "emulator"])
             .current_dir(dir)
             .stdout(Stdio::null())
             .status()
@@ -59,7 +59,7 @@ mod tests {
             return None;
         }
         let output = Command::new("dfx")
-            .args(["canister", "id", canister])
+            .args(["canister", "id", canister, "--network", "emulator"])
             .current_dir(dir)
             .output()
             .ok()?;
