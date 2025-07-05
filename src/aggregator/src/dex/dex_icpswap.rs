@@ -19,7 +19,8 @@ struct PoolData {
     token0: Token,
     token1: Token,
     fee: Nat,
-    tickSpacing: i32,
+    #[serde(rename = "tickSpacing")]
+    tick_spacing: i32,
     #[serde(rename = "canisterId")]
     canister_id: Principal,
 }
@@ -188,7 +189,6 @@ async fn pool_height(_agent: &ic_agent::Agent, _cid: Principal) -> Option<u64> {
 fn format_amount(n: Nat, decimals: u8) -> String {
     use num_bigint::BigUint;
     use num_integer::Integer;
-    use num_traits::cast::ToPrimitive;
     let div = BigUint::from(10u32).pow(decimals as u32);
     let (q, r) = n.0.div_rem(&div);
     let mut frac = r.to_str_radix(10);
