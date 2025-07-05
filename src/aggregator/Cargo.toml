@@ -30,3 +30,6 @@ ic-agent = { workspace = true }
 tokio = { workspace = true }
 once_cell = { workspace = true }
 
+[features]
+live-test = []
+

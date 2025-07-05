@@ -1,8 +1,6 @@
 use bx_core::Holding;
-#[cfg(not(test))]
-use candid::Decode;
-#[cfg(not(test))]
-use candid::Encode;
+#[cfg(any(not(test), feature = "live-test"))]
+use candid::{Decode, Encode};
 use candid::{Nat, Principal};
 use dashmap::DashMap;
 use futures::future::join_all;
@@ -16,25 +14,25 @@ use std::future::Future;
 // When a hash mismatch is detected, the entry is replaced so callers
 // always see the latest token symbol, decimals, and transfer fee.
 
-#[cfg(all(not(test), not(target_arch = "wasm32")))]
+#[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 use ic_agent::Agent;
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 #[derive(Clone, Default)]
 struct Agent;
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 use std::sync::Mutex;
 
-#[cfg(all(not(test), not(target_arch = "wasm32")))]
+#[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos() as u64
 }
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 static TEST_NOW: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 fn now() -> u64 {
     *TEST_NOW.lock().unwrap()
 }
@@ -82,7 +80,7 @@ struct Meta {
 }
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
 
-#[cfg(all(not(test), not(target_arch = "wasm32")))]
+#[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 async fn with_retry<F, Fut, T>(mut f: F) -> Result<T, ic_agent::AgentError>
 where
     F: FnMut() -> Fut,
@@ -102,12 +100,12 @@ where
     unreachable!()
 }
 
-#[cfg(all(not(test), not(target_arch = "wasm32")))]
+#[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 fn encode_items(items: &[(String, candid::types::value::IDLValue)]) -> Vec<u8> {
     Encode!(&items).unwrap()
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 fn encode_items(items: &[(String, candid::types::value::IDLValue)]) -> Vec<u8> {
     use std::fmt::Write;
     let mut s = String::new();
@@ -117,7 +115,7 @@ fn encode_items(items: &[(String, candid::types::value::IDLValue)]) -> Vec<u8> {
     s.into_bytes()
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 async fn with_retry<F, Fut, T>(mut f: F) -> Result<T, ic_agent::AgentError>
 where
     F: FnMut() -> Fut,
@@ -134,7 +132,7 @@ where
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-#[cfg(all(not(test), not(target_arch = "wasm32")))]
+#[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 async fn get_agent() -> Agent {
     let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".to_string());
     let agent = Agent::builder().with_url(url).build().unwrap();
@@ -142,12 +140,12 @@ async fn get_agent() -> Agent {
     agent
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 async fn get_agent() -> Agent {
     Agent::default()
 }
 
-#[cfg(all(not(test), not(target_arch = "wasm32")))]
+#[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 async fn icrc1_metadata(
     agent: &Agent,
     canister_id: Principal,
@@ -163,11 +161,11 @@ async fn icrc1_metadata(
     Ok(res)
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 static MOCK_METADATA: Lazy<Mutex<Result<Vec<(String, candid::types::value::IDLValue)>, String>>> =
     Lazy::new(|| Mutex::new(Ok(vec![])));
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 async fn icrc1_metadata(
     _agent: &Agent,
     _canister_id: Principal,
@@ -178,7 +176,7 @@ async fn icrc1_metadata(
     }
 }
 
-#[cfg(all(not(test), not(target_arch = "wasm32")))]
+#[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 async fn icrc1_balance_of(
     agent: &Agent,
     canister_id: Principal,
@@ -203,11 +201,11 @@ async fn icrc1_balance_of(
     Ok(res)
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 static MOCK_BALANCE: Lazy<Mutex<Result<Nat, String>>> =
     Lazy::new(|| Mutex::new(Ok(Nat::from(0u32))));
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 async fn icrc1_balance_of(
     _agent: &Agent,
     _canister_id: Principal,
@@ -336,24 +334,24 @@ fn format_amount(nat: Nat, decimals: u8) -> String {
     }
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 pub(super) fn set_mock_metadata(
     resp: Result<Vec<(String, candid::types::value::IDLValue)>, String>,
 ) {
     *MOCK_METADATA.lock().unwrap() = resp;
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 pub(super) fn set_mock_balance(resp: Result<Nat, String>) {
     *MOCK_BALANCE.lock().unwrap() = resp;
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 pub(super) fn set_now(value: u64) {
     *TEST_NOW.lock().unwrap() = value;
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "live-test")))]
 mod tests {
     use super::*;
     use candid::types::value::IDLValue;

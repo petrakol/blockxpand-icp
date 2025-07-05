@@ -11,6 +11,7 @@ bx_core = { path = "src/bx_core" }
 candid = { workspace = true }
 tokio = { workspace = true }
 tempfile = "3"
+aggregator = { path = "src/aggregator", features = ["live-test"] }
 
 [workspace]
 members = ["src/bx_core", "src/aggregator", "src/aggregator_canister", "src/mock_ledger_canister"]
