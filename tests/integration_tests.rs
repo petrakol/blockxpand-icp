@@ -4,8 +4,9 @@ mod tests {
     use candid::{Decode, Encode, Principal};
     use ic_agent::{identity::AnonymousIdentity, Agent};
     use std::io::Write;
+    use std::path::Path;
     use std::process::{Command, Stdio};
-    use tempfile::NamedTempFile;
+    use tempfile::{NamedTempFile, TempDir};
 
     fn ensure_dfx() -> bool {
         if Command::new("dfx").arg("--version").output().is_ok() {
@@ -15,18 +16,22 @@ mod tests {
         Command::new("dfx").arg("--version").output().is_ok()
     }
 
-    struct Replica;
+    struct Replica {
+        dir: TempDir,
+    }
     impl Replica {
         fn start() -> Option<Self> {
+            let dir = TempDir::new().ok()?;
             if Command::new("dfx")
                 .args(["start", "--background", "--clean"])
+                .current_dir(dir.path())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status()
                 .ok()?
                 .success()
             {
-                Some(Self)
+                Some(Self { dir })
             } else {
                 None
             }
@@ -34,13 +39,18 @@ mod tests {
     }
     impl Drop for Replica {
         fn drop(&mut self) {
-            let _ = Command::new("dfx").arg("stop").stdout(Stdio::null()).status();
+            let _ = Command::new("dfx")
+                .arg("stop")
+                .current_dir(self.dir.path())
+                .stdout(Stdio::null())
+                .status();
         }
     }
 
-    fn deploy(canister: &str) -> Option<String> {
+    fn deploy(dir: &Path, canister: &str) -> Option<String> {
         if !Command::new("dfx")
             .args(["deploy", canister])
+            .current_dir(dir)
             .stdout(Stdio::null())
             .status()
             .ok()?
@@ -50,6 +60,7 @@ mod tests {
         }
         let output = Command::new("dfx")
             .args(["canister", "id", canister])
+            .current_dir(dir)
             .output()
             .ok()?;
         Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -62,7 +73,7 @@ mod tests {
             return;
         }
 
-        let _replica = match Replica::start() {
+        let replica = match Replica::start() {
             Some(r) => r,
             None => {
                 eprintln!("failed to start dfx; skipping test");
@@ -70,7 +81,7 @@ mod tests {
             }
         };
 
-        let cid = match deploy("mock_ledger") {
+        let cid = match deploy(replica.dir.path(), "mock_ledger") {
             Some(id) => id,
             None => {
                 eprintln!("failed to deploy mock ledger; skipping test");
@@ -102,7 +113,7 @@ mod tests {
         }
         let _restore = Restore(original);
 
-        let aggr_id = match deploy("aggregator") {
+        let aggr_id = match deploy(replica.dir.path(), "aggregator") {
             Some(id) => id,
             None => {
                 eprintln!("failed to deploy aggregator; skipping test");
@@ -134,7 +145,7 @@ mod tests {
             return;
         }
 
-        let _replica = match Replica::start() {
+        let replica = match Replica::start() {
             Some(r) => r,
             None => {
                 eprintln!("failed to start dfx; skipping test");
@@ -142,7 +153,7 @@ mod tests {
             }
         };
 
-        let cid = match deploy("mock_ledger") {
+        let cid = match deploy(replica.dir.path(), "mock_ledger") {
             Some(id) => id,
             None => {
                 eprintln!("failed to deploy mock ledger; skipping test");
