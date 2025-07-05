@@ -5,8 +5,10 @@ This repository is organised as a Cargo workspace with two crates:
 - `core` – shared models such as the `Holding` struct
 - `aggregator` – canister logic exposing `get_holdings`
 
-The fetcher implementations are mocked and wrapped in small `tokio::time::sleep`
-calls to mimic network latency. Results are cached in-canister for 60&nbsp;s.
+Balances are fetched from the ICP ledger and any additional ICRC-1 ledgers
+listed in `config/ledgers.toml`. Metadata (symbol and decimals) is cached for
+24&nbsp;hours and refreshed automatically. Results are cached in-canister for
+60&nbsp;s.
 
 ## Building
 
@@ -19,6 +21,19 @@ cargo build --quiet
 ```bash
 cargo test --quiet --all
 ```
+
+## Ledger configuration
+
+The file `config/ledgers.toml` lists all ICRC-1 ledger canisters that should be
+queried. Each entry maps a human name to its canister ID:
+
+```toml
+[ledgers]
+ICP = "rwlgt-iiaaa-aaaaa-aaaaa-cai"
+```
+
+Use the `LEDGER_URL` environment variable to override the replica URL when
+running locally.
 
 ## Deployment
 
