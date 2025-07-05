@@ -12,6 +12,7 @@ ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
 futures = { workspace = true }
 once_cell = { workspace = true }
+serial_test = "2"
 bx_core = { path = "../bx_core" }
 dashmap = "5"
 toml = "0.8"
@@ -26,4 +27,6 @@ ic-agent = { workspace = true }
 
 [dev-dependencies]
 
+tokio = { workspace = true }
+once_cell = { workspace = true }
 

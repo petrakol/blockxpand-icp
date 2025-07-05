@@ -12,15 +12,27 @@ use std::future::Future;
 // When a hash mismatch is detected, the entry is replaced so callers
 // always see the latest token symbol, decimals, and transfer fee.
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
 use ic_agent::Agent;
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[derive(Clone, Default)]
+struct Agent;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(test, not(target_arch = "wasm32")))]
+use std::sync::Mutex;
+
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
 fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos() as u64
+}
+#[cfg(all(test, not(target_arch = "wasm32")))]
+static TEST_NOW: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
+#[cfg(all(test, not(target_arch = "wasm32")))]
+fn now() -> u64 {
+    *TEST_NOW.lock().unwrap()
 }
 #[cfg(target_arch = "wasm32")]
 fn now() -> u64 {
@@ -66,7 +78,7 @@ struct Meta {
 }
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
 async fn with_retry<F, Fut, T>(mut f: F) -> Result<T, ic_agent::AgentError>
 where
     F: FnMut() -> Fut,
@@ -86,7 +98,39 @@ where
     unreachable!()
 }
 
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
+fn encode_items(items: &[(String, candid::types::value::IDLValue)]) -> Vec<u8> {
+    Encode!(&items).unwrap()
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+fn encode_items(items: &[(String, candid::types::value::IDLValue)]) -> Vec<u8> {
+    use std::fmt::Write;
+    let mut s = String::new();
+    for (k, v) in items {
+        write!(&mut s, "{k}:{v:?};").unwrap();
+    }
+    s.into_bytes()
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+async fn with_retry<F, Fut, T>(mut f: F) -> Result<T, ic_agent::AgentError>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, ic_agent::AgentError>>,
+{
+    for attempt in 0..3 {
+        match f().await {
+            Ok(v) => return Ok(v),
+            Err(e) if attempt == 2 => return Err(e),
+            Err(_) => continue,
+        }
+    }
+    unreachable!()
+}
+
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
 async fn get_agent() -> Agent {
     let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".to_string());
     let agent = Agent::builder().with_url(url).build().unwrap();
@@ -94,7 +138,12 @@ async fn get_agent() -> Agent {
     agent
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(test, not(target_arch = "wasm32")))]
+async fn get_agent() -> Agent {
+    Agent::default()
+}
+
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
 async fn icrc1_metadata(
     agent: &Agent,
     canister_id: Principal,
@@ -110,7 +159,22 @@ async fn icrc1_metadata(
     Ok(res)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(test, not(target_arch = "wasm32")))]
+static MOCK_METADATA: Lazy<Mutex<Result<Vec<(String, candid::types::value::IDLValue)>, String>>> =
+    Lazy::new(|| Mutex::new(Ok(vec![])));
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+async fn icrc1_metadata(
+    _agent: &Agent,
+    _canister_id: Principal,
+) -> Result<Vec<(String, candid::types::value::IDLValue)>, ic_agent::AgentError> {
+    match MOCK_METADATA.lock().unwrap().clone() {
+        Ok(v) => Ok(v),
+        Err(e) => Err(ic_agent::AgentError::MessageError(e)),
+    }
+}
+
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
 async fn icrc1_balance_of(
     agent: &Agent,
     canister_id: Principal,
@@ -133,6 +197,22 @@ async fn icrc1_balance_of(
         .await?;
     let res: Nat = candid::Decode!(&bytes, Nat).unwrap();
     Ok(res)
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+static MOCK_BALANCE: Lazy<Mutex<Result<Nat, String>>> =
+    Lazy::new(|| Mutex::new(Ok(Nat::from(0u32))));
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+async fn icrc1_balance_of(
+    _agent: &Agent,
+    _canister_id: Principal,
+    _owner: Principal,
+) -> Result<Nat, ic_agent::AgentError> {
+    match MOCK_BALANCE.lock().unwrap().clone() {
+        Ok(v) => Ok(v),
+        Err(e) => Err(ic_agent::AgentError::MessageError(e)),
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -187,7 +267,7 @@ async fn fetch_metadata(
         }
     }
     let items = with_retry(|| icrc1_metadata(agent, cid)).await?;
-    let encoded = Encode!(&items).unwrap();
+    let encoded = encode_items(&items);
     let hash: [u8; 32] = Sha256::digest(&encoded).into();
     if let Some(meta) = META_CACHE.get(&cid) {
         if meta.hash == hash {
@@ -249,5 +329,96 @@ fn format_amount(nat: Nat, decimals: u8) -> String {
         q.to_str_radix(10)
     } else {
         format!("{}.{frac}", q.to_str_radix(10))
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+pub(super) fn set_mock_metadata(resp: Result<Vec<(String, candid::types::value::IDLValue)>, String>) {
+    *MOCK_METADATA.lock().unwrap() = resp;
+}
+
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+pub(super) fn set_now(value: u64) {
+    *TEST_NOW.lock().unwrap() = value;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use candid::types::value::IDLValue;
+
+    #[test]
+    fn format_amount_basic() {
+        assert_eq!(format_amount(Nat::from(1000u64), 0), "1000");
+        assert_eq!(format_amount(Nat::from(12345u64), 2), "123.45");
+        assert_eq!(format_amount(Nat::from(5u64), 3), "0.005");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    #[serial_test::serial]
+    async fn metadata_caching_and_expiry() {
+        let cid = Principal::from_text("aaaaa-aa").unwrap();
+        let agent = get_agent().await;
+
+        set_now(1);
+        set_mock_metadata(Ok(vec![
+            ("icrc1:symbol".into(), IDLValue::Text("AAA".into())),
+            ("icrc1:decimals".into(), IDLValue::Nat8(2)),
+            ("icrc1:fee".into(), IDLValue::Nat(Nat::from(10u64))),
+        ]));
+        META_CACHE.clear();
+        let v1 = fetch_metadata(&agent, cid).await.unwrap();
+        assert_eq!(v1, ("AAA".into(), 2, 10));
+
+        set_now(2);
+        set_mock_metadata(Ok(vec![
+            ("icrc1:symbol".into(), IDLValue::Text("BBB".into())),
+            ("icrc1:decimals".into(), IDLValue::Nat8(3)),
+            ("icrc1:fee".into(), IDLValue::Nat(Nat::from(20u64))),
+        ]));
+        let v2 = fetch_metadata(&agent, cid).await.unwrap();
+        assert_eq!(v2, ("AAA".into(), 2, 10));
+        assert_eq!(META_CACHE.get(&cid).unwrap().symbol, "AAA");
+
+        set_now(META_TTL_NS + 3);
+        let v3 = fetch_metadata(&agent, cid).await.unwrap();
+        assert_eq!(v3, ("BBB".into(), 3, 20));
+        assert_eq!(META_CACHE.get(&cid).unwrap().symbol, "BBB");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    #[serial_test::serial]
+    async fn metadata_error() {
+        let cid = Principal::from_text("aaaaa-aa").unwrap();
+        let agent = get_agent().await;
+        set_now(0);
+        set_mock_metadata(Err("fail".into()));
+        META_CACHE.clear();
+        let err = fetch_metadata(&agent, cid).await.unwrap_err();
+        match err {
+            ic_agent::AgentError::MessageError(s) => assert_eq!(s, "fail".to_string()),
+            _ => panic!("unexpected error"),
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    #[serial_test::serial]
+    async fn with_retry_succeeds_after_retries() {
+        let mut attempts = 0u8;
+        let result = with_retry(|| {
+            attempts += 1;
+            async move {
+                if attempts < 3 {
+                    Err(ic_agent::AgentError::MessageError("no".into()))
+                } else {
+                    Ok(5)
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(result, 5);
+        assert_eq!(attempts, 3);
     }
 }
