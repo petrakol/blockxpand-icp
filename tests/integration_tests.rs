@@ -181,6 +181,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn integration_sonic_positions() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let ledger_id = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+        let dex_id = match deploy(replica.dir.path(), "mock_sonic") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock sonic; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("SONIC_ROUTER", &dex_id);
+
+        let principal = Principal::anonymous();
+        let holdings = get_holdings(principal).await;
+        assert!(holdings.iter().any(|h| h.source == "Sonic"));
+    }
+
+    #[tokio::test]
     async fn integration_multiple_ledgers_error() {
         if !ensure_dfx() {
             eprintln!("dfx not found; skipping integration test");

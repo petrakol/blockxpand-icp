@@ -27,6 +27,15 @@
       "metadata": [
         { "name": "candid:service" }
       ]
+    },
+    "mock_sonic": {
+      "type": "custom",
+      "candid": "candid/mock_sonic.did",
+      "wasm": "target/wasm32-unknown-unknown/release/mock_sonic_canister.wasm",
+      "build": "cargo build --quiet --target wasm32-unknown-unknown --release -p mock_sonic_canister",
+      "metadata": [
+        { "name": "candid:service" }
+      ]
     }
   },
   "networks": {
