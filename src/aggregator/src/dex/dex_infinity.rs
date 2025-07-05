@@ -208,6 +208,7 @@ fn now() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use quickcheck_macros::quickcheck;
     use candid::Principal;
 
     #[tokio::test]
@@ -216,5 +217,11 @@ mod tests {
         let adapter = InfinityAdapter;
         let res = adapter.fetch_positions(Principal::anonymous()).await;
         assert!(res.is_empty());
+    }
+
+    #[quickcheck]
+    fn fuzz_decode_position(data: Vec<u8>) -> bool {
+        let _ = Decode!(&data, Vec<VaultPosition>);
+        true
     }
 }

@@ -13,6 +13,8 @@ tokio = { workspace = true }
 tempfile = "3"
 aggregator = { path = "src/aggregator", features = ["live-test", "claim"] }
 ic-agent = { workspace = true }
+quickcheck = "1"
+quickcheck_macros = "1"
 
 [workspace]
 members = [

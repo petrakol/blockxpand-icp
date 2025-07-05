@@ -235,7 +235,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
         .await
         .map_err(|e| e.to_string())?;
     let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).unwrap_or_default();
-    let mut total = 0u64;
+    let mut total: u64 = 0;
     for pool in pools {
         let arg = Encode!(&principal, &ledger).unwrap();
         let bytes = agent
@@ -245,7 +245,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
             .await
             .map_err(|e| e.to_string())?;
         let spent: u64 = Decode!(&bytes, u64).unwrap_or_default();
-        total += spent;
+        total = total.checked_add(spent).ok_or("overflow")?;
     }
     // refresh cache
     let holdings = fetch_positions_impl(principal).await;
@@ -257,6 +257,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use quickcheck_macros::quickcheck;
     use once_cell::sync::Lazy;
     use std::sync::Mutex;
 
@@ -267,5 +268,18 @@ mod tests {
         let adapter = IcpswapAdapter;
         let res = adapter.fetch_positions(Principal::anonymous()).await;
         assert!(res.is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn claim_fails_without_env() {
+        std::env::remove_var("ICPSWAP_FACTORY");
+        let res = claim_rewards_impl(Principal::anonymous()).await;
+        assert!(res.is_err());
+    }
+
+    #[quickcheck]
+    fn fuzz_decode_pool(data: Vec<u8>) -> bool {
+        let _ = Decode!(&data, Vec<PoolData>);
+        true
     }
 }
