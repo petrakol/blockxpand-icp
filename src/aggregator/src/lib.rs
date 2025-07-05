@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod dex_fetchers;
+pub mod dex;
 pub mod ledger_fetcher;
 pub mod neuron_fetcher;
 
