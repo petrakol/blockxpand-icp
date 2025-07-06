@@ -59,8 +59,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   helper used across adapters and the ledger fetcher, plus utilities for querying
   DEX block height and an `env_principal` helper for configuration. Invalid values
   now print a helpful error. Parsed principals are cached so lookups only happen
-  once. The agent is initialised once and cloned, avoiding repeated network
-  handshakes
+  once. The shared agent logs any root key error and is cloned after the first
+  successful initialisation to avoid repeated network handshakes
 - Includes built-in adapters for ICPSwap, Sonic and InfinitySwap
 - Common constants like `MINUTE_NS`, `DAY_NS`, `WEEK_NS`, `DAY_SECS` and `WEEK_SECS` centralise refresh durations
 - Adapter fetchers yield to the scheduler before starting requests, eliminating

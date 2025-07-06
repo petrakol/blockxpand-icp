@@ -62,8 +62,13 @@ pub async fn get_agent() -> ic_agent::Agent {
         return a.clone();
     }
     let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
-    let agent = ic_agent::Agent::builder().with_url(url).build().unwrap();
-    let _ = agent.fetch_root_key().await;
+    let agent = ic_agent::Agent::builder()
+        .with_url(url)
+        .build()
+        .expect("failed to build agent");
+    if let Err(e) = agent.fetch_root_key().await {
+        eprintln!("failed to fetch root key: {e}");
+    }
     let _ = AGENT.set(agent.clone());
     agent
 }
