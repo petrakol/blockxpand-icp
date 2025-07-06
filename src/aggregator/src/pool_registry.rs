@@ -30,8 +30,9 @@ pub fn list() -> Vec<PoolMeta> {
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn refresh() {
     let path = std::env::var("POOLS_FILE").unwrap_or_else(|_| "data/pools.toml".into());
-    if let Ok(content) = tokio::fs::read_to_string(&path).await {
-        load_content(&content);
+    match tokio::fs::read_to_string(&path).await {
+        Ok(content) => load_content(&content),
+        Err(e) => eprintln!("pool registry refresh failed: {e}"),
     }
 }
 
