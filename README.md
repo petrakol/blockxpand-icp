@@ -51,6 +51,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
+- The `get_holdings` query runs ledger, neuron, and DEX fetchers concurrently
+  for the quickest possible response
 - Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
   helper used across adapters, plus utilities for querying DEX block height and
   an `env_principal` helper for configuration. Invalid values now print a

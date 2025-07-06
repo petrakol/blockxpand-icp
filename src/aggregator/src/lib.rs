@@ -40,10 +40,16 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         }
     }
 
+    let (ledger, neuron, dex) = futures::join!(
+        ledger_fetcher::fetch(principal),
+        neuron_fetcher::fetch(principal),
+        dex_fetchers::fetch(principal)
+    );
+
     let mut holdings = Vec::new();
-    holdings.extend(ledger_fetcher::fetch(principal).await);
-    holdings.extend(neuron_fetcher::fetch(principal).await);
-    holdings.extend(dex_fetchers::fetch(principal).await);
+    holdings.extend(ledger);
+    holdings.extend(neuron);
+    holdings.extend(dex);
 
     {
         cache::get().insert(principal, (holdings.clone(), now));
