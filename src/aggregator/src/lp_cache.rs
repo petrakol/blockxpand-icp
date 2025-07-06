@@ -31,12 +31,13 @@ where
         }
     }
     let data = fetch().await;
+    let ts = now();
     CACHE.insert(
         (principal, pool.to_string()),
         Entry {
             data: data.clone(),
             height,
-            ts: now(),
+            ts,
         },
     );
     data

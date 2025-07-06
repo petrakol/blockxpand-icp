@@ -7,15 +7,16 @@ use candid::Principal;
 use futures::future::join_all;
 
 #[cfg(target_arch = "wasm32")]
-async fn sleep_ms(_: u64) {}
+async fn pause() {}
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn sleep_ms(ms: u64) {
-    tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+async fn pause() {
+    tokio::task::yield_now().await;
 }
 
 pub async fn fetch(principal: Principal) -> Vec<Holding> {
-    sleep_ms(10).await;
+    // allow other tasks to start before launching adapter queries
+    pause().await;
     let adapters: Vec<Box<dyn DexAdapter>> = vec![
         Box::new(IcpswapAdapter),
         Box::new(SonicAdapter),

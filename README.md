@@ -51,6 +51,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
   helper used across adapters
+- Adapter fetchers yield to the scheduler before starting requests, eliminating
+  the previous fixed delay
 - Wasm builds compile cleanly with no warnings
 
 ## Building
