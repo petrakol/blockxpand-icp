@@ -23,6 +23,9 @@ sha2 = "0.10"
 ic-cdk-timers = { workspace = true }
 tracing = { workspace = true }
 notify = { workspace = true }
+serde_cbor = "0.11"
+ic-certified-map = "0.4"
+serde_bytes = "0.11"
 
 [dev-dependencies]
 quickcheck = "1"

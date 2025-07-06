@@ -30,6 +30,7 @@ dependencies = [
  "ic-cdk",
  "ic-cdk-macros",
  "ic-cdk-timers",
+ "ic-certified-map",
  "notify",
  "num-bigint",
  "num-integer",
@@ -38,6 +39,8 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "serde",
+ "serde_bytes",
+ "serde_cbor",
  "serde_json",
  "serial_test",
  "sha2 0.10.9",
@@ -200,6 +203,7 @@ dependencies = [
  "ic-agent",
  "quickcheck",
  "quickcheck_macros",
+ "serde",
  "tempfile",
  "tokio",
 ]
@@ -959,6 +963,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d423020cc19ee52cb7fde4f64000d3dd6e8c5703947bf6d7911db5fb3428a8e"
 dependencies = [
  "hex",
+ "serde",
+ "serde_bytes",
+ "sha2 0.10.9",
+]
+
+[[package]]
+name = "ic-certified-map"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "197524aecec47db0b6c0c9f8821aad47272c2bd762c7a0ffe9715eaca0364061"
+dependencies = [
  "serde",
  "serde_bytes",
  "sha2 0.10.9",

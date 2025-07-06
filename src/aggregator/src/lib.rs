@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod cert;
 pub mod dex;
 pub mod dex_fetchers;
 pub mod ledger_fetcher;
@@ -30,6 +31,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         if let Some(v) = cache.get(&principal) {
             let (cached, ts) = v.value().clone();
             if now - ts < MINUTE_NS {
+                cert::update(principal, &cached);
                 let used = instructions().saturating_sub(start);
                 ic_cdk::println!(
                     "get_holdings took {used} instructions ({:.2} B)",
@@ -53,6 +55,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 
     {
         cache::get().insert(principal, (holdings.clone(), now));
+        cert::update(principal, &holdings);
     }
     let used = instructions().saturating_sub(start);
     ic_cdk::println!(
@@ -85,4 +88,25 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
 #[ic_cdk_macros::query]
 pub fn pools_graphql(query: String) -> String {
     pool_registry::graphql(query)
+}
+
+#[derive(candid::CandidType, serde::Serialize)]
+pub struct CertifiedHoldings {
+    pub holdings: Vec<Holding>,
+    #[serde(with = "serde_bytes")]
+    pub certificate: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub witness: Vec<u8>,
+}
+
+#[ic_cdk_macros::query]
+pub async fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
+    let holdings = get_holdings(principal).await;
+    let certificate = ic_cdk::api::data_certificate().unwrap_or_default();
+    let witness = cert::witness(principal);
+    CertifiedHoldings {
+        holdings,
+        certificate,
+        witness,
+    }
 }

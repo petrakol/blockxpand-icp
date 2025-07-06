@@ -71,6 +71,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - CI uses the same approach to keep secrets out of the logs
 - Integration tests spawn a lightweight dfx emulator to verify canister
   deployment end-to-end
+- `get_holdings_cert` returns a data certificate and Merkle witness for
+  tamper-proof balances
 
 ## Building
 
