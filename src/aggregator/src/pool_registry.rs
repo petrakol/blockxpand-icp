@@ -62,6 +62,18 @@ pub fn schedule_refresh() {
     });
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn schedule_refresh() {
+    use std::time::Duration;
+    tokio::spawn(async {
+        let mut timer = tokio::time::interval(Duration::from_secs(crate::utils::DAY_SECS));
+        loop {
+            timer.tick().await;
+            refresh().await;
+        }
+    });
+}
+
 pub fn graphql(_query: String) -> String {
     let data = list();
     serde_json::json!({"data": {"pools": data}}).to_string()
