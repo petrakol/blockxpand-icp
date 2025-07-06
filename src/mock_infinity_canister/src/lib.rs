@@ -1,8 +1,8 @@
 use candid::{CandidType, Nat, Principal};
 use ic_cdk_macros::{query, update};
 use once_cell::sync::Lazy;
-use std::sync::Mutex;
 use serde::Deserialize;
+use std::sync::Mutex;
 
 #[derive(CandidType, Deserialize, Clone)]
 struct Position {

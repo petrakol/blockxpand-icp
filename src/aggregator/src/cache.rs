@@ -1,13 +1,12 @@
 use bx_core::Holding;
 use candid::Principal;
+use dashmap::DashMap;
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
-use std::sync::Mutex;
 
-pub type Cache = HashMap<Principal, (Vec<Holding>, u64)>;
+pub type Cache = DashMap<Principal, (Vec<Holding>, u64)>;
 
-static CACHE: Lazy<Mutex<Cache>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static CACHE: Lazy<Cache> = Lazy::new(DashMap::new);
 
-pub fn get_mut() -> std::sync::MutexGuard<'static, Cache> {
-    CACHE.lock().unwrap()
+pub fn get() -> &'static Cache {
+    &CACHE
 }

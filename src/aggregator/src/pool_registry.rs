@@ -1,6 +1,6 @@
+use candid::CandidType;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use candid::CandidType;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -20,34 +20,57 @@ struct PoolsFile {
     pool: Vec<PoolMeta>,
 }
 
-static REGISTRY: Lazy<RwLock<HashMap<String, PoolMeta>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static REGISTRY: Lazy<RwLock<HashMap<String, PoolMeta>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
 
 pub fn list() -> Vec<PoolMeta> {
     REGISTRY.read().unwrap().values().cloned().collect()
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn refresh() {
     let path = std::env::var("POOLS_FILE").unwrap_or_else(|_| "data/pools.toml".into());
-    let content = match tokio::fs::read_to_string(&path).await {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-    let pf: PoolsFile = match toml::from_str(&content) {
-        Ok(p) => p,
-        Err(_) => return,
-    };
-    let mut map = HashMap::new();
-    for p in pf.pool.into_iter() {
-        map.insert(p.id.clone(), p);
+    match tokio::fs::read_to_string(&path).await {
+        Ok(content) => load_content(&content),
+        Err(e) => eprintln!("pool registry refresh failed: {e}"),
     }
-    *REGISTRY.write().unwrap() = map;
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn refresh() {
+    load_content(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../data/pools.toml"
+    )));
+}
+
+fn load_content(content: &str) {
+    if let Ok(pf) = toml::from_str::<PoolsFile>(content) {
+        let mut map = HashMap::new();
+        for p in pf.pool.into_iter() {
+            map.insert(p.id.clone(), p);
+        }
+        *REGISTRY.write().unwrap() = map;
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
 pub fn schedule_refresh() {
     use std::time::Duration;
-    ic_cdk_timers::set_timer_interval(Duration::from_secs(86_400), || {
+    ic_cdk_timers::set_timer_interval(Duration::from_secs(crate::utils::DAY_SECS), || {
         ic_cdk::spawn(async { refresh().await });
+    });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn schedule_refresh() {
+    use std::time::Duration;
+    tokio::spawn(async {
+        let mut timer = tokio::time::interval(Duration::from_secs(crate::utils::DAY_SECS));
+        loop {
+            timer.tick().await;
+            refresh().await;
+        }
     });
 }
 

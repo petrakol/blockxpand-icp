@@ -1,12 +1,23 @@
 use super::{DexAdapter, RewardInfo};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{
+    lp_cache,
+    utils::{format_amount, get_agent, now},
+};
 use async_trait::async_trait;
 use bx_core::Holding;
-use candid::{CandidType, Decode, Encode, Nat, Principal};
+#[cfg(not(target_arch = "wasm32"))]
+use candid::Nat;
+use candid::{CandidType, Principal};
+#[cfg(not(target_arch = "wasm32"))]
+use candid::{Decode, Encode};
+#[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use num_traits::cast::ToPrimitive;
+#[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use crate::lp_cache;
 
 pub struct InfinityAdapter;
 
@@ -16,16 +27,10 @@ struct VaultPosition {
     subaccount: Vec<u8>,
 }
 
-static META_CACHE: Lazy<DashMap<Principal, (String, u8, u64)>> = Lazy::new(DashMap::new);
-const META_TTL_NS: u64 = 86_400_000_000_000; // 24h
-
 #[cfg(not(target_arch = "wasm32"))]
-async fn get_agent() -> ic_agent::Agent {
-    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
-    let agent = ic_agent::Agent::builder().with_url(url).build().unwrap();
-    let _ = agent.fetch_root_key().await;
-    agent
-}
+static META_CACHE: Lazy<DashMap<Principal, (String, u8, u64)>> = Lazy::new(DashMap::new);
+#[cfg(not(target_arch = "wasm32"))]
+const META_TTL_NS: u64 = crate::utils::DAY_NS; // 24h
 
 #[async_trait]
 impl DexAdapter for InfinityAdapter {
@@ -45,12 +50,9 @@ impl DexAdapter for InfinityAdapter {
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
-    let vault_id = match std::env::var("INFINITY_VAULT") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Vec::new(),
-        },
-        Err(_) => return Vec::new(),
+    let vault_id = match crate::utils::env_principal("INFINITY_VAULT") {
+        Some(p) => p,
+        None => return Vec::new(),
     };
     let agent = get_agent().await;
     let arg = Encode!(&principal).unwrap();
@@ -64,7 +66,9 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         Err(_) => return Vec::new(),
     };
     let positions: Vec<VaultPosition> = Decode!(&bytes, Vec<VaultPosition>).unwrap_or_default();
-    let height = pool_height(&agent, vault_id).await.unwrap_or(0);
+    let height = crate::utils::dex_block_height(&agent, vault_id)
+        .await
+        .unwrap_or(0);
     let holdings = lp_cache::get_or_fetch(principal, "infinity", height, || async {
         let mut temp = Vec::new();
         for pos in positions {
@@ -84,7 +88,8 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
             });
         }
         temp
-    }).await;
+    })
+    .await;
     holdings
 }
 
@@ -153,63 +158,11 @@ async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(Strin
     Some((symbol, decimals))
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-async fn pool_height(agent: &ic_agent::Agent, vault: Principal) -> Option<u64> {
-    let arg = Encode!().unwrap();
-    let bytes = agent
-        .query(&vault, "block_height")
-        .with_arg(arg)
-        .call()
-        .await
-        .ok()?;
-    Decode!(&bytes, u64).ok()
-}
-
-#[cfg(target_arch = "wasm32")]
-async fn pool_height(_agent: &ic_agent::Agent, _vault: Principal) -> Option<u64> {
-    None
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn format_amount(n: Nat, decimals: u8) -> String {
-    use num_bigint::BigUint;
-    use num_integer::Integer;
-    let div = BigUint::from(10u32).pow(decimals as u32);
-    let (q, r) = n.0.div_rem(&div);
-    let mut frac = r.to_str_radix(10);
-    while frac.len() < decimals as usize {
-        frac.insert(0, '0');
-    }
-    if decimals == 0 {
-        q.to_str_radix(10)
-    } else {
-        format!("{}.{frac}", q.to_str_radix(10))
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-fn format_amount(n: Nat, _decimals: u8) -> String {
-    n.0.to_string()
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64
-}
-
-#[cfg(target_arch = "wasm32")]
-fn now() -> u64 {
-    ic_cdk::api::time()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck_macros::quickcheck;
     use candid::Principal;
+    use quickcheck_macros::quickcheck;
 
     #[tokio::test]
     async fn empty_without_env() {

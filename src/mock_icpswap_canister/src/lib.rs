@@ -1,9 +1,9 @@
+use candid::Nat;
 use candid::{CandidType, Principal};
 use ic_cdk_macros::{query, update};
 use once_cell::sync::Lazy;
-use std::sync::Mutex;
 use serde::Deserialize;
-use candid::Nat;
+use std::sync::Mutex;
 
 #[derive(CandidType, Deserialize, Clone)]
 struct UserPositionInfoWithTokenAmount {
@@ -24,7 +24,8 @@ struct PoolData {
     token0: Token,
     token1: Token,
     fee: u64,
-    tickSpacing: i32,
+    #[serde(rename = "tickSpacing")]
+    tick_spacing: i32,
     canister_id: Principal,
 }
 
@@ -69,7 +70,7 @@ fn get_pools() -> Vec<PoolData> {
             standard: "ICRC1".to_string(),
         },
         fee: 0,
-        tickSpacing: 1,
+        tick_spacing: 1,
         canister_id: ic_cdk::api::id(),
     }]
 }
@@ -90,7 +91,9 @@ fn advance_block() {
 #[candid::candid_method(update)]
 #[update]
 async fn claim(p: Principal, ledger: Principal) -> u64 {
-    let _ : () = ic_cdk::call(ledger, "credit", (p, Nat::from(50_000_000u64))).await.unwrap();
+    let _: () = ic_cdk::call(ledger, "credit", (p, Nat::from(50_000_000u64)))
+        .await
+        .unwrap();
     10_000
 }
 

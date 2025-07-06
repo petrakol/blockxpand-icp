@@ -43,12 +43,34 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 
 ### Key features
 
-- **Height-aware LP cache** with weekly eviction keeps DEX lookups fast
-- **Unified pool registry** refreshed nightly from `data/pools.toml` and
-  exported via the `pools_graphql` endpoint
+- **Height-aware LP cache** with weekly eviction keeps DEX lookups fast; the eviction timer now runs on both native and Wasm builds
+- **Unified pool registry** refreshed nightly from `data/pools.toml` using
+  asynchronous file I/O on native builds (embedded on Wasm builds via the correct
+  relative path) and exported via the `pools_graphql` endpoint. A timer schedules
+  a nightly refresh on both targets; override the path on native builds via
+  `POOLS_FILE`. For Wasm builds the file is embedded using a compile-time
+  absolute path
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
-- All fetchers run **concurrently** for minimal latency
+- All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
+- The `get_holdings` query runs ledger, neuron, and DEX fetchers concurrently
+  for the quickest possible response
+- Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
+  helper used across adapters and the ledger fetcher, plus utilities for querying
+  DEX block height and an `env_principal` helper for configuration. Invalid values
+  now print a helpful error. Parsed principals are cached so lookups only happen
+  once. The shared agent logs any root key error and is cloned after the first
+  successful initialisation to avoid repeated network handshakes
+- Includes built-in adapters for ICPSwap, Sonic and InfinitySwap
+- Common constants like `MINUTE_NS`, `DAY_NS`, `WEEK_NS`, `DAY_SECS` and `WEEK_SECS` centralise refresh durations
+- Adapter fetchers yield to the scheduler before starting requests, eliminating
+  the previous fixed delay
+- Wasm builds compile cleanly with no warnings
+- `deploy.sh` spins up a replica using a temporary identity so local tests never
+  leak a mnemonic
+- CI uses the same approach to keep secrets out of the logs
+- Integration tests spawn a lightweight dfx emulator to verify canister
+  deployment end-to-end
 
 ## Building
 
@@ -91,6 +113,18 @@ During unit tests the `LEDGERS_FILE` variable is set to
 `src/aggregator/tests/ledgers_single.toml`, which references the mock ledger
 canister.
 
+## DEX configuration
+
+Adapters for ICPSwap, Sonic and InfinitySwap locate their canisters via
+environment variables:
+
+- `ICPSWAP_FACTORY` – ICPSwap factory canister ID
+- `SONIC_ROUTER` – Sonic router canister ID
+- `INFINITY_VAULT` – InfinitySwap vault canister ID
+
+When any of these are unset the corresponding adapter simply yields no results.
+Integration tests set them automatically for the local environment.
+
 ## Deployment
 
 The `deploy.sh` script illustrates deployment using `dfx` to a local test network.
@@ -101,15 +135,18 @@ environment.
 
 ## Development workflow
 
-1. Install Rust and run `./install_dfx.sh` to install `dfx`, then add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
+1. Install Rust and run `./install_dfx.sh` to install `dfx`. Add the `wasm32-unknown-unknown` target and the `rustfmt` and `clippy` components with:
+   `rustup target add wasm32-unknown-unknown && rustup component add rustfmt clippy`.
    Set `DFX_TARBALL` to a pre-downloaded archive to install offline. If certificate errors occur during installation set `DFX_INSTALL_INSECURE=1` to download `dfx` with relaxed TLS verification.
-   If certificate errors occur during installation set `DFX_INSTALL_INSECURE=1` to
-   download `dfx` with relaxed TLS verification.
 2. Run `cargo test --quiet --all` and `cargo clippy --quiet -- -D warnings` before pushing.
    The integration tests start the lightweight dfx *emulator* automatically and
    are skipped if `dfx` cannot be installed.
 3. On pull requests the GitHub Actions workflow runs tests, clippy, and a test
    deployment via `deploy.sh`.
+4. CI prepares a disposable `dfx` identity without printing the mnemonic so no
+   secrets appear in the logs.
+5. The `deploy.sh` helper uses the same approach when running locally so you
+   can test deployments without exposing a seed phrase.
 
 ## Further reading
 

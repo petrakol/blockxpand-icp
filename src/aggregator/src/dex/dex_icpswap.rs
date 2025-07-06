@@ -1,11 +1,19 @@
 use super::{DexAdapter, RewardInfo};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{
+    lp_cache,
+    utils::{format_amount, get_agent, now},
+};
 use async_trait::async_trait;
 use bx_core::Holding;
-use candid::{CandidType, Decode, Encode, Nat, Principal};
+use candid::{CandidType, Nat, Principal};
+#[cfg(not(target_arch = "wasm32"))]
+use candid::{Decode, Encode};
+#[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use crate::lp_cache;
 
 #[derive(CandidType, Deserialize)]
 struct Token {
@@ -41,16 +49,10 @@ struct PoolMetadata {
     token1_decimals: u8,
 }
 
-static META_CACHE: Lazy<DashMap<Principal, (PoolMetadata, u64)>> = Lazy::new(DashMap::new);
-const META_TTL_NS: u64 = 86_400_000_000_000; // 24h
-
 #[cfg(not(target_arch = "wasm32"))]
-async fn get_agent() -> ic_agent::Agent {
-    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
-    let agent = ic_agent::Agent::builder().with_url(url).build().unwrap();
-    let _ = agent.fetch_root_key().await;
-    agent
-}
+static META_CACHE: Lazy<DashMap<Principal, (PoolMetadata, u64)>> = Lazy::new(DashMap::new);
+#[cfg(not(target_arch = "wasm32"))]
+const META_TTL_NS: u64 = crate::utils::DAY_NS; // 24h
 
 #[async_trait]
 impl DexAdapter for IcpswapAdapter {
@@ -72,12 +74,9 @@ pub struct IcpswapAdapter;
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
-    let factory_id = match std::env::var("ICPSWAP_FACTORY") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Vec::new(),
-        },
-        Err(_) => return Vec::new(),
+    let factory_id = match crate::utils::env_principal("ICPSWAP_FACTORY") {
+        Some(p) => p,
+        None => return Vec::new(),
     };
     let agent = get_agent().await;
     let arg = Encode!().unwrap();
@@ -93,7 +92,9 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
     let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).unwrap_or_default();
     let mut out = Vec::new();
     for pool in pools.iter() {
-        let height = pool_height(&agent, pool.canister_id).await.unwrap_or(0);
+        let height = crate::utils::dex_block_height(&agent, pool.canister_id)
+            .await
+            .unwrap_or(0);
         let pool_key = pool.key.clone();
         let holdings = lp_cache::get_or_fetch(principal, &pool_key, height, || async {
             let positions: Vec<UserPositionInfoWithTokenAmount> =
@@ -122,7 +123,8 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
                 });
             }
             temp
-        }).await;
+        })
+        .await;
         out.extend(holdings);
     }
     out
@@ -168,64 +170,17 @@ async fn fetch_meta(agent: &ic_agent::Agent, cid: Principal) -> Option<PoolMetad
     Some(meta)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-async fn pool_height(agent: &ic_agent::Agent, cid: Principal) -> Option<u64> {
-    let arg = Encode!().unwrap();
-    let bytes = agent
-        .query(&cid, "block_height")
-        .with_arg(arg)
-        .call()
-        .await
-        .ok()?;
-    Decode!(&bytes, u64).ok()
-}
-
-#[cfg(target_arch = "wasm32")]
-async fn pool_height(_agent: &ic_agent::Agent, _cid: Principal) -> Option<u64> {
-    None
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn format_amount(n: Nat, decimals: u8) -> String {
-    use num_bigint::BigUint;
-    use num_integer::Integer;
-    let div = BigUint::from(10u32).pow(decimals as u32);
-    let (q, r) = n.0.div_rem(&div);
-    let mut frac = r.to_str_radix(10);
-    while frac.len() < decimals as usize {
-        frac.insert(0, '0');
-    }
-    if decimals == 0 {
-        q.to_str_radix(10)
-    } else {
-        format!("{}.{frac}", q.to_str_radix(10))
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64
-}
-
-#[cfg(target_arch = "wasm32")]
-fn now() -> u64 {
-    ic_cdk::api::time()
-}
-
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     use crate::cache;
-    let factory_id = match std::env::var("ICPSWAP_FACTORY") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Err("factory".into()),
-        },
-        Err(_) => return Err("factory".into()),
+    let factory_id = match crate::utils::env_principal("ICPSWAP_FACTORY") {
+        Some(p) => p,
+        None => return Err("factory".into()),
     };
-    let ledger = crate::ledger_fetcher::LEDGERS.get(0).cloned().ok_or("ledger")?;
+    let ledger = crate::ledger_fetcher::LEDGERS
+        .first()
+        .cloned()
+        .ok_or("ledger")?;
     let agent = get_agent().await;
     let arg = Encode!().unwrap();
     let bytes = agent
@@ -249,8 +204,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     }
     // refresh cache
     let holdings = fetch_positions_impl(principal).await;
-    let mut cache = cache::get_mut();
-    cache.insert(principal, (holdings, now()));
+    cache::get().insert(principal, (holdings, now()));
     Ok(total)
 }
 
@@ -258,10 +212,6 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
 mod tests {
     use super::*;
     use quickcheck_macros::quickcheck;
-    use once_cell::sync::Lazy;
-    use std::sync::Mutex;
-
-    static LAST_QUERY: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(vec![]));
 
     #[tokio::test(flavor = "current_thread")]
     async fn fetch_positions_empty_without_env() {

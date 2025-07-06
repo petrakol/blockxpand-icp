@@ -1,9 +1,17 @@
 use super::{DexAdapter, RewardInfo};
+#[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
+use crate::utils::now;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{
+    lp_cache,
+    utils::{format_amount, get_agent},
+};
 use async_trait::async_trait;
 use bx_core::Holding;
-use candid::{CandidType, Decode, Encode, Nat, Principal};
+use candid::{CandidType, Nat, Principal};
+#[cfg(not(target_arch = "wasm32"))]
+use candid::{Decode, Encode};
 use serde::Deserialize;
-use crate::lp_cache;
 
 #[derive(CandidType, Deserialize, Clone)]
 struct Token {
@@ -27,21 +35,10 @@ struct PositionInfo {
 pub struct SonicAdapter;
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn get_agent() -> ic_agent::Agent {
-    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
-    let agent = ic_agent::Agent::builder().with_url(url).build().unwrap();
-    let _ = agent.fetch_root_key().await;
-    agent
-}
-
-#[cfg(not(target_arch = "wasm32"))]
 async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
-    let router_id = match std::env::var("SONIC_ROUTER") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Vec::new(),
-        },
-        Err(_) => return Vec::new(),
+    let router_id = match crate::utils::env_principal("SONIC_ROUTER") {
+        Some(p) => p,
+        None => return Vec::new(),
     };
     let agent = get_agent().await;
     let arg = Encode!(&principal).unwrap();
@@ -55,7 +52,9 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         Err(_) => return Vec::new(),
     };
     let positions: Vec<PositionInfo> = Decode!(&bytes, Vec<PositionInfo>).unwrap_or_default();
-    let height = pool_height(&agent, router_id).await.unwrap_or(0);
+    let height = crate::utils::dex_block_height(&agent, router_id)
+        .await
+        .unwrap_or(0);
     let holdings = lp_cache::get_or_fetch(principal, "sonic", height, || async {
         let mut temp = Vec::new();
         for pos in positions {
@@ -84,25 +83,9 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
             }
         }
         temp
-    }).await;
+    })
+    .await;
     holdings
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-async fn pool_height(agent: &ic_agent::Agent, router: Principal) -> Option<u64> {
-    let arg = Encode!().unwrap();
-    let bytes = agent
-        .query(&router, "block_height")
-        .with_arg(arg)
-        .call()
-        .await
-        .ok()?;
-    Decode!(&bytes, u64).ok()
-}
-
-#[cfg(target_arch = "wasm32")]
-async fn pool_height(_agent: &ic_agent::Agent, _router: Principal) -> Option<u64> {
-    None
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -110,49 +93,14 @@ async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
     Vec::new()
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn format_amount(n: Nat, decimals: u8) -> String {
-    use num_bigint::BigUint;
-    use num_integer::Integer;
-    let div = BigUint::from(10u32).pow(decimals as u32);
-    let (q, r) = n.0.div_rem(&div);
-    let mut frac = r.to_str_radix(10);
-    while frac.len() < decimals as usize {
-        frac.insert(0, '0');
-    }
-    if decimals == 0 {
-        q.to_str_radix(10)
-    } else {
-        format!("{}.{frac}", q.to_str_radix(10))
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-fn format_amount(n: Nat, _decimals: u8) -> String {
-    n.0.to_string()
-}
-#[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64
-}
-fn now() -> u64 {
-    ic_cdk::api::time()
-}
-
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 async fn claim_impl(principal: Principal) -> Result<u64, String> {
     use crate::{cache, ledger_fetcher::LEDGERS};
-    let router_id = match std::env::var("SONIC_ROUTER") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Err("router".into()),
-        },
-        Err(_) => return Err("router".into()),
+    let router_id = match crate::utils::env_principal("SONIC_ROUTER") {
+        Some(p) => p,
+        None => return Err("router".into()),
     };
-    let ledger = LEDGERS.get(0).cloned().ok_or("ledger")?;
+    let ledger = LEDGERS.first().cloned().ok_or("ledger")?;
     let agent = get_agent().await;
     let arg = Encode!(&principal, &ledger).unwrap();
     let bytes = agent
@@ -163,8 +111,7 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         .map_err(|e| e.to_string())?;
     let spent: u64 = Decode!(&bytes, u64).unwrap_or_default();
     let holdings = fetch_positions_impl(principal).await;
-    let mut cache = cache::get_mut();
-    cache.insert(principal, (holdings, now()));
+    cache::get().insert(principal, (holdings, now()));
     Ok(spent)
 }
 
@@ -187,8 +134,8 @@ impl DexAdapter for SonicAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck_macros::quickcheck;
     use candid::Principal;
+    use quickcheck_macros::quickcheck;
 
     #[tokio::test]
     async fn empty_without_env() {

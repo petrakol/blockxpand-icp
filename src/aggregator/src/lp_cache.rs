@@ -1,3 +1,4 @@
+use crate::utils::{now, WEEK_NS};
 use bx_core::Holding;
 use candid::Principal;
 use dashmap::DashMap;
@@ -12,20 +13,7 @@ struct Entry {
 
 static CACHE: Lazy<DashMap<(Principal, String), Entry>> = Lazy::new(DashMap::new);
 
-const STALE_NS: u64 = 604_800_000_000_000; // one week
-
-#[cfg(not(target_arch = "wasm32"))]
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64
-}
-
-#[cfg(target_arch = "wasm32" )]
-fn now() -> u64 {
-    ic_cdk::api::time()
-}
+const STALE_NS: u64 = WEEK_NS; // one week
 
 pub async fn get_or_fetch<F, Fut>(
     principal: Principal,
@@ -43,12 +31,13 @@ where
         }
     }
     let data = fetch().await;
+    let ts = now();
     CACHE.insert(
         (principal, pool.to_string()),
         Entry {
             data: data.clone(),
             height,
-            ts: now(),
+            ts,
         },
     );
     data
@@ -62,8 +51,20 @@ pub fn evict_stale() {
 #[cfg(target_arch = "wasm32")]
 pub fn schedule_eviction() {
     use std::time::Duration;
-    ic_cdk_timers::set_timer_interval(Duration::from_secs(604_800), || {
+    ic_cdk_timers::set_timer_interval(Duration::from_secs(crate::utils::WEEK_SECS), || {
         evict_stale();
+    });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn schedule_eviction() {
+    use std::time::Duration;
+    tokio::spawn(async {
+        let mut timer = tokio::time::interval(Duration::from_secs(crate::utils::WEEK_SECS));
+        loop {
+            timer.tick().await;
+            evict_stale();
+        }
     });
 }
 
@@ -81,21 +82,33 @@ mod tests {
         let h1 = 1u64;
         let v1 = get_or_fetch(principal, pool, h1, || async {
             CALLS.fetch_add(1, Ordering::SeqCst);
-            vec![Holding { source: "x".into(), token: "t".into(), amount: "1".into(), status: "lp_escrow".into() }]
-        }).await;
+            vec![Holding {
+                source: "x".into(),
+                token: "t".into(),
+                amount: "1".into(),
+                status: "lp_escrow".into(),
+            }]
+        })
+        .await;
         assert_eq!(CALLS.load(Ordering::SeqCst), 1);
         let v2 = get_or_fetch(principal, pool, h1, || async {
             CALLS.fetch_add(1, Ordering::SeqCst);
             vec![]
-        }).await;
+        })
+        .await;
         assert_eq!(CALLS.load(Ordering::SeqCst), 1);
         assert_eq!(v2, v1);
         let v3 = get_or_fetch(principal, pool, h1 + 1, || async {
             CALLS.fetch_add(1, Ordering::SeqCst);
-            vec![Holding { source: "x".into(), token: "t".into(), amount: "2".into(), status: "lp_escrow".into() }]
-        }).await;
+            vec![Holding {
+                source: "x".into(),
+                token: "t".into(),
+                amount: "2".into(),
+                status: "lp_escrow".into(),
+            }]
+        })
+        .await;
         assert_eq!(CALLS.load(Ordering::SeqCst), 2);
         assert_eq!(v3[0].amount, "2");
     }
 }
-

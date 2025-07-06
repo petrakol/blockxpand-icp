@@ -1,13 +1,24 @@
+#[cfg(not(target_arch = "wasm32"))]
+use crate::utils::format_amount;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::utils::DAY_NS;
 use bx_core::Holding;
-#[cfg(any(not(test), feature = "live-test"))]
+#[cfg(not(target_arch = "wasm32"))]
+use candid::Nat;
+use candid::Principal;
+#[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 use candid::{Decode, Encode};
-use candid::{Nat, Principal};
+#[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use futures::future::join_all;
+#[cfg(not(target_arch = "wasm32"))]
 use num_traits::cast::ToPrimitive;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
+#[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
+#[cfg(not(target_arch = "wasm32"))]
 use std::future::Future;
 
 // Metadata for each ledger is cached with an expiry and a stable hash.
@@ -25,10 +36,7 @@ use std::sync::Mutex;
 
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64
+    crate::utils::now()
 }
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 static TEST_NOW: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
@@ -37,8 +45,9 @@ fn now() -> u64 {
     *TEST_NOW.lock().unwrap()
 }
 #[cfg(target_arch = "wasm32")]
+#[allow(dead_code)]
 fn now() -> u64 {
-    ic_cdk::api::time()
+    crate::utils::now()
 }
 
 #[derive(Deserialize)]
@@ -67,9 +76,11 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
         .collect()
 });
 
-/// Duration that cached metadata remains valid (24h, in nanoseconds)
-const META_TTL_NS: u64 = 86_400_000_000_000;
+/// Duration that cached metadata remains valid (24h)
+#[cfg(not(target_arch = "wasm32"))]
+const META_TTL_NS: u64 = DAY_NS;
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
 struct Meta {
     symbol: String,
@@ -78,6 +89,7 @@ struct Meta {
     hash: [u8; 32],
     expires: u64,
 }
+#[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
 
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
@@ -131,13 +143,9 @@ where
     unreachable!()
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 async fn get_agent() -> Agent {
-    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".to_string());
-    let agent = Agent::builder().with_url(url).build().unwrap();
-    let _ = agent.fetch_root_key().await;
-    agent
+    crate::utils::get_agent().await
 }
 
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
@@ -315,23 +323,6 @@ async fn fetch_metadata(
         },
     );
     Ok((symbol, decimals, fee))
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn format_amount(nat: Nat, decimals: u8) -> String {
-    use num_bigint::BigUint;
-    use num_integer::Integer;
-    let div = BigUint::from(10u32).pow(decimals as u32);
-    let (q, r) = nat.0.div_rem(&div);
-    let mut frac = r.to_str_radix(10);
-    while frac.len() < decimals as usize {
-        frac.insert(0, '0');
-    }
-    if decimals == 0 {
-        q.to_str_radix(10)
-    } else {
-        format!("{}.{frac}", q.to_str_radix(10))
-    }
 }
 
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
