@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     }
 
     if !failures.is_empty() {
-        eprintln!("Reward math drift detected: {:?}", failures);
+        eprintln!("Reward math drift detected: {failures:?}");
         std::process::exit(1);
     }
     Ok(())
