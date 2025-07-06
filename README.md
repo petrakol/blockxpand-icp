@@ -43,7 +43,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 
 ### Key features
 
-- **Height-aware LP cache** with weekly eviction keeps DEX lookups fast
+- **Height-aware LP cache** with weekly eviction keeps DEX lookups fast; the eviction timer now runs on both native and Wasm builds
 - **Unified pool registry** refreshed nightly from `data/pools.toml` using
   asynchronous file I/O on native builds (embedded on Wasm builds via the correct
   relative path) and exported via the `pools_graphql` endpoint. A timer schedules

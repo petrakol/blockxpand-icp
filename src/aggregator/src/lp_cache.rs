@@ -56,6 +56,18 @@ pub fn schedule_eviction() {
     });
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn schedule_eviction() {
+    use std::time::Duration;
+    tokio::spawn(async {
+        let mut timer = tokio::time::interval(Duration::from_secs(crate::utils::WEEK_SECS));
+        loop {
+            timer.tick().await;
+            evict_stale();
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
