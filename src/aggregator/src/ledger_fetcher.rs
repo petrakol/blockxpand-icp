@@ -36,10 +36,7 @@ use std::sync::Mutex;
 
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64
+    crate::utils::now()
 }
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 static TEST_NOW: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
@@ -50,7 +47,7 @@ fn now() -> u64 {
 #[cfg(target_arch = "wasm32")]
 #[allow(dead_code)]
 fn now() -> u64 {
-    ic_cdk::api::time()
+    crate::utils::now()
 }
 
 #[derive(Deserialize)]

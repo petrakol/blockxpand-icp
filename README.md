@@ -56,10 +56,11 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - The `get_holdings` query runs ledger, neuron, and DEX fetchers concurrently
   for the quickest possible response
 - Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
-  helper used across adapters, plus utilities for querying DEX block height and
-  an `env_principal` helper for configuration. Invalid values now print a
-  helpful error. Parsed principals are cached so lookups only happen once. The
-  agent is initialised once and cloned, avoiding repeated network handshakes
+  helper used across adapters and the ledger fetcher, plus utilities for querying
+  DEX block height and an `env_principal` helper for configuration. Invalid values
+  now print a helpful error. Parsed principals are cached so lookups only happen
+  once. The agent is initialised once and cloned, avoiding repeated network
+  handshakes
 - Includes built-in adapters for ICPSwap, Sonic and InfinitySwap
 - Common constants like `MINUTE_NS`, `DAY_NS`, `WEEK_NS`, `DAY_SECS` and `WEEK_SECS` centralise refresh durations
 - Adapter fetchers yield to the scheduler before starting requests, eliminating
