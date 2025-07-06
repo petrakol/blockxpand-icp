@@ -55,6 +55,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Adapter fetchers yield to the scheduler before starting requests, eliminating
   the previous fixed delay
 - Wasm builds compile cleanly with no warnings
+- `deploy.sh` spins up a replica using a temporary identity so local tests never
+  leak a mnemonic
 
 ## Building
 
@@ -109,8 +111,6 @@ environment.
 
 1. Install Rust and run `./install_dfx.sh` to install `dfx`, then add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
    Set `DFX_TARBALL` to a pre-downloaded archive to install offline. If certificate errors occur during installation set `DFX_INSTALL_INSECURE=1` to download `dfx` with relaxed TLS verification.
-   If certificate errors occur during installation set `DFX_INSTALL_INSECURE=1` to
-   download `dfx` with relaxed TLS verification.
 2. Run `cargo test --quiet --all` and `cargo clippy --quiet -- -D warnings` before pushing.
    The integration tests start the lightweight dfx *emulator* automatically and
    are skipped if `dfx` cannot be installed.
@@ -118,6 +118,8 @@ environment.
    deployment via `deploy.sh`.
 4. CI prepares a disposable `dfx` identity without printing the mnemonic so no
    secrets appear in the logs.
+5. The `deploy.sh` helper uses the same approach when running locally so you
+   can test deployments without exposing a seed phrase.
 
 ## Further reading
 
