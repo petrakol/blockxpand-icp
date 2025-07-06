@@ -46,14 +46,15 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - **Height-aware LP cache** with weekly eviction keeps DEX lookups fast
 - **Unified pool registry** refreshed nightly from `data/pools.toml` (embedded on
   Wasm builds via the correct relative path) and exported via the `pools_graphql`
-  endpoint; override the path on native builds via `POOLS_FILE`
+  endpoint; override the path on native builds via `POOLS_FILE`. For Wasm
+  builds the file is embedded using a compile-time absolute path
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
   helper used across adapters, plus an `env_principal` helper for DEX
-  configuration. The agent is initialised once and cloned, avoiding repeated
-  network handshakes
+  configuration. Invalid values now print a helpful error. The agent is
+  initialised once and cloned, avoiding repeated network handshakes
 - Includes built-in adapters for ICPSwap, Sonic and InfinitySwap
 - Common constants like `MINUTE_NS`, `DAY_NS` and `WEEK_NS` centralise refresh durations
 - Adapter fetchers yield to the scheduler before starting requests, eliminating

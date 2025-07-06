@@ -38,7 +38,10 @@ pub async fn refresh() {
 
 #[cfg(target_arch = "wasm32")]
 pub async fn refresh() {
-    load_content(include_str!("../../../data/pools.toml"));
+    load_content(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../data/pools.toml"
+    )));
 }
 
 fn load_content(content: &str) {

@@ -60,7 +60,14 @@ pub async fn get_agent() -> ic_agent::Agent {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn env_principal(name: &str) -> Option<candid::Principal> {
-    std::env::var(name)
-        .ok()
-        .and_then(|v| candid::Principal::from_text(v).ok())
+    match std::env::var(name) {
+        Ok(v) => match candid::Principal::from_text(&v) {
+            Ok(p) => Some(p),
+            Err(e) => {
+                eprintln!("{name} is not a valid principal: {e}");
+                None
+            }
+        },
+        Err(_) => None,
+    }
 }
