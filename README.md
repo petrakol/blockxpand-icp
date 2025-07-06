@@ -116,14 +116,18 @@ canister.
 ## DEX configuration
 
 Adapters for ICPSwap, Sonic and InfinitySwap locate their canisters via
-environment variables:
+environment variables.  Fallback IDs are defined in `config/ledgers.toml`
+so a fresh checkout without any variables still returns data.  Run
+`scripts/fetch_env.sh` to populate the variables from the public SNS
+registry:
 
 - `ICPSWAP_FACTORY` – ICPSwap factory canister ID
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
 
-When any of these are unset the corresponding adapter simply yields no results.
-Integration tests set them automatically for the local environment.
+When any of these are unset a warning is logged and the fallback from
+`ledgers.toml` is used.  Integration tests set them automatically for the
+local environment.
 
 ## Deployment
 

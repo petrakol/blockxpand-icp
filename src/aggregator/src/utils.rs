@@ -74,7 +74,34 @@ pub async fn get_agent() -> ic_agent::Agent {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
+static DEX_DEFAULTS: once_cell::sync::Lazy<std::collections::HashMap<String, candid::Principal>> =
+    once_cell::sync::Lazy::new(|| {
+        let path =
+            std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        let value: toml::Value =
+            toml::from_str(&text).unwrap_or(toml::Value::Table(Default::default()));
+        value
+            .get("dex")
+            .and_then(|d| d.as_table())
+            .map(|table| {
+                table
+                    .iter()
+                    .filter_map(|(k, v)| {
+                        v.as_str()
+                            .and_then(|id| candid::Principal::from_text(id).ok())
+                            .map(|p| (k.clone(), p))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    });
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn env_principal(name: &str) -> Option<candid::Principal> {
+    use tracing::warn;
+
     if let Some(p) = PRINCIPAL_CACHE.read().unwrap().get(name) {
         return *p;
     }
@@ -86,7 +113,15 @@ pub fn env_principal(name: &str) -> Option<candid::Principal> {
                 None
             }
         },
-        Err(_) => None,
+        Err(_) => {
+            if let Some(p) = DEX_DEFAULTS.get(name) {
+                warn!("{name} missing; using fallback from ledgers.toml");
+                Some(*p)
+            } else {
+                warn!("environment variable {name} not set");
+                None
+            }
+        }
     };
     PRINCIPAL_CACHE
         .write()
