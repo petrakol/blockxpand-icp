@@ -51,7 +51,7 @@ pub fn evict_stale() {
 #[cfg(target_arch = "wasm32")]
 pub fn schedule_eviction() {
     use std::time::Duration;
-    ic_cdk_timers::set_timer_interval(Duration::from_secs(604_800), || {
+    ic_cdk_timers::set_timer_interval(Duration::from_secs(crate::utils::DAY_SECS * 7), || {
         evict_stale();
     });
 }

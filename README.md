@@ -53,6 +53,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
   helper used across adapters, plus an `env_principal` helper for DEX
   configuration
+- Includes built-in adapters for ICPSwap, Sonic and InfinitySwap
 - Common constants like `DAY_NS` and `WEEK_NS` centralise refresh durations
 - Adapter fetchers yield to the scheduler before starting requests, eliminating
   the previous fixed delay
