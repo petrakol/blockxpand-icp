@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/dfinity/agent-rs"><img src="https://img.shields.io/badge/Rust-1.74-blue?logo=rust" alt="Rust"></a>
-  <a href="https://github.com/actions"><img src="https://github.com/<user>/<repo>/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/petrakol/blockxpand-icp/actions"><img src="https://github.com/petrakol/blockxpand-icp/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <img alt="cycles per query" src="https://img.shields.io/badge/cycles%20cost-%3C3B-brightgreen">
   <img alt="latency" src="https://img.shields.io/badge/p95%20latency-142&nbsp;ms-green">
 </p>
@@ -40,6 +40,15 @@ listed in `config/ledgers.toml`. Metadata (symbol and decimals) is cached for
 Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 `src/aggregator/src/dex`. Reward claiming APIs are gated by the optional
 `claim` feature flag.
+
+### Key features
+
+- **Height-aware LP cache** with weekly eviction keeps DEX lookups fast
+- **Unified pool registry** refreshed nightly from `data/pools.toml` and
+  exported via the `pools_graphql` endpoint
+- Optional **reward claiming** via `claim_all_rewards` behind the `claim`
+  feature flag
+- All fetchers run **concurrently** for minimal latency
 
 ## Building
 
@@ -93,7 +102,7 @@ environment.
 ## Development workflow
 
 1. Install Rust and run `./install_dfx.sh` to install `dfx`, then add the `wasm32-unknown-unknown` target with `rustup target add wasm32-unknown-unknown`.
-   Set `DFX_TARBALL` to a pre-downloaded archive to install offline.
+   Set `DFX_TARBALL` to a pre-downloaded archive to install offline. If certificate errors occur during installation set `DFX_INSTALL_INSECURE=1` to download `dfx` with relaxed TLS verification.
    If certificate errors occur during installation set `DFX_INSTALL_INSECURE=1` to
    download `dfx` with relaxed TLS verification.
 2. Run `cargo test --quiet --all` and `cargo clippy --quiet -- -D warnings` before pushing.
@@ -101,4 +110,9 @@ environment.
    are skipped if `dfx` cannot be installed.
 3. On pull requests the GitHub Actions workflow runs tests, clippy, and a test
    deployment via `deploy.sh`.
+
+## Further reading
+
+- [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) summarises the latest security audit
+- [docs/DEX_API_matrix.md](docs/DEX_API_matrix.md) lists known DEX canister APIs
 

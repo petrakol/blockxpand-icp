@@ -96,10 +96,10 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         let height = pool_height(&agent, pool.canister_id).await.unwrap_or(0);
         let pool_key = pool.key.clone();
         let holdings = lp_cache::get_or_fetch(principal, &pool_key, height, || async {
-            let positions = match query_positions(&agent, pool.canister_id, principal).await {
-                Some(v) => v,
-                None => Vec::new(),
-            };
+            let positions: Vec<UserPositionInfoWithTokenAmount> =
+                query_positions(&agent, pool.canister_id, principal)
+                    .await
+                    .unwrap_or_default();
             let meta = match fetch_meta(&agent, pool.canister_id).await {
                 Some(m) => m,
                 None => return Vec::new(),

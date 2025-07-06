@@ -1224,6 +1224,19 @@ dependencies = [
  "candid",
  "ic-cdk",
  "ic-cdk-macros",
+ "num-traits",
+ "once_cell",
+ "serde",
+]
+
+[[package]]
+name = "mock_sonic_canister"
+version = "0.1.0"
+dependencies = [
+ "candid",
+ "ic-cdk",
+ "ic-cdk-macros",
+ "once_cell",
  "serde",
 ]
 
