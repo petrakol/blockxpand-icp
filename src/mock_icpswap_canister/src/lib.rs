@@ -24,7 +24,8 @@ struct PoolData {
     token0: Token,
     token1: Token,
     fee: u64,
-    tickSpacing: i32,
+    #[serde(rename = "tickSpacing")]
+    tick_spacing: i32,
     canister_id: Principal,
 }
 
@@ -69,7 +70,7 @@ fn get_pools() -> Vec<PoolData> {
             standard: "ICRC1".to_string(),
         },
         fee: 0,
-        tickSpacing: 1,
+        tick_spacing: 1,
         canister_id: ic_cdk::api::id(),
     }]
 }
