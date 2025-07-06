@@ -1,5 +1,10 @@
 use candid::Nat;
 
+/// Nanoseconds in one day and one week
+pub const DAY_NS: u64 = 86_400_000_000_000;
+pub const WEEK_NS: u64 = DAY_NS * 7;
+pub const DAY_SECS: u64 = 86_400;
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn now() -> u64 {
     std::time::SystemTime::now()

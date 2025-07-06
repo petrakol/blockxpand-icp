@@ -54,7 +54,7 @@ fn load_content(content: &str) {
 #[cfg(target_arch = "wasm32")]
 pub fn schedule_refresh() {
     use std::time::Duration;
-    ic_cdk_timers::set_timer_interval(Duration::from_secs(86_400), || {
+    ic_cdk_timers::set_timer_interval(Duration::from_secs(crate::utils::DAY_SECS), || {
         ic_cdk::spawn(async { refresh().await });
     });
 }

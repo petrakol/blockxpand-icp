@@ -30,7 +30,7 @@ struct VaultPosition {
 #[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, (String, u8, u64)>> = Lazy::new(DashMap::new);
 #[cfg(not(target_arch = "wasm32"))]
-const META_TTL_NS: u64 = 86_400_000_000_000; // 24h
+const META_TTL_NS: u64 = crate::utils::DAY_NS; // 24h
 
 #[async_trait]
 impl DexAdapter for InfinityAdapter {

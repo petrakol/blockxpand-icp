@@ -1,4 +1,4 @@
-use crate::utils::now;
+use crate::utils::{now, WEEK_NS};
 use bx_core::Holding;
 use candid::Principal;
 use dashmap::DashMap;
@@ -13,7 +13,7 @@ struct Entry {
 
 static CACHE: Lazy<DashMap<(Principal, String), Entry>> = Lazy::new(DashMap::new);
 
-const STALE_NS: u64 = 604_800_000_000_000; // one week
+const STALE_NS: u64 = WEEK_NS; // one week
 
 pub async fn get_or_fetch<F, Fut>(
     principal: Principal,

@@ -1,5 +1,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::format_amount;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::utils::DAY_NS;
 use bx_core::Holding;
 #[cfg(not(target_arch = "wasm32"))]
 use candid::Nat;
@@ -77,9 +79,9 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
         .collect()
 });
 
-/// Duration that cached metadata remains valid (24h, in nanoseconds)
+/// Duration that cached metadata remains valid (24h)
 #[cfg(not(target_arch = "wasm32"))]
-const META_TTL_NS: u64 = 86_400_000_000_000;
+const META_TTL_NS: u64 = DAY_NS;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
