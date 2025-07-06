@@ -132,7 +132,7 @@ fn format_amount(n: Nat, _decimals: u8) -> String {
     n.0.to_string()
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -140,7 +140,7 @@ fn now() -> u64 {
         .as_nanos() as u64
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(feature = "claim", target_arch = "wasm32"))]
 fn now() -> u64 {
     ic_cdk::api::time()
 }

@@ -17,9 +17,6 @@ static DEX_ADAPTERS: Lazy<Vec<Box<dyn DexAdapter>>> = Lazy::new(|| {
 });
 
 pub async fn fetch(principal: Principal) -> Vec<Holding> {
-    let futs = DEX_ADAPTERS.iter().map(|a| {
-        let p = principal.clone();
-        async move { a.fetch_positions(p).await }
-    });
+    let futs = DEX_ADAPTERS.iter().map(|a| async move { a.fetch_positions(principal).await });
     join_all(futs).await.into_iter().flatten().collect()
 }
