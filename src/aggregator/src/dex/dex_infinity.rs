@@ -1,15 +1,21 @@
 use super::{DexAdapter, RewardInfo};
 #[cfg(not(target_arch = "wasm32"))]
-use crate::utils::get_agent;
 use crate::{
     lp_cache,
-    utils::{format_amount, now},
+    utils::{format_amount, get_agent, now},
 };
 use async_trait::async_trait;
 use bx_core::Holding;
-use candid::{CandidType, Decode, Encode, Nat, Principal};
+#[cfg(not(target_arch = "wasm32"))]
+use candid::Nat;
+use candid::{CandidType, Principal};
+#[cfg(not(target_arch = "wasm32"))]
+use candid::{Decode, Encode};
+#[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use num_traits::cast::ToPrimitive;
+#[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 
@@ -21,7 +27,9 @@ struct VaultPosition {
     subaccount: Vec<u8>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, (String, u8, u64)>> = Lazy::new(DashMap::new);
+#[cfg(not(target_arch = "wasm32"))]
 const META_TTL_NS: u64 = 86_400_000_000_000; // 24h
 
 #[async_trait]

@@ -1,12 +1,16 @@
 use super::{DexAdapter, RewardInfo};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::utils::get_agent;
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 use crate::utils::now;
-use crate::{lp_cache, utils::format_amount};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{
+    lp_cache,
+    utils::{format_amount, get_agent},
+};
 use async_trait::async_trait;
 use bx_core::Holding;
-use candid::{CandidType, Decode, Encode, Nat, Principal};
+use candid::{CandidType, Nat, Principal};
+#[cfg(not(target_arch = "wasm32"))]
+use candid::{Decode, Encode};
 use serde::Deserialize;
 
 #[derive(CandidType, Deserialize, Clone)]

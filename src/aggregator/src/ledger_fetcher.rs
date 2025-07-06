@@ -1,14 +1,22 @@
+#[cfg(not(target_arch = "wasm32"))]
 use crate::utils::format_amount;
 use bx_core::Holding;
-#[cfg(any(not(test), feature = "live-test"))]
+#[cfg(not(target_arch = "wasm32"))]
+use candid::Nat;
+use candid::Principal;
+#[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 use candid::{Decode, Encode};
-use candid::{Nat, Principal};
+#[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use futures::future::join_all;
+#[cfg(not(target_arch = "wasm32"))]
 use num_traits::cast::ToPrimitive;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
+#[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
+#[cfg(not(target_arch = "wasm32"))]
 use std::future::Future;
 
 // Metadata for each ledger is cached with an expiry and a stable hash.
@@ -38,6 +46,7 @@ fn now() -> u64 {
     *TEST_NOW.lock().unwrap()
 }
 #[cfg(target_arch = "wasm32")]
+#[allow(dead_code)]
 fn now() -> u64 {
     ic_cdk::api::time()
 }
@@ -69,8 +78,10 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
 });
 
 /// Duration that cached metadata remains valid (24h, in nanoseconds)
+#[cfg(not(target_arch = "wasm32"))]
 const META_TTL_NS: u64 = 86_400_000_000_000;
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
 struct Meta {
     symbol: String,
@@ -79,6 +90,7 @@ struct Meta {
     hash: [u8; 32],
     expires: u64,
 }
+#[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
 
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
