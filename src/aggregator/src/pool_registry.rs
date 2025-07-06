@@ -37,7 +37,7 @@ pub async fn refresh() {
 
 #[cfg(target_arch = "wasm32")]
 pub async fn refresh() {
-    load_content(include_str!("../../data/pools.toml"));
+    load_content(include_str!("../../../data/pools.toml"));
 }
 
 fn load_content(content: &str) {
