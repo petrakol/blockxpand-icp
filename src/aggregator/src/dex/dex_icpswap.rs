@@ -92,7 +92,9 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
     let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).unwrap_or_default();
     let mut out = Vec::new();
     for pool in pools.iter() {
-        let height = pool_height(&agent, pool.canister_id).await.unwrap_or(0);
+        let height = crate::utils::dex_block_height(&agent, pool.canister_id)
+            .await
+            .unwrap_or(0);
         let pool_key = pool.key.clone();
         let holdings = lp_cache::get_or_fetch(principal, &pool_key, height, || async {
             let positions: Vec<UserPositionInfoWithTokenAmount> =
@@ -168,17 +170,7 @@ async fn fetch_meta(agent: &ic_agent::Agent, cid: Principal) -> Option<PoolMetad
     Some(meta)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-async fn pool_height(agent: &ic_agent::Agent, cid: Principal) -> Option<u64> {
-    let arg = Encode!().unwrap();
-    let bytes = agent
-        .query(&cid, "block_height")
-        .with_arg(arg)
-        .call()
-        .await
-        .ok()?;
-    Decode!(&bytes, u64).ok()
-}
+
 
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {

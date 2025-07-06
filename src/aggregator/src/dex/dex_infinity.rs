@@ -66,7 +66,9 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         Err(_) => return Vec::new(),
     };
     let positions: Vec<VaultPosition> = Decode!(&bytes, Vec<VaultPosition>).unwrap_or_default();
-    let height = pool_height(&agent, vault_id).await.unwrap_or(0);
+    let height = crate::utils::dex_block_height(&agent, vault_id)
+        .await
+        .unwrap_or(0);
     let holdings = lp_cache::get_or_fetch(principal, "infinity", height, || async {
         let mut temp = Vec::new();
         for pos in positions {
@@ -156,17 +158,7 @@ async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(Strin
     Some((symbol, decimals))
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-async fn pool_height(agent: &ic_agent::Agent, vault: Principal) -> Option<u64> {
-    let arg = Encode!().unwrap();
-    let bytes = agent
-        .query(&vault, "block_height")
-        .with_arg(arg)
-        .call()
-        .await
-        .ok()?;
-    Decode!(&bytes, u64).ok()
-}
+
 
 #[cfg(test)]
 mod tests {

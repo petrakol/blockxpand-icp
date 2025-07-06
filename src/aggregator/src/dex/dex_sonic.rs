@@ -52,7 +52,9 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         Err(_) => return Vec::new(),
     };
     let positions: Vec<PositionInfo> = Decode!(&bytes, Vec<PositionInfo>).unwrap_or_default();
-    let height = pool_height(&agent, router_id).await.unwrap_or(0);
+    let height = crate::utils::dex_block_height(&agent, router_id)
+        .await
+        .unwrap_or(0);
     let holdings = lp_cache::get_or_fetch(principal, "sonic", height, || async {
         let mut temp = Vec::new();
         for pos in positions {
@@ -86,17 +88,7 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
     holdings
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-async fn pool_height(agent: &ic_agent::Agent, router: Principal) -> Option<u64> {
-    let arg = Encode!().unwrap();
-    let bytes = agent
-        .query(&router, "block_height")
-        .with_arg(arg)
-        .call()
-        .await
-        .ok()?;
-    Decode!(&bytes, u64).ok()
-}
+
 
 #[cfg(target_arch = "wasm32")]
 async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {

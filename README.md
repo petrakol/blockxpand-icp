@@ -52,8 +52,9 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   feature flag
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
-  helper used across adapters, plus an `env_principal` helper for DEX
-  configuration. Invalid values now print a helpful error. The agent is
+  helper used across adapters, plus utilities for querying DEX block height and
+  an `env_principal` helper for configuration. Invalid values now print a
+  helpful error. The agent is
   initialised once and cloned, avoiding repeated network handshakes
 - Includes built-in adapters for ICPSwap, Sonic and InfinitySwap
 - Common constants like `MINUTE_NS`, `DAY_NS` and `WEEK_NS` centralise refresh durations
