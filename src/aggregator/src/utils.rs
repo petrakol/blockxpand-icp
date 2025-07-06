@@ -1,6 +1,10 @@
 use candid::Nat;
 #[cfg(not(target_arch = "wasm32"))]
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
+#[cfg(not(target_arch = "wasm32"))]
+use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::RwLock;
 
 /// Common time constants in nanoseconds
 pub const MINUTE_NS: u64 = 60_000_000_000;
@@ -49,6 +53,10 @@ pub fn format_amount(n: Nat, _decimals: u8) -> String {
 static AGENT: OnceCell<ic_agent::Agent> = OnceCell::new();
 
 #[cfg(not(target_arch = "wasm32"))]
+static PRINCIPAL_CACHE: Lazy<RwLock<HashMap<String, Option<candid::Principal>>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
+
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn get_agent() -> ic_agent::Agent {
     if let Some(a) = AGENT.get() {
         return a.clone();
@@ -62,7 +70,10 @@ pub async fn get_agent() -> ic_agent::Agent {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn env_principal(name: &str) -> Option<candid::Principal> {
-    match std::env::var(name) {
+    if let Some(p) = PRINCIPAL_CACHE.read().unwrap().get(name) {
+        return *p;
+    }
+    let val = match std::env::var(name) {
         Ok(v) => match candid::Principal::from_text(&v) {
             Ok(p) => Some(p),
             Err(e) => {
@@ -71,7 +82,12 @@ pub fn env_principal(name: &str) -> Option<candid::Principal> {
             }
         },
         Err(_) => None,
-    }
+    };
+    PRINCIPAL_CACHE
+        .write()
+        .unwrap()
+        .insert(name.to_string(), val);
+    val
 }
 
 #[cfg(not(target_arch = "wasm32"))]
