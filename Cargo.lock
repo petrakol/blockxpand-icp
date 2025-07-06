@@ -214,9 +214,11 @@ name = "blockxpand_icp"
 version = "0.1.0"
 dependencies = [
  "aggregator",
+ "anyhow",
  "bx_core",
  "candid",
  "ic-agent",
+ "num-traits",
  "quickcheck",
  "quickcheck_macros",
  "serde",
