@@ -52,7 +52,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
   helper used across adapters, plus an `env_principal` helper for DEX
-  configuration
+  configuration. The agent is initialised once and cloned, avoiding repeated
+  network handshakes
 - Includes built-in adapters for ICPSwap, Sonic and InfinitySwap
 - Common constants like `MINUTE_NS`, `DAY_NS` and `WEEK_NS` centralise refresh durations
 - Adapter fetchers yield to the scheduler before starting requests, eliminating

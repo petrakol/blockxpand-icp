@@ -1,4 +1,6 @@
 use candid::Nat;
+#[cfg(not(target_arch = "wasm32"))]
+use once_cell::sync::OnceCell;
 
 /// Common time constants in nanoseconds
 pub const MINUTE_NS: u64 = 60_000_000_000;
@@ -42,10 +44,17 @@ pub fn format_amount(n: Nat, _decimals: u8) -> String {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+static AGENT: OnceCell<ic_agent::Agent> = OnceCell::new();
+
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn get_agent() -> ic_agent::Agent {
+    if let Some(a) = AGENT.get() {
+        return a.clone();
+    }
     let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
     let agent = ic_agent::Agent::builder().with_url(url).build().unwrap();
     let _ = agent.fetch_root_key().await;
+    let _ = AGENT.set(agent.clone());
     agent
 }
 
