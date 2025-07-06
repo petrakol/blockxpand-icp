@@ -75,54 +75,232 @@ pub async fn get_agent() -> ic_agent::Agent {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
-static DEX_DEFAULTS: once_cell::sync::Lazy<std::collections::HashMap<String, candid::Principal>> =
-    once_cell::sync::Lazy::new(|| {
-        let path =
-            std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
-        let text = std::fs::read_to_string(path).unwrap_or_default();
-        let value: toml::Value =
-            toml::from_str(&text).unwrap_or(toml::Value::Table(Default::default()));
-        value
-            .get("dex")
-            .and_then(|d| d.as_table())
-            .map(|table| {
-                table
-                    .iter()
-                    .filter_map(|(k, v)| {
-                        v.as_str()
-                            .and_then(|id| candid::Principal::from_text(id).ok())
-                            .map(|p| (k.clone(), p))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
+pub struct DexEntry {
+    pub id: candid::Principal,
+    pub controller: Option<candid::Principal>,
+    pub enabled: bool,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+static DEX_CONFIG: once_cell::sync::Lazy<
+    std::sync::RwLock<std::collections::HashMap<String, DexEntry>>,
+> = once_cell::sync::Lazy::new(|| std::sync::RwLock::new(std::collections::HashMap::new()));
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn load_dex_config() {
+    use tracing::info;
+    use tracing::warn;
+
+    let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let value: toml::Value =
+        toml::from_str(&text).unwrap_or(toml::Value::Table(Default::default()));
+
+    let dex_table = value
+        .get("dex")
+        .and_then(|d| d.as_table())
+        .cloned()
+        .unwrap_or_default();
+    let ctrl_table = value
+        .get("dex_controllers")
+        .and_then(|d| d.as_table())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut map = std::collections::HashMap::new();
+    for (name, val) in dex_table.iter() {
+        if let Some(id_str) = val.as_str() {
+            if let Ok(id) = candid::Principal::from_text(id_str) {
+                let controller = ctrl_table
+                    .get(name)
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| candid::Principal::from_text(s).ok());
+                map.insert(
+                    name.clone(),
+                    DexEntry {
+                        id,
+                        controller,
+                        enabled: true,
+                    },
+                );
+            }
+        }
+    }
+
+    {
+        let mut cfg = DEX_CONFIG.write().unwrap();
+        *cfg = map;
+    }
+
+    for key in ["ICPSWAP_FACTORY", "SONIC_ROUTER", "INFINITY_VAULT"] {
+        if let Ok(val) = std::env::var(key) {
+            match candid::Principal::from_text(&val) {
+                Ok(p) => {
+                    info!("{key} set; overriding ledgers.toml value");
+                    if let Some(e) = DEX_CONFIG.write().unwrap().get_mut(key) {
+                        e.id = p;
+                        e.enabled = true;
+                    } else {
+                        DEX_CONFIG.write().unwrap().insert(
+                            key.to_string(),
+                            DexEntry {
+                                id: p,
+                                controller: None,
+                                enabled: true,
+                            },
+                        );
+                    }
+                }
+                Err(e) => warn!("{key} is not a valid principal: {e}"),
+            }
+        } else {
+            info!("{key} not set; using ledgers.toml value");
+        }
+    }
+
+    sanity_check_dex().await;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn sanity_check_dex() {
+    use tracing::error;
+    let agent = get_agent().await;
+    let names: Vec<String> = { DEX_CONFIG.read().unwrap().keys().cloned().collect() };
+    for name in names {
+        let id;
+        let controller;
+        {
+            let cfg = DEX_CONFIG.read().unwrap();
+            if let Some(e) = cfg.get(&name) {
+                if !e.enabled { continue; }
+                id = e.id;
+                controller = e.controller;
+            } else {
+                continue;
+            }
+        }
+        let mut disable = false;
+        if icrc1_metadata(&agent, id).await.is_none() {
+            error!("{name} metadata failed; disabling adapter");
+            disable = true;
+        } else if let Some(c) = controller {
+            if !controller_matches(&agent, id, c).await {
+                error!("{name} controller mismatch; disabling adapter");
+                disable = true;
+            }
+        }
+        if disable {
+            if let Some(e) = DEX_CONFIG.write().unwrap().get_mut(&name) {
+                e.enabled = false;
+            }
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn icrc1_metadata(
+    agent: &ic_agent::Agent,
+    cid: candid::Principal,
+) -> Option<Vec<(String, candid::types::value::IDLValue)>> {
+    use candid::{Decode, Encode};
+    let arg = Encode!().unwrap();
+    let bytes = agent
+        .query(&cid, "icrc1_metadata")
+        .with_arg(arg)
+        .call()
+        .await
+        .ok()?;
+    Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>).ok()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn controller_matches(
+    agent: &ic_agent::Agent,
+    cid: candid::Principal,
+    expected: candid::Principal,
+) -> bool {
+    use candid::{CandidType, Decode, Encode};
+    use serde::Deserialize;
+
+    #[derive(CandidType)]
+    struct Req {
+        canister_id: candid::Principal,
+        num_requested_changes: Option<u64>,
+    }
+
+    #[derive(CandidType, Deserialize)]
+    struct Resp {
+        controllers: Vec<candid::Principal>,
+    }
+
+    let arg = Encode!(&Req {
+        canister_id: cid,
+        num_requested_changes: Some(0)
+    })
+    .unwrap();
+    let bytes = match agent
+        .query(&candid::Principal::management_canister(), "canister_info")
+        .with_arg(arg)
+        .call()
+        .await
+    {
+        Ok(b) => b,
+        Err(_) => return false,
+    };
+    let resp: Resp = match Decode!(&bytes, Resp) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    resp.controllers.contains(&expected)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+static mut WATCHER: Option<notify::RecommendedWatcher> = None;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn watch_dex_config() {
+    use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+    use std::path::Path;
+    let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut watcher = RecommendedWatcher::new(
+        move |res: notify::Result<notify::Event>| {
+            if let Ok(ev) = res {
+                if matches!(ev.kind, EventKind::Modify(_) | EventKind::Create(_)) {
+                    let _ = tx.send(());
+                }
+            }
+        },
+        notify::Config::default(),
+    )
+    .expect("watcher");
+    watcher
+        .watch(Path::new(&path), RecursiveMode::NonRecursive)
+        .expect("watch ledgers");
+    unsafe {
+        WATCHER = Some(watcher);
+    }
+    tokio::spawn(async move {
+        while rx.recv().await.is_some() {
+            load_dex_config().await;
+            crate::dex::dex_icpswap::clear_cache();
+            crate::dex::dex_sonic::clear_cache();
+            crate::dex::dex_infinity::clear_cache();
+        }
     });
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn env_principal(name: &str) -> Option<candid::Principal> {
-    use tracing::warn;
-
     if let Some(p) = PRINCIPAL_CACHE.read().unwrap().get(name) {
         return *p;
     }
-    let val = match std::env::var(name) {
-        Ok(v) => match candid::Principal::from_text(&v) {
-            Ok(p) => Some(p),
-            Err(e) => {
-                eprintln!("{name} is not a valid principal: {e}");
-                None
-            }
-        },
-        Err(_) => {
-            if let Some(p) = DEX_DEFAULTS.get(name) {
-                warn!("{name} missing; using fallback from ledgers.toml");
-                Some(*p)
-            } else {
-                warn!("environment variable {name} not set");
-                None
-            }
-        }
-    };
+    let val = DEX_CONFIG
+        .read()
+        .unwrap()
+        .get(name)
+        .filter(|e| e.enabled)
+        .map(|e| e.id);
     PRINCIPAL_CACHE
         .write()
         .unwrap()

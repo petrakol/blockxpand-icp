@@ -91,6 +91,10 @@ mod tests {
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
         std::env::set_var("LEDGERS_FILE", file.path());
 
+        aggregator::utils::load_dex_config().await;
+
+        aggregator::utils::load_dex_config().await;
+
         let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await;
         assert_eq!(holdings.len(), 4);
@@ -171,6 +175,8 @@ mod tests {
         std::env::set_var("LEDGERS_FILE", file.path());
         std::env::set_var("ICPSWAP_FACTORY", &dex_id);
 
+        aggregator::utils::load_dex_config().await;
+
         let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await;
         assert!(holdings.iter().any(|h| h.source == "ICPSwap"));
@@ -213,6 +219,8 @@ mod tests {
         std::env::set_var("LEDGERS_FILE", file.path());
         std::env::set_var("SONIC_ROUTER", &dex_id);
 
+        aggregator::utils::load_dex_config().await;
+
         let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await;
         assert!(holdings.iter().any(|h| h.source == "Sonic"));
@@ -254,6 +262,8 @@ mod tests {
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
         std::env::set_var("LEDGERS_FILE", file.path());
         std::env::set_var("INFINITY_VAULT", &dex_id);
+
+        aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await;
@@ -305,6 +315,8 @@ mod tests {
         std::env::set_var("LEDGERS_FILE", file.path());
         std::env::set_var("ICPSWAP_FACTORY", &icpswap_id);
         std::env::set_var("SONIC_ROUTER", &sonic_id);
+
+        aggregator::utils::load_dex_config().await;
 
         let agent = Agent::builder()
             .with_url("http://127.0.0.1:4943")

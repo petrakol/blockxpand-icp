@@ -7,3 +7,8 @@ ICP = "rwlgt-iiaaa-aaaaa-aaaaa-cai"
 ICPSWAP_FACTORY = "oh4fn-kyaaa-aaaaq-aaega-cai"
 SONIC_ROUTER = "xjngq-yaaaa-aaaaq-aabha-cai"
 INFINITY_VAULT = "pnthx-iiaaa-aaaaq-aaeba-cai"
+
+[dex_controllers]
+ICPSWAP_FACTORY = "aaaaa-aa"
+SONIC_ROUTER = "aaaaa-aa"
+INFINITY_VAULT = "aaaaa-aa"

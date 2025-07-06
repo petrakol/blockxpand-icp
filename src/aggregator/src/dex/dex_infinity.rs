@@ -21,6 +21,11 @@ use serde::Deserialize;
 
 pub struct InfinityAdapter;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn clear_cache() {
+    META_CACHE.clear();
+}
+
 #[derive(CandidType, Deserialize)]
 struct VaultPosition {
     ledger: Principal,
