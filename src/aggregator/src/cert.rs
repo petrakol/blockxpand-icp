@@ -1,6 +1,6 @@
 #[cfg(target_arch = "wasm32")]
 use {
-    ic_certified_map::{leaf_hash, Hash, RbTree},
+    ic_certified_map::{leaf_hash, Hash, RbTree, AsHashTree},
     serde::Serialize,
     serde_cbor::Serializer,
     std::cell::RefCell,
