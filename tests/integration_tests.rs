@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod tests {
     use blockxpand_icp::{get_holdings, Holding};
-    use candid::{Decode, Encode, Nat, Principal};
+    use candid::{Decode, Encode, Principal};
+    #[cfg(feature = "claim")]
+    use candid::Nat;
     use ic_agent::{identity::AnonymousIdentity, Agent};
     use std::io::Write;
     use std::path::Path;
