@@ -1224,6 +1224,8 @@ dependencies = [
  "candid",
  "ic-cdk",
  "ic-cdk-macros",
+ "num-traits",
+ "once_cell",
  "serde",
 ]
 

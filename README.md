@@ -46,8 +46,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - **Height-aware LP cache** with weekly eviction keeps DEX lookups fast
 - **Unified pool registry** refreshed nightly from `data/pools.toml` and
   exported via the `pools_graphql` endpoint
-- Optional **reward claiming** via `claim_all_rewards` when built with
-  `--features claim`
+- Optional **reward claiming** via `claim_all_rewards` behind the `claim`
+  feature flag
 - All fetchers run **concurrently** for minimal latency
 
 ## Building

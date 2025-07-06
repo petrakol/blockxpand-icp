@@ -7,7 +7,7 @@ use bx_core::Holding;
 use candid::Principal;
 use futures::future::join_all;
 
-/// Lazily constructed list of all DEX adapters.
+/// Cached list of all DEX adapters so they only allocate once.
 static DEX_ADAPTERS: Lazy<Vec<Box<dyn DexAdapter>>> = Lazy::new(|| {
     vec![
         Box::new(IcpswapAdapter),

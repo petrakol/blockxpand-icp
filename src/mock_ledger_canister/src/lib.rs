@@ -1,6 +1,7 @@
 use candid::{CandidType, Nat, Principal};
 use ic_cdk_macros::{query, update};
 use serde::Deserialize;
+use num_traits::cast::ToPrimitive;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Mutex;
