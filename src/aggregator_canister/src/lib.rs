@@ -11,4 +11,5 @@ fn init() {
     aggregator::lp_cache::schedule_eviction();
 }
 
+#[cfg(feature = "export_candid")]
 ic_cdk::export::candid::export_service!();

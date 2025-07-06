@@ -9,6 +9,9 @@ aggregator = { path = "../aggregator" }
 ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
 
+[features]
+export_candid = ["ic-cdk/wasi"]
+
 [lib]
 crate-type = ["cdylib"]
 
