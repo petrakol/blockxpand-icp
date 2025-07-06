@@ -116,7 +116,7 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         },
         Err(_) => return Err("router".into()),
     };
-    let ledger = LEDGERS.get(0).cloned().ok_or("ledger")?;
+    let ledger = LEDGERS.first().cloned().ok_or("ledger")?;
     let agent = get_agent().await;
     let arg = Encode!(&principal, &ledger).unwrap();
     let bytes = agent

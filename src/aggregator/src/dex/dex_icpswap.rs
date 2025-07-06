@@ -194,7 +194,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
         Err(_) => return Err("factory".into()),
     };
     let ledger = crate::ledger_fetcher::LEDGERS
-        .get(0)
+        .first()
         .cloned()
         .ok_or("ledger")?;
     let agent = get_agent().await;
