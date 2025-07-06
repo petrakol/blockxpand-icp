@@ -195,6 +195,13 @@ mod tests {
             .unwrap();
         let _ = agent.fetch_root_key().await;
         let arg = candid::Encode!(&Principal::anonymous()).unwrap();
+        let _ = agent
+            .update(&Principal::from_text(&aggr_id).unwrap(), "refresh_holdings")
+            .with_arg(arg.clone())
+            .call_and_wait()
+            .await
+            .unwrap();
+
         let bytes = agent
             .query(
                 &Principal::from_text(&aggr_id).unwrap(),

@@ -172,7 +172,9 @@ async fn sanity_check_dex() {
         {
             let cfg = DEX_CONFIG.read().unwrap();
             if let Some(e) = cfg.get(&name) {
-                if !e.enabled { continue; }
+                if !e.enabled {
+                    continue;
+                }
                 id = e.id;
                 controller = e.controller;
             } else {

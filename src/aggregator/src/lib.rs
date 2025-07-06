@@ -12,6 +12,20 @@ use crate::utils::{now, MINUTE_NS};
 use bx_core::Holding;
 use candid::Principal;
 
+async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
+    let (ledger, neuron, dex) = futures::join!(
+        ledger_fetcher::fetch(principal),
+        neuron_fetcher::fetch(principal),
+        dex_fetchers::fetch(principal)
+    );
+
+    let mut holdings = Vec::new();
+    holdings.extend(ledger);
+    holdings.extend(neuron);
+    holdings.extend(dex);
+    holdings
+}
+
 #[cfg(target_arch = "wasm32")]
 fn instructions() -> u64 {
     ic_cdk::api::instruction_counter()
@@ -31,7 +45,6 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         if let Some(v) = cache.get(&principal) {
             let (cached, ts) = v.value().clone();
             if now - ts < MINUTE_NS {
-                cert::update(principal, &cached);
                 let used = instructions().saturating_sub(start);
                 ic_cdk::println!(
                     "get_holdings took {used} instructions ({:.2} B)",
@@ -55,7 +68,6 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 
     {
         cache::get().insert(principal, (holdings.clone(), now));
-        cert::update(principal, &holdings);
     }
     let used = instructions().saturating_sub(start);
     ic_cdk::println!(
@@ -99,9 +111,20 @@ pub struct CertifiedHoldings {
     pub witness: Vec<u8>,
 }
 
+#[ic_cdk_macros::update]
+pub async fn refresh_holdings(principal: Principal) {
+    let now = now();
+    let holdings = calculate_holdings(principal).await;
+    cache::get().insert(principal, (holdings.clone(), now));
+    cert::update(principal, &holdings);
+}
+
 #[ic_cdk_macros::query]
-pub async fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
-    let holdings = get_holdings(principal).await;
+pub fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
+    let holdings = cache::get()
+        .get(&principal)
+        .map(|v| v.value().0.clone())
+        .unwrap_or_default();
     let certificate = ic_cdk::api::data_certificate().unwrap_or_default();
     let witness = cert::witness(principal);
     CertifiedHoldings {

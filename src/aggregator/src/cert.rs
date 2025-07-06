@@ -1,6 +1,6 @@
 #[cfg(target_arch = "wasm32")]
 use {
-    ic_certified_map::{leaf_hash, Hash, RbTree, AsHashTree},
+    ic_certified_map::{leaf_hash, AsHashTree, Hash, RbTree},
     serde::Serialize,
     serde_cbor::Serializer,
     std::cell::RefCell,
@@ -30,7 +30,7 @@ pub fn witness(principal: candid::Principal) -> Vec<u8> {
         let tree = t.borrow();
         let mut out = Vec::new();
         let mut ser = Serializer::new(&mut out);
-        ser.self_describe();
+        let _ = ser.self_describe();
         tree.witness(principal.to_text().as_bytes())
             .serialize(&mut ser)
             .unwrap();
