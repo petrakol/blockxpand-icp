@@ -57,6 +57,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic
+- Integration tests spawn a lightweight dfx emulator to verify canister
+  deployment end-to-end
 
 ## Building
 

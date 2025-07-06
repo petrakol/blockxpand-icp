@@ -228,11 +228,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use once_cell::sync::Lazy;
     use quickcheck_macros::quickcheck;
-    use std::sync::Mutex;
-
-    static LAST_QUERY: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(vec![]));
 
     #[tokio::test(flavor = "current_thread")]
     async fn fetch_positions_empty_without_env() {
