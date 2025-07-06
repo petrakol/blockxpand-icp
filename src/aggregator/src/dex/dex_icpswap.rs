@@ -170,8 +170,6 @@ async fn fetch_meta(agent: &ic_agent::Agent, cid: Principal) -> Option<PoolMetad
     Some(meta)
 }
 
-
-
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     use crate::cache;

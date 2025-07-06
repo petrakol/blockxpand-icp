@@ -88,8 +88,6 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
     holdings
 }
 
-
-
 #[cfg(target_arch = "wasm32")]
 async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
     Vec::new()

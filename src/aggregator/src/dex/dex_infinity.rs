@@ -158,8 +158,6 @@ async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(Strin
     Some((symbol, decimals))
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -73,10 +73,7 @@ pub fn env_principal(name: &str) -> Option<candid::Principal> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn dex_block_height(
-    agent: &ic_agent::Agent,
-    cid: candid::Principal,
-) -> Option<u64> {
+pub async fn dex_block_height(agent: &ic_agent::Agent, cid: candid::Principal) -> Option<u64> {
     use candid::{Decode, Encode};
     let arg = Encode!().unwrap();
     let bytes = agent
