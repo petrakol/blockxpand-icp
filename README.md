@@ -49,6 +49,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
 - All fetchers run **concurrently** for minimal latency
+- Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
+  helper used across adapters
 
 ## Building
 

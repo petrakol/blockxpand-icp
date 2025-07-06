@@ -1,5 +1,7 @@
 use super::{DexAdapter, RewardInfo};
-#[cfg(feature = "claim")]
+#[cfg(not(target_arch = "wasm32"))]
+use crate::utils::get_agent;
+#[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 use crate::utils::now;
 use crate::{lp_cache, utils::format_amount};
 use async_trait::async_trait;
@@ -27,14 +29,6 @@ struct PositionInfo {
 }
 
 pub struct SonicAdapter;
-
-#[cfg(not(target_arch = "wasm32"))]
-async fn get_agent() -> ic_agent::Agent {
-    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
-    let agent = ic_agent::Agent::builder().with_url(url).build().unwrap();
-    let _ = agent.fetch_root_key().await;
-    agent
-}
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {

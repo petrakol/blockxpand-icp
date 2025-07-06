@@ -1,4 +1,6 @@
 use super::{DexAdapter, RewardInfo};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::utils::get_agent;
 use crate::{
     lp_cache,
     utils::{format_amount, now},
@@ -46,14 +48,6 @@ struct PoolMetadata {
 
 static META_CACHE: Lazy<DashMap<Principal, (PoolMetadata, u64)>> = Lazy::new(DashMap::new);
 const META_TTL_NS: u64 = 86_400_000_000_000; // 24h
-
-#[cfg(not(target_arch = "wasm32"))]
-async fn get_agent() -> ic_agent::Agent {
-    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
-    let agent = ic_agent::Agent::builder().with_url(url).build().unwrap();
-    let _ = agent.fetch_root_key().await;
-    agent
-}
 
 #[async_trait]
 impl DexAdapter for IcpswapAdapter {

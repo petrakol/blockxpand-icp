@@ -132,13 +132,9 @@ where
     unreachable!()
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 async fn get_agent() -> Agent {
-    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".to_string());
-    let agent = Agent::builder().with_url(url).build().unwrap();
-    let _ = agent.fetch_root_key().await;
-    agent
+    crate::utils::get_agent().await
 }
 
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]

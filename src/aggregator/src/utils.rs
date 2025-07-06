@@ -34,3 +34,11 @@ pub fn format_amount(n: Nat, decimals: u8) -> String {
 pub fn format_amount(n: Nat, _decimals: u8) -> String {
     n.0.to_string()
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn get_agent() -> ic_agent::Agent {
+    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
+    let agent = ic_agent::Agent::builder().with_url(url).build().unwrap();
+    let _ = agent.fetch_root_key().await;
+    agent
+}
