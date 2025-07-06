@@ -131,7 +131,6 @@ fn format_amount(n: Nat, decimals: u8) -> String {
 fn format_amount(n: Nat, _decimals: u8) -> String {
     n.0.to_string()
 }
-
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 fn now() -> u64 {
     std::time::SystemTime::now()
@@ -139,8 +138,6 @@ fn now() -> u64 {
         .unwrap()
         .as_nanos() as u64
 }
-
-#[cfg(all(feature = "claim", target_arch = "wasm32"))]
 fn now() -> u64 {
     ic_cdk::api::time()
 }

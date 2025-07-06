@@ -7,16 +7,24 @@ use bx_core::Holding;
 use candid::Principal;
 use futures::future::join_all;
 
-/// Cached list of all DEX adapters so they only allocate once.
-static DEX_ADAPTERS: Lazy<Vec<Box<dyn DexAdapter>>> = Lazy::new(|| {
-    vec![
+#[cfg(target_arch = "wasm32")]
+async fn sleep_ms(_: u64) {}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn sleep_ms(ms: u64) {
+    tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+}
+
+pub async fn fetch(principal: Principal) -> Vec<Holding> {
+    sleep_ms(10).await;
+    let adapters: Vec<Box<dyn DexAdapter>> = vec![
         Box::new(IcpswapAdapter),
         Box::new(SonicAdapter),
         Box::new(InfinityAdapter),
-    ]
-});
-
-pub async fn fetch(principal: Principal) -> Vec<Holding> {
-    let futs = DEX_ADAPTERS.iter().map(|a| async move { a.fetch_positions(principal).await });
-    join_all(futs).await.into_iter().flatten().collect()
+    ];
+    let mut res = Vec::new();
+    for a in adapters {
+        res.extend(a.fetch_positions(principal).await);
+    }
+    res
 }
