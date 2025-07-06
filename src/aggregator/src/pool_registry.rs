@@ -27,21 +27,27 @@ pub fn list() -> Vec<PoolMeta> {
     REGISTRY.read().unwrap().values().cloned().collect()
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn refresh() {
     let path = std::env::var("POOLS_FILE").unwrap_or_else(|_| "data/pools.toml".into());
-    let content = match tokio::fs::read_to_string(&path).await {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-    let pf: PoolsFile = match toml::from_str(&content) {
-        Ok(p) => p,
-        Err(_) => return,
-    };
-    let mut map = HashMap::new();
-    for p in pf.pool.into_iter() {
-        map.insert(p.id.clone(), p);
+    if let Ok(content) = tokio::fs::read_to_string(&path).await {
+        load_content(&content);
     }
-    *REGISTRY.write().unwrap() = map;
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn refresh() {
+    load_content(include_str!("../../data/pools.toml"));
+}
+
+fn load_content(content: &str) {
+    if let Ok(pf) = toml::from_str::<PoolsFile>(content) {
+        let mut map = HashMap::new();
+        for p in pf.pool.into_iter() {
+            map.insert(p.id.clone(), p);
+        }
+        *REGISTRY.write().unwrap() = map;
+    }
 }
 
 #[cfg(target_arch = "wasm32")]

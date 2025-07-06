@@ -181,11 +181,6 @@ async fn pool_height(agent: &ic_agent::Agent, cid: Principal) -> Option<u64> {
     Decode!(&bytes, u64).ok()
 }
 
-#[cfg(target_arch = "wasm32")]
-async fn pool_height(_agent: &ic_agent::Agent, _cid: Principal) -> Option<u64> {
-    None
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 fn format_amount(n: Nat, decimals: u8) -> String {
     use num_bigint::BigUint;
