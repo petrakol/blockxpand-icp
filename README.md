@@ -115,6 +115,8 @@ environment.
    are skipped if `dfx` cannot be installed.
 3. On pull requests the GitHub Actions workflow runs tests, clippy, and a test
    deployment via `deploy.sh`.
+4. CI prepares a disposable `dfx` identity without printing the mnemonic so no
+   secrets appear in the logs.
 
 ## Further reading
 
