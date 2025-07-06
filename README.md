@@ -48,7 +48,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   exported via the `pools_graphql` endpoint
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
-- All fetchers run **concurrently** for minimal latency
+- All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
   helper used across adapters
 - Wasm builds compile cleanly with no warnings

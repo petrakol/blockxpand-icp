@@ -4,6 +4,7 @@ use crate::dex::dex_sonic::SonicAdapter;
 use crate::dex::DexAdapter;
 use bx_core::Holding;
 use candid::Principal;
+use futures::future::join_all;
 
 #[cfg(target_arch = "wasm32")]
 async fn sleep_ms(_: u64) {}
@@ -20,9 +21,8 @@ pub async fn fetch(principal: Principal) -> Vec<Holding> {
         Box::new(SonicAdapter),
         Box::new(InfinityAdapter),
     ];
-    let mut res = Vec::new();
-    for a in adapters {
-        res.extend(a.fetch_positions(principal).await);
-    }
-    res
+    let tasks = adapters
+        .into_iter()
+        .map(|a| async move { a.fetch_positions(principal).await });
+    join_all(tasks).await.into_iter().flatten().collect()
 }
