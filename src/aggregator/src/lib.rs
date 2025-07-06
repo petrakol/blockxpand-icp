@@ -133,3 +133,17 @@ pub fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
         witness,
     }
 }
+
+#[derive(candid::CandidType, serde::Serialize)]
+pub struct Version {
+    pub git_sha: &'static str,
+    pub build_time: &'static str,
+}
+
+#[ic_cdk_macros::query]
+pub fn get_version() -> Version {
+    Version {
+        git_sha: option_env!("GIT_SHA").unwrap_or("unknown"),
+        build_time: option_env!("BUILD_TIME").unwrap_or("unknown"),
+    }
+}

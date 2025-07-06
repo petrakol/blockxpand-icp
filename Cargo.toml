@@ -46,4 +46,5 @@ ic-cdk-timers = "=0.4.0"
 num-traits = "=0.2.19"
 tracing = "=0.1.41"
 notify = "=6.1.1"
+chrono = "=0.4.41"
 

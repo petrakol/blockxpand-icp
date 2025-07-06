@@ -10,3 +10,5 @@ fn init() {
     aggregator::pool_registry::schedule_refresh();
     aggregator::lp_cache::schedule_eviction();
 }
+
+ic_cdk::export::candid::export_service!();
