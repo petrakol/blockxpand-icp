@@ -1,11 +1,11 @@
 use super::{DexAdapter, RewardInfo};
+use crate::lp_cache;
 use async_trait::async_trait;
 use bx_core::Holding;
 use candid::{CandidType, Decode, Encode, Nat, Principal};
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use crate::lp_cache;
 
 #[derive(CandidType, Deserialize)]
 struct Token {
@@ -122,7 +122,8 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
                 });
             }
             temp
-        }).await;
+        })
+        .await;
         out.extend(holdings);
     }
     out
@@ -225,7 +226,10 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
         },
         Err(_) => return Err("factory".into()),
     };
-    let ledger = crate::ledger_fetcher::LEDGERS.get(0).cloned().ok_or("ledger")?;
+    let ledger = crate::ledger_fetcher::LEDGERS
+        .get(0)
+        .cloned()
+        .ok_or("ledger")?;
     let agent = get_agent().await;
     let arg = Encode!().unwrap();
     let bytes = agent
@@ -257,8 +261,8 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck_macros::quickcheck;
     use once_cell::sync::Lazy;
+    use quickcheck_macros::quickcheck;
     use std::sync::Mutex;
 
     static LAST_QUERY: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(vec![]));

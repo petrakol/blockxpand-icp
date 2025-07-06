@@ -2,9 +2,9 @@ pub mod cache;
 pub mod dex;
 pub mod dex_fetchers;
 pub mod ledger_fetcher;
+pub mod lp_cache;
 pub mod neuron_fetcher;
 pub mod pool_registry;
-pub mod lp_cache;
 
 use bx_core::Holding;
 use candid::Principal;
@@ -69,7 +69,10 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 
 #[cfg(feature = "claim")]
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
-    use dex::{dex_icpswap::IcpswapAdapter, dex_sonic::SonicAdapter, dex_infinity::InfinityAdapter, DexAdapter};
+    use dex::{
+        dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
+        DexAdapter,
+    };
     let adapters: Vec<Box<dyn DexAdapter>> = vec![
         Box::new(IcpswapAdapter),
         Box::new(SonicAdapter),

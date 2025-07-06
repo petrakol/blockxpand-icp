@@ -2,10 +2,8 @@ use crate::dex::dex_icpswap::IcpswapAdapter;
 use crate::dex::dex_infinity::InfinityAdapter;
 use crate::dex::dex_sonic::SonicAdapter;
 use crate::dex::DexAdapter;
-use once_cell::sync::Lazy;
 use bx_core::Holding;
 use candid::Principal;
-use futures::future::join_all;
 
 #[cfg(target_arch = "wasm32")]
 async fn sleep_ms(_: u64) {}

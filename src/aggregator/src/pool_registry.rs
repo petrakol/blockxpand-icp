@@ -1,6 +1,6 @@
+use candid::CandidType;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use candid::CandidType;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -20,7 +20,8 @@ struct PoolsFile {
     pool: Vec<PoolMeta>,
 }
 
-static REGISTRY: Lazy<RwLock<HashMap<String, PoolMeta>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static REGISTRY: Lazy<RwLock<HashMap<String, PoolMeta>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
 
 pub fn list() -> Vec<PoolMeta> {
     REGISTRY.read().unwrap().values().cloned().collect()

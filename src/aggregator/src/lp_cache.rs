@@ -22,7 +22,7 @@ fn now() -> u64 {
         .as_nanos() as u64
 }
 
-#[cfg(target_arch = "wasm32" )]
+#[cfg(target_arch = "wasm32")]
 fn now() -> u64 {
     ic_cdk::api::time()
 }
@@ -81,21 +81,33 @@ mod tests {
         let h1 = 1u64;
         let v1 = get_or_fetch(principal, pool, h1, || async {
             CALLS.fetch_add(1, Ordering::SeqCst);
-            vec![Holding { source: "x".into(), token: "t".into(), amount: "1".into(), status: "lp_escrow".into() }]
-        }).await;
+            vec![Holding {
+                source: "x".into(),
+                token: "t".into(),
+                amount: "1".into(),
+                status: "lp_escrow".into(),
+            }]
+        })
+        .await;
         assert_eq!(CALLS.load(Ordering::SeqCst), 1);
         let v2 = get_or_fetch(principal, pool, h1, || async {
             CALLS.fetch_add(1, Ordering::SeqCst);
             vec![]
-        }).await;
+        })
+        .await;
         assert_eq!(CALLS.load(Ordering::SeqCst), 1);
         assert_eq!(v2, v1);
         let v3 = get_or_fetch(principal, pool, h1 + 1, || async {
             CALLS.fetch_add(1, Ordering::SeqCst);
-            vec![Holding { source: "x".into(), token: "t".into(), amount: "2".into(), status: "lp_escrow".into() }]
-        }).await;
+            vec![Holding {
+                source: "x".into(),
+                token: "t".into(),
+                amount: "2".into(),
+                status: "lp_escrow".into(),
+            }]
+        })
+        .await;
         assert_eq!(CALLS.load(Ordering::SeqCst), 2);
         assert_eq!(v3[0].amount, "2");
     }
 }
-

@@ -1,4 +1,5 @@
 use super::{DexAdapter, RewardInfo};
+use crate::lp_cache;
 use async_trait::async_trait;
 use bx_core::Holding;
 use candid::{CandidType, Decode, Encode, Nat, Principal};
@@ -6,7 +7,6 @@ use dashmap::DashMap;
 use num_traits::cast::ToPrimitive;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use crate::lp_cache;
 
 pub struct InfinityAdapter;
 
@@ -84,7 +84,8 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
             });
         }
         temp
-    }).await;
+    })
+    .await;
     holdings
 }
 
@@ -208,8 +209,8 @@ fn now() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck_macros::quickcheck;
     use candid::Principal;
+    use quickcheck_macros::quickcheck;
 
     #[tokio::test]
     async fn empty_without_env() {

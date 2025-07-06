@@ -1,5 +1,5 @@
-pub use aggregator::*;
 use aggregator::pool_registry;
+pub use aggregator::*;
 
 #[ic_cdk_macros::init]
 fn init() {
