@@ -5,22 +5,11 @@ pub mod ledger_fetcher;
 pub mod lp_cache;
 pub mod neuron_fetcher;
 pub mod pool_registry;
+pub mod utils;
 
+use crate::utils::now;
 use bx_core::Holding;
 use candid::Principal;
-
-#[cfg(target_arch = "wasm32")]
-fn now() -> u64 {
-    ic_cdk::api::time()
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64
-}
 
 #[cfg(target_arch = "wasm32")]
 fn instructions() -> u64 {

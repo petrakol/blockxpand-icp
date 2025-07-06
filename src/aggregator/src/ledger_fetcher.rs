@@ -1,3 +1,4 @@
+use crate::utils::format_amount;
 use bx_core::Holding;
 #[cfg(any(not(test), feature = "live-test"))]
 use candid::{Decode, Encode};
@@ -315,23 +316,6 @@ async fn fetch_metadata(
         },
     );
     Ok((symbol, decimals, fee))
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn format_amount(nat: Nat, decimals: u8) -> String {
-    use num_bigint::BigUint;
-    use num_integer::Integer;
-    let div = BigUint::from(10u32).pow(decimals as u32);
-    let (q, r) = nat.0.div_rem(&div);
-    let mut frac = r.to_str_radix(10);
-    while frac.len() < decimals as usize {
-        frac.insert(0, '0');
-    }
-    if decimals == 0 {
-        q.to_str_radix(10)
-    } else {
-        format!("{}.{frac}", q.to_str_radix(10))
-    }
 }
 
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]

@@ -1,5 +1,8 @@
 use super::{DexAdapter, RewardInfo};
-use crate::lp_cache;
+use crate::{
+    lp_cache,
+    utils::{format_amount, now},
+};
 use async_trait::async_trait;
 use bx_core::Holding;
 use candid::{CandidType, Decode, Encode, Nat, Principal};
@@ -179,36 +182,6 @@ async fn pool_height(agent: &ic_agent::Agent, cid: Principal) -> Option<u64> {
         .await
         .ok()?;
     Decode!(&bytes, u64).ok()
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn format_amount(n: Nat, decimals: u8) -> String {
-    use num_bigint::BigUint;
-    use num_integer::Integer;
-    let div = BigUint::from(10u32).pow(decimals as u32);
-    let (q, r) = n.0.div_rem(&div);
-    let mut frac = r.to_str_radix(10);
-    while frac.len() < decimals as usize {
-        frac.insert(0, '0');
-    }
-    if decimals == 0 {
-        q.to_str_radix(10)
-    } else {
-        format!("{}.{frac}", q.to_str_radix(10))
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64
-}
-
-#[cfg(target_arch = "wasm32")]
-fn now() -> u64 {
-    ic_cdk::api::time()
 }
 
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]

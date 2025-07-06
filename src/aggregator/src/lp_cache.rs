@@ -1,3 +1,4 @@
+use crate::utils::now;
 use bx_core::Holding;
 use candid::Principal;
 use dashmap::DashMap;
@@ -13,19 +14,6 @@ struct Entry {
 static CACHE: Lazy<DashMap<(Principal, String), Entry>> = Lazy::new(DashMap::new);
 
 const STALE_NS: u64 = 604_800_000_000_000; // one week
-
-#[cfg(not(target_arch = "wasm32"))]
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos() as u64
-}
-
-#[cfg(target_arch = "wasm32")]
-fn now() -> u64 {
-    ic_cdk::api::time()
-}
 
 pub async fn get_or_fetch<F, Fut>(
     principal: Principal,
