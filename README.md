@@ -60,7 +60,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   helpful error. The agent is
   initialised once and cloned, avoiding repeated network handshakes
 - Includes built-in adapters for ICPSwap, Sonic and InfinitySwap
-- Common constants like `MINUTE_NS`, `DAY_NS` and `WEEK_NS` centralise refresh durations
+- Common constants like `MINUTE_NS`, `DAY_NS`, `WEEK_NS`, `DAY_SECS` and `WEEK_SECS` centralise refresh durations
 - Adapter fetchers yield to the scheduler before starting requests, eliminating
   the previous fixed delay
 - Wasm builds compile cleanly with no warnings

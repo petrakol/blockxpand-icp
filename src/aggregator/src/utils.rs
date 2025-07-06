@@ -7,6 +7,8 @@ pub const MINUTE_NS: u64 = 60_000_000_000;
 pub const DAY_NS: u64 = 86_400_000_000_000;
 pub const WEEK_NS: u64 = DAY_NS * 7;
 pub const DAY_SECS: u64 = 86_400;
+/// Seconds in one week
+pub const WEEK_SECS: u64 = DAY_SECS * 7;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn now() -> u64 {
