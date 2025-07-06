@@ -74,12 +74,9 @@ pub struct IcpswapAdapter;
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
-    let factory_id = match std::env::var("ICPSWAP_FACTORY") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Vec::new(),
-        },
-        Err(_) => return Vec::new(),
+    let factory_id = match crate::utils::env_principal("ICPSWAP_FACTORY") {
+        Some(p) => p,
+        None => return Vec::new(),
     };
     let agent = get_agent().await;
     let arg = Encode!().unwrap();
@@ -186,12 +183,9 @@ async fn pool_height(agent: &ic_agent::Agent, cid: Principal) -> Option<u64> {
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     use crate::cache;
-    let factory_id = match std::env::var("ICPSWAP_FACTORY") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Err("factory".into()),
-        },
-        Err(_) => return Err("factory".into()),
+    let factory_id = match crate::utils::env_principal("ICPSWAP_FACTORY") {
+        Some(p) => p,
+        None => return Err("factory".into()),
     };
     let ledger = crate::ledger_fetcher::LEDGERS
         .first()

@@ -102,6 +102,18 @@ During unit tests the `LEDGERS_FILE` variable is set to
 `src/aggregator/tests/ledgers_single.toml`, which references the mock ledger
 canister.
 
+## DEX configuration
+
+Adapters for ICPSwap, Sonic and InfinitySwap locate their canisters via
+environment variables:
+
+- `ICPSWAP_FACTORY` – ICPSwap factory canister ID
+- `SONIC_ROUTER` – Sonic router canister ID
+- `INFINITY_VAULT` – InfinitySwap vault canister ID
+
+When any of these are unset the corresponding adapter simply yields no results.
+Integration tests set them automatically for the local environment.
+
 ## Deployment
 
 The `deploy.sh` script illustrates deployment using `dfx` to a local test network.

@@ -50,12 +50,9 @@ impl DexAdapter for InfinityAdapter {
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
-    let vault_id = match std::env::var("INFINITY_VAULT") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Vec::new(),
-        },
-        Err(_) => return Vec::new(),
+    let vault_id = match crate::utils::env_principal("INFINITY_VAULT") {
+        Some(p) => p,
+        None => return Vec::new(),
     };
     let agent = get_agent().await;
     let arg = Encode!(&principal).unwrap();

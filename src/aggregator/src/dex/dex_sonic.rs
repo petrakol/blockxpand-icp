@@ -36,12 +36,9 @@ pub struct SonicAdapter;
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
-    let router_id = match std::env::var("SONIC_ROUTER") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Vec::new(),
-        },
-        Err(_) => return Vec::new(),
+    let router_id = match crate::utils::env_principal("SONIC_ROUTER") {
+        Some(p) => p,
+        None => return Vec::new(),
     };
     let agent = get_agent().await;
     let arg = Encode!(&principal).unwrap();
@@ -109,12 +106,9 @@ async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 async fn claim_impl(principal: Principal) -> Result<u64, String> {
     use crate::{cache, ledger_fetcher::LEDGERS};
-    let router_id = match std::env::var("SONIC_ROUTER") {
-        Ok(v) => match Principal::from_text(v) {
-            Ok(p) => p,
-            Err(_) => return Err("router".into()),
-        },
-        Err(_) => return Err("router".into()),
+    let router_id = match crate::utils::env_principal("SONIC_ROUTER") {
+        Some(p) => p,
+        None => return Err("router".into()),
     };
     let ledger = LEDGERS.first().cloned().ok_or("ledger")?;
     let agent = get_agent().await;

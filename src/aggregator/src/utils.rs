@@ -42,3 +42,10 @@ pub async fn get_agent() -> ic_agent::Agent {
     let _ = agent.fetch_root_key().await;
     agent
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn env_principal(name: &str) -> Option<candid::Principal> {
+    std::env::var(name)
+        .ok()
+        .and_then(|v| candid::Principal::from_text(v).ok())
+}
