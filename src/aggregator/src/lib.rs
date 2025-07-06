@@ -7,7 +7,7 @@ pub mod neuron_fetcher;
 pub mod pool_registry;
 pub mod utils;
 
-use crate::utils::now;
+use crate::utils::{now, MINUTE_NS};
 use bx_core::Holding;
 use candid::Principal;
 
@@ -26,9 +26,10 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
     let start = instructions();
     let now = now();
     {
-        let cache = cache::get_mut();
-        if let Some((cached, ts)) = cache.get(&principal).cloned() {
-            if now - ts < 60_000_000_000 {
+        let cache = cache::get();
+        if let Some(v) = cache.get(&principal) {
+            let (cached, ts) = v.value().clone();
+            if now - ts < MINUTE_NS {
                 let used = instructions().saturating_sub(start);
                 ic_cdk::println!(
                     "get_holdings took {used} instructions ({:.2} B)",
@@ -45,8 +46,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
     holdings.extend(dex_fetchers::fetch(principal).await);
 
     {
-        let mut cache = cache::get_mut();
-        cache.insert(principal, (holdings.clone(), now));
+        cache::get().insert(principal, (holdings.clone(), now));
     }
     let used = instructions().saturating_sub(start);
     ic_cdk::println!(

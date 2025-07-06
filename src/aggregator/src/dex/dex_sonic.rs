@@ -121,8 +121,7 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         .map_err(|e| e.to_string())?;
     let spent: u64 = Decode!(&bytes, u64).unwrap_or_default();
     let holdings = fetch_positions_impl(principal).await;
-    let mut cache = cache::get_mut();
-    cache.insert(principal, (holdings, now()));
+    cache::get().insert(principal, (holdings, now()));
     Ok(spent)
 }
 

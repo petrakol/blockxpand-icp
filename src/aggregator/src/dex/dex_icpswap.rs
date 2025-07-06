@@ -214,8 +214,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     }
     // refresh cache
     let holdings = fetch_positions_impl(principal).await;
-    let mut cache = cache::get_mut();
-    cache.insert(principal, (holdings, now()));
+    cache::get().insert(principal, (holdings, now()));
     Ok(total)
 }
 
