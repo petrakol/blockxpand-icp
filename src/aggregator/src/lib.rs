@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod cert;
+pub mod cycles;
 pub mod dex;
 pub mod dex_fetchers;
 pub mod ledger_fetcher;

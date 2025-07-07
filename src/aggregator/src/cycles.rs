@@ -1,0 +1,73 @@
+#[cfg(target_arch = "wasm32")]
+use candid::Principal;
+#[cfg(target_arch = "wasm32")]
+use ic_cdk::api::{call::call, canister_balance, time};
+#[cfg(target_arch = "wasm32")]
+use once_cell::sync::Lazy;
+#[cfg(target_arch = "wasm32")]
+use std::cell::RefCell;
+
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    static LAST_CHECK: RefCell<u64> = RefCell::new(0);
+    static LOG: RefCell<Vec<String>> = RefCell::new(Vec::new());
+}
+
+#[cfg(target_arch = "wasm32")]
+static WALLET: Lazy<Option<Principal>> =
+    Lazy::new(|| option_env!("CYCLES_WALLET").and_then(|s| Principal::from_text(s).ok()));
+
+#[cfg(target_arch = "wasm32")]
+const MIN_BALANCE: u128 = 500_000_000_000; // 0.5 T
+
+#[cfg(target_arch = "wasm32")]
+pub async fn tick() {
+    use crate::utils::MINUTE_NS;
+    let now = time();
+    let run = LAST_CHECK.with(|c| {
+        if now - *c.borrow() >= MINUTE_NS {
+            *c.borrow_mut() = now;
+            true
+        } else {
+            false
+        }
+    });
+    if !run {
+        return;
+    }
+    if canister_balance() < MIN_BALANCE {
+        if let Some(w) = *WALLET {
+            let _res: Result<(), _> = call(w, "wallet_receive", ()).await;
+            let bal = canister_balance();
+            LOG.with(|l| l.borrow_mut().push(format!("{now}: refilled to {bal}")));
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn log() -> Vec<String> {
+    LOG.with(|l| l.borrow().clone())
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn take_log() -> Vec<String> {
+    LOG.with(|l| std::mem::take(&mut *l.borrow_mut()))
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn set_log(log: Vec<String>) {
+    LOG.with(|l| *l.borrow_mut() = log);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn tick() {}
+#[cfg(not(target_arch = "wasm32"))]
+pub fn log() -> Vec<String> {
+    Vec::new()
+}
+#[cfg(not(target_arch = "wasm32"))]
+pub fn take_log() -> Vec<String> {
+    Vec::new()
+}
+#[cfg(not(target_arch = "wasm32"))]
+pub fn set_log(_: Vec<String>) {}

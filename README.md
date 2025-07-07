@@ -67,6 +67,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   the previous fixed delay
 - A heartbeat-driven queue deterministically warms ledger and DEX metadata
   caches across ticks so refreshes never exceed the 5 s execution limit
+- A top-up heartbeat pulls cycles from a pre-authorised wallet when balance
+  falls below 0.5 T, logging each refill in stable memory
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic
