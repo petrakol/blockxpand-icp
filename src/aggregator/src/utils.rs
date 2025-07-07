@@ -132,6 +132,9 @@ pub async fn load_dex_config() {
         *cfg = map;
     }
 
+    // clear cached principals so updates take effect immediately
+    PRINCIPAL_CACHE.write().unwrap().clear();
+
     for key in ["ICPSWAP_FACTORY", "SONIC_ROUTER", "INFINITY_VAULT"] {
         if let Ok(val) = std::env::var(key) {
             match candid::Principal::from_text(&val) {
