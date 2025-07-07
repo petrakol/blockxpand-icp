@@ -59,10 +59,13 @@ struct LedgersConfig {
 pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
     let cfg: LedgersConfig =
         toml::from_str(include_str!("../../../config/ledgers.toml")).expect("invalid config");
-    cfg.ledgers
+    let mut ids: Vec<Principal> = cfg
+        .ledgers
         .values()
         .map(|id| Principal::from_text(id).expect("invalid principal"))
-        .collect()
+        .collect();
+    ids.sort();
+    ids
 });
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -70,10 +73,13 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
     let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
     let text = std::fs::read_to_string(path).expect("cannot read ledgers.toml");
     let cfg: LedgersConfig = toml::from_str(&text).expect("invalid config");
-    cfg.ledgers
+    let mut ids: Vec<Principal> = cfg
+        .ledgers
         .values()
         .map(|id| Principal::from_text(id).expect("invalid principal"))
-        .collect()
+        .collect();
+    ids.sort();
+    ids
 });
 
 /// Duration that cached metadata remains valid (24h)
@@ -228,7 +234,9 @@ async fn icrc1_balance_of(
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn fetch(principal: Principal) -> Vec<Holding> {
     let agent = get_agent().await;
-    let futures = LEDGERS.iter().cloned().map(|cid| {
+    let mut ids: Vec<Principal> = LEDGERS.iter().cloned().collect();
+    ids.sort();
+    let futures = ids.into_iter().map(|cid| {
         let agent = agent.clone();
         async move {
             let (symbol, decimals, _) = match fetch_metadata(&agent, cid).await {
