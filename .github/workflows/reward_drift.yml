@@ -1,0 +1,26 @@
+name: Reward Drift
+on:
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - run: rustup target add wasm32-unknown-unknown
+      - uses: dfinity/setup-dfx@main
+      - name: Run drift check
+        run: |
+          ./scripts/reward_drift.sh
+      - name: Create issue on failure
+        if: failure()
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: Reward math drift detected
+          token: ${{ secrets.GITHUB_TOKEN }}
+          content-filepath: drift.log

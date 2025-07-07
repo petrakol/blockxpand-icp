@@ -21,6 +21,11 @@ num-traits = "0.2"
 num-integer = "0.1"
 sha2 = "0.10"
 ic-cdk-timers = { workspace = true }
+tracing = { workspace = true }
+notify = { workspace = true }
+serde_cbor = "0.11"
+ic-certified-map = "0.4"
+serde_bytes = "0.11"
 
 [dev-dependencies]
 quickcheck = "1"
@@ -31,6 +36,7 @@ once_cell = { workspace = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true }
 ic-agent = { workspace = true }
+notify = { workspace = true }
 
 [features]
 live-test = []

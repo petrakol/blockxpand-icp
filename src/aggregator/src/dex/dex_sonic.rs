@@ -35,6 +35,9 @@ struct PositionInfo {
 pub struct SonicAdapter;
 
 #[cfg(not(target_arch = "wasm32"))]
+pub fn clear_cache() {}
+
+#[cfg(not(target_arch = "wasm32"))]
 async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
     let router_id = match crate::utils::env_principal("SONIC_ROUTER") {
         Some(p) => p,

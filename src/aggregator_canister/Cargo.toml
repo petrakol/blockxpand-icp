@@ -2,11 +2,18 @@
 name = "aggregator_canister"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 aggregator = { path = "../aggregator" }
 ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
 
+[features]
+export_candid = ["ic-cdk/wasi"]
+
 [lib]
 crate-type = ["cdylib"]
+
+[build-dependencies]
+chrono = { workspace = true }

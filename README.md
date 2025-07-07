@@ -71,6 +71,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - CI uses the same approach to keep secrets out of the logs
 - Integration tests spawn a lightweight dfx emulator to verify canister
   deployment end-to-end
+- `get_holdings_cert` returns a data certificate and Merkle witness for
+  tamper-proof balances
 
 ## Building
 
@@ -116,14 +118,21 @@ canister.
 ## DEX configuration
 
 Adapters for ICPSwap, Sonic and InfinitySwap locate their canisters via
-environment variables:
+environment variables.  Fallback IDs and controller checksums are defined in
+`config/ledgers.toml` so a fresh checkout without any variables still
+returns data.  Run `scripts/fetch_env.sh` to populate the variables from the
+public SNS registry.  On startup a banner logs whether an environment
+variable overrides the file value and each ID is sanity-checked against the
+canister controller:
 
 - `ICPSWAP_FACTORY` – ICPSwap factory canister ID
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
 
-When any of these are unset the corresponding adapter simply yields no results.
-Integration tests set them automatically for the local environment.
+When any of these are unset a warning is logged and the fallback from
+`ledgers.toml` is used.  The file is watched for changes so updated IDs take
+effect without redeploying.  Integration tests set the variables
+automatically for the local environment.
 
 ## Deployment
 

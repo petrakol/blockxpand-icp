@@ -91,6 +91,10 @@ mod tests {
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
         std::env::set_var("LEDGERS_FILE", file.path());
 
+        aggregator::utils::load_dex_config().await;
+
+        aggregator::utils::load_dex_config().await;
+
         let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await;
         assert_eq!(holdings.len(), 4);
@@ -135,6 +139,93 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn integration_get_holdings_cert() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let cid = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+
+        aggregator::utils::load_dex_config().await;
+
+        let cfg_path = std::path::Path::new("config/ledgers.toml");
+        let original = std::fs::read_to_string(cfg_path).unwrap();
+        std::fs::write(cfg_path, format!("[ledgers]\nICP = \"{cid}\"\n")).unwrap();
+        struct Restore(String);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                let _ = std::fs::write("config/ledgers.toml", &self.0);
+            }
+        }
+        let _restore = Restore(original);
+
+        let aggr_id = match deploy(replica.dir.path(), "aggregator") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy aggregator; skipping test");
+                return;
+            }
+        };
+
+        let agent = Agent::builder()
+            .with_url("http://127.0.0.1:4943")
+            .with_identity(AnonymousIdentity {})
+            .build()
+            .unwrap();
+        let _ = agent.fetch_root_key().await;
+        let arg = candid::Encode!(&Principal::anonymous()).unwrap();
+        let _ = agent
+            .update(&Principal::from_text(&aggr_id).unwrap(), "refresh_holdings")
+            .with_arg(arg.clone())
+            .call_and_wait()
+            .await
+            .unwrap();
+
+        let bytes = agent
+            .query(
+                &Principal::from_text(&aggr_id).unwrap(),
+                "get_holdings_cert",
+            )
+            .with_arg(arg)
+            .call()
+            .await
+            .unwrap();
+
+        #[derive(candid::CandidType, serde::Deserialize)]
+        struct Resp {
+            holdings: Vec<Holding>,
+            certificate: Vec<u8>,
+            witness: Vec<u8>,
+        }
+
+        let res: Resp = candid::Decode!(&bytes, Resp).unwrap();
+        assert!(!res.certificate.is_empty());
+        assert!(!res.witness.is_empty());
+        assert_eq!(res.holdings.len(), 3);
+    }
+
+    #[tokio::test]
     async fn integration_icpswap_positions() {
         if !ensure_dfx() {
             eprintln!("dfx not found; skipping integration test");
@@ -170,6 +261,8 @@ mod tests {
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
         std::env::set_var("LEDGERS_FILE", file.path());
         std::env::set_var("ICPSWAP_FACTORY", &dex_id);
+
+        aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await;
@@ -213,6 +306,8 @@ mod tests {
         std::env::set_var("LEDGERS_FILE", file.path());
         std::env::set_var("SONIC_ROUTER", &dex_id);
 
+        aggregator::utils::load_dex_config().await;
+
         let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await;
         assert!(holdings.iter().any(|h| h.source == "Sonic"));
@@ -254,6 +349,8 @@ mod tests {
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
         std::env::set_var("LEDGERS_FILE", file.path());
         std::env::set_var("INFINITY_VAULT", &dex_id);
+
+        aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await;
@@ -305,6 +402,8 @@ mod tests {
         std::env::set_var("LEDGERS_FILE", file.path());
         std::env::set_var("ICPSWAP_FACTORY", &icpswap_id);
         std::env::set_var("SONIC_ROUTER", &sonic_id);
+
+        aggregator::utils::load_dex_config().await;
 
         let agent = Agent::builder()
             .with_url("http://127.0.0.1:4943")

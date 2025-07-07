@@ -30,6 +30,8 @@ struct PoolData {
 }
 
 static HEIGHT: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
+static TOTAL_SUPPLY: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(600_000_000));
+static TOTAL_REWARDS: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(50_000_000));
 
 #[candid::candid_method(query)]
 #[query]
@@ -95,6 +97,24 @@ async fn claim(p: Principal, ledger: Principal) -> u64 {
         .await
         .unwrap();
     10_000
+}
+
+#[candid::candid_method(query)]
+#[query]
+fn lp_total_supply() -> Nat {
+    Nat::from(*TOTAL_SUPPLY.lock().unwrap())
+}
+
+#[candid::candid_method(query)]
+#[query]
+fn total_rewards() -> Nat {
+    Nat::from(*TOTAL_REWARDS.lock().unwrap())
+}
+
+#[candid::candid_method(query)]
+#[query]
+fn claimable_rewards(_p: Principal) -> Nat {
+    Nat::from(*TOTAL_REWARDS.lock().unwrap())
 }
 
 ic_cdk::export_candid!();

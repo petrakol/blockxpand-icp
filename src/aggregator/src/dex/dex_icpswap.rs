@@ -73,6 +73,11 @@ impl DexAdapter for IcpswapAdapter {
 pub struct IcpswapAdapter;
 
 #[cfg(not(target_arch = "wasm32"))]
+pub fn clear_cache() {
+    META_CACHE.clear();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
     let factory_id = match crate::utils::env_principal("ICPSWAP_FACTORY") {
         Some(p) => p,
