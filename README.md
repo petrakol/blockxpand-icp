@@ -65,6 +65,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Common constants like `MINUTE_NS`, `DAY_NS`, `WEEK_NS`, `DAY_SECS` and `WEEK_SECS` centralise refresh durations
 - Adapter fetchers yield to the scheduler before starting requests, eliminating
   the previous fixed delay
+- A heartbeat-driven queue deterministically warms ledger and DEX metadata
+  caches across ticks so refreshes never exceed the 5 s execution limit
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic

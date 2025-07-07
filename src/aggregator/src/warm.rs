@@ -26,23 +26,28 @@ pub fn init() {
 }
 
 pub async fn tick() {
-    let mut q = QUEUE.lock().unwrap();
-    let now = crate::utils::now();
     for _ in 0..ITEMS_PER_TICK {
-        let mut entry = match q.pop_front() {
+        let entry_opt = {
+            let mut q = QUEUE.lock().unwrap();
+            q.pop_front()
+        };
+        let mut entry = match entry_opt {
             Some(e) => e,
             None => break,
         };
-        if now >= entry.next {
-            drop(q);
+
+        if crate::utils::now() >= entry.next {
             #[cfg(not(target_arch = "wasm32"))]
             {
                 crate::ledger_fetcher::warm_metadata(entry.cid).await;
                 crate::utils::warm_icrc_metadata(entry.cid).await;
             }
             entry.next = crate::utils::now() + crate::utils::DAY_NS;
-            q = QUEUE.lock().unwrap();
         }
-        q.push_back(entry);
+
+        {
+            let mut q = QUEUE.lock().unwrap();
+            q.push_back(entry);
+        }
     }
 }
