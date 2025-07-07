@@ -333,6 +333,15 @@ async fn fetch_metadata(
     Ok((symbol, decimals, fee))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn warm_metadata(cid: Principal) {
+    let agent = get_agent().await;
+    let _ = fetch_metadata(&agent, cid).await;
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn warm_metadata(_cid: Principal) {}
+
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 pub(super) fn set_mock_metadata(
     resp: Result<Vec<(String, candid::types::value::IDLValue)>, String>,

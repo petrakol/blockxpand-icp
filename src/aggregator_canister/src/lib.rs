@@ -9,6 +9,12 @@ fn init() {
     ic_cdk::spawn(async { aggregator::pool_registry::refresh().await });
     aggregator::pool_registry::schedule_refresh();
     aggregator::lp_cache::schedule_eviction();
+    aggregator::warm::init();
+}
+
+#[ic_cdk_macros::heartbeat]
+async fn heartbeat() {
+    aggregator::warm::tick().await;
 }
 
 #[cfg(feature = "export_candid")]

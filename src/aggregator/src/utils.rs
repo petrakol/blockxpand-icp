@@ -314,6 +314,23 @@ pub fn env_principal(name: &str) -> Option<candid::Principal> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+pub fn dex_ids() -> Vec<candid::Principal> {
+    DEX_CONFIG
+        .read()
+        .unwrap()
+        .values()
+        .filter(|e| e.enabled)
+        .map(|e| e.id)
+        .collect()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn warm_icrc_metadata(cid: candid::Principal) {
+    let agent = get_agent().await;
+    let _ = icrc1_metadata(&agent, cid).await;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn dex_block_height(agent: &ic_agent::Agent, cid: candid::Principal) -> Option<u64> {
     use candid::{Decode, Encode};
     let arg = Encode!().unwrap();

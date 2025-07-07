@@ -7,6 +7,7 @@ pub mod lp_cache;
 pub mod neuron_fetcher;
 pub mod pool_registry;
 pub mod utils;
+pub mod warm;
 
 use crate::utils::{now, MINUTE_NS};
 use bx_core::Holding;
