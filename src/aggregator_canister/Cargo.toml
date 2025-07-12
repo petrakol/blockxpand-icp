@@ -12,6 +12,7 @@ candid = { workspace = true }
 
 [features]
 export_candid = ["ic-cdk/wasi"]
+claim = ["aggregator/claim"]
 
 [lib]
 crate-type = ["cdylib"]

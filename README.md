@@ -84,6 +84,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 cargo build --quiet
 # When the public API changes regenerate candid/aggregator.did with
 cargo build --features export_candid -p aggregator_canister
+# Build with reward claiming enabled
+cargo build --features claim -p aggregator_canister
 ```
 
 ## Testing
@@ -162,7 +164,7 @@ environment.
    secrets appear in the logs.
 5. The `deploy.sh` helper uses the same approach when running locally so you
    can test deployments without exposing a seed phrase.
-6. When you update any canister API, run `cargo build --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`.
+6. When you update any canister API, run `cargo build --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`. Include the `claim` feature if exporting `claim_all_rewards`.
 
 ## Further reading
 

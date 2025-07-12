@@ -80,6 +80,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 }
 
 #[cfg(feature = "claim")]
+#[ic_cdk_macros::update]
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     use dex::{
         dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,

@@ -7,6 +7,7 @@ type Holding = record {
 
 service: {
   "get_holdings": (principal) -> (vec Holding) query;
+  "claim_all_rewards": (principal) -> (vec nat64) update;
   "refresh_holdings": (principal) -> () update;
   "get_holdings_cert": (principal) -> (record {
     holdings: vec Holding;
