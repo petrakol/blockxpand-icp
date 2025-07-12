@@ -28,7 +28,7 @@ pub fn stable_save() -> Vec<StableEntry> {
         .map(|e| {
             let (p, pool) = e.key();
             StableEntry {
-                principal: p.clone(),
+                principal: *p,
                 pool: pool.clone(),
                 data: e.value().data.clone(),
                 height: e.value().height,
