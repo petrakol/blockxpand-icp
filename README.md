@@ -71,6 +71,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   falls below 0.5 T, logging each refill in stable memory
 - Ledger metadata and LP caches persist across upgrades via stable memory,
   so deployments start warm
+- Operational metrics (cycle balance, query and heartbeat counts) are exposed via
+  the `get_metrics` endpoint
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic

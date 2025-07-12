@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod cert;
 pub mod cycles;
+pub mod metrics;
 pub mod dex;
 pub mod dex_fetchers;
 pub mod ledger_fetcher;
@@ -40,6 +41,7 @@ fn instructions() -> u64 {
 
 #[ic_cdk_macros::query]
 pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
+    metrics::inc_query();
     let start = instructions();
     let now = now();
     {
@@ -82,6 +84,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 #[cfg(feature = "claim")]
 #[ic_cdk_macros::update]
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
+    metrics::inc_query();
     use dex::{
         dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
         DexAdapter,
@@ -102,6 +105,7 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
 
 #[ic_cdk_macros::query]
 pub fn pools_graphql(query: String) -> String {
+    metrics::inc_query();
     pool_registry::graphql(query)
 }
 
@@ -116,6 +120,7 @@ pub struct CertifiedHoldings {
 
 #[ic_cdk_macros::update]
 pub async fn refresh_holdings(principal: Principal) {
+    metrics::inc_query();
     let now = now();
     let holdings = calculate_holdings(principal).await;
     cache::get().insert(principal, (holdings.clone(), now));
@@ -124,6 +129,7 @@ pub async fn refresh_holdings(principal: Principal) {
 
 #[ic_cdk_macros::query]
 pub fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
+    metrics::inc_query();
     let holdings = cache::get()
         .get(&principal)
         .map(|v| v.value().0.clone())
@@ -145,6 +151,7 @@ pub struct Version {
 
 #[ic_cdk_macros::query]
 pub fn get_version() -> Version {
+    metrics::inc_query();
     Version {
         git_sha: option_env!("GIT_SHA").unwrap_or("unknown"),
         build_time: option_env!("BUILD_TIME").unwrap_or("unknown"),
