@@ -213,6 +213,31 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     Ok(total)
 }
 
+#[cfg(all(feature = "claim", target_arch = "wasm32"))]
+async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
+    use crate::cache;
+    use ic_cdk::api::call::call;
+    let factory_id = match crate::utils::env_principal("ICPSWAP_FACTORY") {
+        Some(p) => p,
+        None => return Err("factory".into()),
+    };
+    let ledger = crate::ledger_fetcher::LEDGERS
+        .first()
+        .cloned()
+        .ok_or("ledger")?;
+    let (pools,): (Vec<PoolData>,) = call(factory_id, "getPools", ()).await.map_err(|(_, e)| e)?;
+    let mut total: u64 = 0;
+    for pool in pools {
+        let (spent,): (u64,) = call(pool.canister_id, "claim", (principal, ledger))
+            .await
+            .map_err(|(_, e)| e)?;
+        total = total.checked_add(spent).ok_or("overflow")?;
+    }
+    let holdings = fetch_positions_impl(principal).await;
+    cache::get().insert(principal, (holdings, now()));
+    Ok(total)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

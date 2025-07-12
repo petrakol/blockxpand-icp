@@ -20,7 +20,6 @@ pub fn init() {
     for cid in crate::ledger_fetcher::LEDGERS.iter().cloned() {
         q.push_back(Entry { cid, next: now });
     }
-    #[cfg(not(target_arch = "wasm32"))]
     for cid in crate::utils::dex_ids() {
         q.push_back(Entry { cid, next: now });
     }
@@ -39,10 +38,8 @@ pub async fn tick() {
 
         if crate::utils::now() >= entry.next {
             #[cfg(not(target_arch = "wasm32"))]
-            {
-                crate::ledger_fetcher::warm_metadata(entry.cid).await;
-                crate::utils::warm_icrc_metadata(entry.cid).await;
-            }
+            crate::ledger_fetcher::warm_metadata(entry.cid).await;
+            crate::utils::warm_icrc_metadata(entry.cid).await;
             entry.next = crate::utils::now() + crate::utils::DAY_NS;
         }
 

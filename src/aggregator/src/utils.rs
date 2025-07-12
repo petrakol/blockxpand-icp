@@ -324,6 +324,36 @@ pub fn dex_ids() -> Vec<candid::Principal> {
         .collect()
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn env_principal(name: &str) -> Option<candid::Principal> {
+    match name {
+        "ICPSWAP_FACTORY" => {
+            option_env!("ICPSWAP_FACTORY").and_then(|s| candid::Principal::from_text(s).ok())
+        }
+        "SONIC_ROUTER" => {
+            option_env!("SONIC_ROUTER").and_then(|s| candid::Principal::from_text(s).ok())
+        }
+        "INFINITY_VAULT" => {
+            option_env!("INFINITY_VAULT").and_then(|s| candid::Principal::from_text(s).ok())
+        }
+        _ => None,
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn dex_ids() -> Vec<candid::Principal> {
+    ["ICPSWAP_FACTORY", "SONIC_ROUTER", "INFINITY_VAULT"]
+        .into_iter()
+        .filter_map(env_principal)
+        .collect()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn warm_icrc_metadata(cid: candid::Principal) {
+    let _: Result<(Vec<(String, candid::types::value::IDLValue)>,), _> =
+        ic_cdk::api::call::call(cid, "icrc1_metadata", ()).await;
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn warm_icrc_metadata(cid: candid::Principal) {
     let agent = get_agent().await;
