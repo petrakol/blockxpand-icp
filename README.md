@@ -69,6 +69,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   caches across ticks so refreshes never exceed the 5 s execution limit
 - A top-up heartbeat pulls cycles from a pre-authorised wallet when balance
   falls below 0.5 T, logging each refill in stable memory
+- Refills back off exponentially when the wallet lacks funds to avoid spam
 - Ledger metadata and LP caches persist across upgrades via stable memory,
   so deployments start warm
 - Operational metrics (cycle balance, query and heartbeat counts) are exposed via
