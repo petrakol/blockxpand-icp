@@ -1,6 +1,5 @@
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::format_amount;
-#[cfg(not(target_arch = "wasm32"))]
 use crate::utils::DAY_NS;
 use bx_core::Holding;
 #[cfg(not(target_arch = "wasm32"))]
@@ -8,7 +7,6 @@ use candid::Nat;
 use candid::Principal;
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 use candid::{Decode, Encode};
-#[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use futures::future::join_all;
@@ -83,19 +81,17 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
 });
 
 /// Duration that cached metadata remains valid (24h)
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 const META_TTL_NS: u64 = DAY_NS;
 
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(Clone)]
-struct Meta {
+#[derive(Clone, candid::CandidType, serde::Serialize, serde::Deserialize)]
+pub struct Meta {
     symbol: String,
     decimals: u8,
     fee: u64,
     hash: [u8; 32],
     expires: u64,
 }
-#[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
 
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
@@ -341,6 +337,22 @@ pub async fn warm_metadata(cid: Principal) {
 
 #[cfg(target_arch = "wasm32")]
 pub async fn warm_metadata(_cid: Principal) {}
+
+#[cfg(target_arch = "wasm32")]
+pub fn take_cache() -> Vec<(Principal, Meta)> {
+    META_CACHE
+        .iter()
+        .map(|e| (*e.key(), e.value().clone()))
+        .collect()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn set_cache(entries: Vec<(Principal, Meta)>) {
+    META_CACHE.clear();
+    for (cid, meta) in entries {
+        META_CACHE.insert(cid, meta);
+    }
+}
 
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
 pub(super) fn set_mock_metadata(

@@ -69,6 +69,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   caches across ticks so refreshes never exceed the 5 s execution limit
 - A top-up heartbeat pulls cycles from a pre-authorised wallet when balance
   falls below 0.5 T, logging each refill in stable memory
+- Ledger metadata and LP caches persist across upgrades using stable memory
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic

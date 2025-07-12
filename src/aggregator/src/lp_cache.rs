@@ -5,7 +5,8 @@ use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use std::future::Future;
 
-struct Entry {
+#[derive(Clone, candid::CandidType, serde::Serialize, serde::Deserialize)]
+pub struct Entry {
     data: Vec<Holding>,
     height: u64,
     ts: u64,
@@ -46,6 +47,25 @@ where
 pub fn evict_stale() {
     let n = now();
     CACHE.retain(|_, v| n - v.ts < STALE_NS);
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn take_cache() -> Vec<(Principal, String, Entry)> {
+    CACHE
+        .iter()
+        .map(|e| {
+            let key = e.key();
+            (key.0.clone(), key.1.clone(), e.value().clone())
+        })
+        .collect()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn set_cache(entries: Vec<(Principal, String, Entry)>) {
+    CACHE.clear();
+    for (p, pool, entry) in entries {
+        CACHE.insert((p, pool), entry);
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
