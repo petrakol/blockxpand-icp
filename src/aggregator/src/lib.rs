@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod cert;
+pub mod cycles;
 pub mod dex;
 pub mod dex_fetchers;
 pub mod ledger_fetcher;
@@ -7,6 +8,7 @@ pub mod lp_cache;
 pub mod neuron_fetcher;
 pub mod pool_registry;
 pub mod utils;
+pub mod warm;
 
 use crate::utils::{now, MINUTE_NS};
 use bx_core::Holding;
@@ -78,6 +80,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 }
 
 #[cfg(feature = "claim")]
+#[ic_cdk_macros::update]
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     use dex::{
         dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
