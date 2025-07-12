@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 
 struct Entry {
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     cid: Principal,
     next: u64,
 }
