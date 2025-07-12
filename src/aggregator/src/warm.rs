@@ -1,6 +1,6 @@
 use candid::Principal;
 use once_cell::sync::Lazy;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::Mutex;
 
 struct Entry {
@@ -12,16 +12,28 @@ struct Entry {
 static QUEUE: Lazy<Mutex<VecDeque<Entry>>> = Lazy::new(|| Mutex::new(VecDeque::new()));
 
 const ITEMS_PER_TICK: usize = 3;
+const MAX_QUEUE_SIZE: usize = 128;
 
 pub fn init() {
     let now = crate::utils::now();
     let mut q = QUEUE.lock().unwrap();
     q.clear();
+    let mut seen = HashSet::new();
     for cid in crate::ledger_fetcher::LEDGERS.iter().cloned() {
-        q.push_back(Entry { cid, next: now });
+        if q.len() >= MAX_QUEUE_SIZE {
+            break;
+        }
+        if seen.insert(cid) {
+            q.push_back(Entry { cid, next: now });
+        }
     }
     for cid in crate::utils::dex_ids() {
-        q.push_back(Entry { cid, next: now });
+        if q.len() >= MAX_QUEUE_SIZE {
+            break;
+        }
+        if seen.insert(cid) {
+            q.push_back(Entry { cid, next: now });
+        }
     }
 }
 

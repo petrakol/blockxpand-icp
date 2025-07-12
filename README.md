@@ -67,6 +67,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   the previous fixed delay
 - A heartbeat-driven queue deterministically warms ledger and DEX metadata
   caches across ticks so refreshes never exceed the 5 s execution limit
+- The warm queue is bounded and deduplicates IDs to prevent unbounded growth
 - A top-up heartbeat pulls cycles from a pre-authorised wallet when balance
   falls below 0.5 T, logging each refill in stable memory
 - Refills back off exponentially when the wallet lacks funds to avoid spam
