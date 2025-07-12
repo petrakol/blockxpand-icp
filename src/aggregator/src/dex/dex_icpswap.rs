@@ -209,7 +209,27 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     }
     // refresh cache
     let holdings = fetch_positions_impl(principal).await;
-    cache::get().insert(principal, (holdings, now()));
+    cache::get().insert(principal, (holdings, crate::utils::now()));
+    Ok(total)
+}
+
+#[cfg(all(feature = "claim", target_arch = "wasm32"))]
+async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
+    use crate::{cache, ledger_fetcher::LEDGERS};
+    use ic_cdk::api::call::call;
+    let factory_id = crate::utils::env_principal("ICPSWAP_FACTORY").ok_or("factory")?;
+    let ledger = LEDGERS.first().cloned().ok_or("ledger")?;
+    let (pools,): (Vec<PoolData>,) =
+        call(factory_id, "getPools", ()).await.map_err(|(code, msg)| format!("{code:?} {msg}"))?;
+    let mut total: u64 = 0;
+    for pool in pools {
+        let (spent,): (u64,) = call(pool.canister_id, "claim", (principal, ledger))
+            .await
+            .map_err(|(c, m)| format!("{c:?} {m}"))?;
+        total = total.checked_add(spent).ok_or("overflow")?;
+    }
+    let holdings = fetch_positions_impl(principal).await;
+    cache::get().insert(principal, (holdings, crate::utils::now()));
     Ok(total)
 }
 

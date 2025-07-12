@@ -7,5 +7,16 @@ type Holding = record {
 
 service: {
   "get_holdings": (principal) -> (vec Holding) query;
+  "claim_all_rewards": (principal) -> (vec nat64);
+  "refresh_holdings": (principal) -> (); 
+  "get_holdings_cert": (principal) -> (record {
+    holdings: vec Holding;
+    certificate: blob;
+    witness: blob;
+  }) query;
   "pools_graphql": (text) -> (text) query;
+  "get_version": () -> (record {
+    git_sha: text;
+    build_time: text;
+  }) query;
 };

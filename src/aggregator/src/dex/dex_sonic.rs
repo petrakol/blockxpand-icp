@@ -1,6 +1,4 @@
 use super::{DexAdapter, RewardInfo};
-#[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
-use crate::utils::now;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     lp_cache,
@@ -114,7 +112,21 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         .map_err(|e| e.to_string())?;
     let spent: u64 = Decode!(&bytes, u64).unwrap_or_default();
     let holdings = fetch_positions_impl(principal).await;
-    cache::get().insert(principal, (holdings, now()));
+    cache::get().insert(principal, (holdings, crate::utils::now()));
+    Ok(spent)
+}
+
+#[cfg(all(feature = "claim", target_arch = "wasm32"))]
+async fn claim_impl(principal: Principal) -> Result<u64, String> {
+    use crate::{cache, ledger_fetcher::LEDGERS};
+    use ic_cdk::api::call::call;
+    let router_id = crate::utils::env_principal("SONIC_ROUTER").ok_or("router")?;
+    let ledger = LEDGERS.first().cloned().ok_or("ledger")?;
+    let (spent,): (u64,) = call(router_id, "claim", (principal, ledger))
+        .await
+        .map_err(|(c, m)| format!("{c:?} {m}"))?;
+    let holdings = fetch_positions_impl(principal).await;
+    cache::get().insert(principal, (holdings, crate::utils::now()));
     Ok(spent)
 }
 
