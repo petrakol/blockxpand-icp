@@ -98,6 +98,60 @@ struct Meta {
 #[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
 
+#[derive(candid::CandidType, serde::Deserialize, serde::Serialize)]
+pub struct StableMeta {
+    cid: Principal,
+    symbol: String,
+    decimals: u8,
+    fee: u64,
+    hash: Vec<u8>,
+    expires: u64,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn stable_save() -> Vec<StableMeta> {
+    META_CACHE
+        .iter()
+        .map(|e| StableMeta {
+            cid: *e.key(),
+            symbol: e.value().symbol.clone(),
+            decimals: e.value().decimals,
+            fee: e.value().fee,
+            hash: e.value().hash.to_vec(),
+            expires: e.value().expires,
+        })
+        .collect()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn stable_restore(data: Vec<StableMeta>) {
+    META_CACHE.clear();
+    for m in data {
+        let mut hash = [0u8; 32];
+        if m.hash.len() == 32 {
+            hash.copy_from_slice(&m.hash);
+        }
+        META_CACHE.insert(
+            m.cid,
+            Meta {
+                symbol: m.symbol,
+                decimals: m.decimals,
+                fee: m.fee,
+                hash,
+                expires: m.expires,
+            },
+        );
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn stable_save() -> Vec<StableMeta> {
+    Vec::new()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn stable_restore(_: Vec<StableMeta>) {}
+
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 async fn with_retry<F, Fut, T>(mut f: F) -> Result<T, ic_agent::AgentError>
 where

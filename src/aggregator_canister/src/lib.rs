@@ -15,13 +15,21 @@ fn init() {
 #[ic_cdk_macros::pre_upgrade]
 fn pre_upgrade() {
     let log = aggregator::cycles::take_log();
-    ic_cdk::storage::stable_save((log,)).unwrap();
+    let meta = aggregator::ledger_fetcher::stable_save();
+    let lp = aggregator::lp_cache::stable_save();
+    ic_cdk::storage::stable_save((log, meta, lp)).unwrap();
 }
 
 #[ic_cdk_macros::post_upgrade]
 fn post_upgrade() {
-    if let Ok((log,)) = ic_cdk::storage::stable_restore::<(Vec<String>,)>() {
+    if let Ok((log, meta, lp)) = ic_cdk::storage::stable_restore::<(
+        Vec<String>,
+        Vec<aggregator::ledger_fetcher::StableMeta>,
+        Vec<aggregator::lp_cache::StableEntry>,
+    )>() {
         aggregator::cycles::set_log(log);
+        aggregator::ledger_fetcher::stable_restore(meta);
+        aggregator::lp_cache::stable_restore(lp);
     }
 }
 
