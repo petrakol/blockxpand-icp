@@ -1,7 +1,7 @@
 #[cfg(target_arch = "wasm32")]
 use candid::Principal;
 #[cfg(target_arch = "wasm32")]
-use ic_cdk::api::{call::call, canister_balance, time};
+use ic_cdk::api::{call::call, canister_balance128, time};
 #[cfg(target_arch = "wasm32")]
 use once_cell::sync::Lazy;
 #[cfg(target_arch = "wasm32")]
@@ -35,10 +35,10 @@ pub async fn tick() {
     if !run {
         return;
     }
-    if canister_balance() < MIN_BALANCE {
+    if canister_balance128() < MIN_BALANCE {
         if let Some(w) = *WALLET {
             let _res: Result<(), _> = call(w, "wallet_receive", ()).await;
-            let bal = canister_balance();
+            let bal = canister_balance128();
             LOG.with(|l| l.borrow_mut().push(format!("{now}: refilled to {bal}")));
         }
     }

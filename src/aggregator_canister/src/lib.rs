@@ -32,4 +32,4 @@ async fn heartbeat() {
 }
 
 #[cfg(feature = "export_candid")]
-ic_cdk::export::candid::export_service!();
+ic_cdk::export_candid!(aggregator);
