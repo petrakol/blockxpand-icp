@@ -65,6 +65,10 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Common constants like `MINUTE_NS`, `DAY_NS`, `WEEK_NS`, `DAY_SECS` and `WEEK_SECS` centralise refresh durations
 - Adapter fetchers yield to the scheduler before starting requests, eliminating
   the previous fixed delay
+- A heartbeat-driven queue deterministically warms ledger and DEX metadata
+  caches across ticks so refreshes never exceed the 5 s execution limit
+- A top-up heartbeat pulls cycles from a pre-authorised wallet when balance
+  falls below 0.5 T, logging each refill in stable memory
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic
@@ -78,6 +82,10 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 
 ```bash
 cargo build --quiet
+# When the public API changes regenerate candid/aggregator.did with
+cargo build --features export_candid -p aggregator_canister
+# Build with reward claiming enabled
+cargo build --features claim -p aggregator_canister
 ```
 
 ## Testing
@@ -156,6 +164,7 @@ environment.
    secrets appear in the logs.
 5. The `deploy.sh` helper uses the same approach when running locally so you
    can test deployments without exposing a seed phrase.
+6. When you update any canister API, run `cargo build --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`. Include the `claim` feature if exporting `claim_all_rewards`.
 
 ## Further reading
 

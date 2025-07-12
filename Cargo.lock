@@ -54,6 +54,7 @@ name = "aggregator_canister"
 version = "0.1.0"
 dependencies = [
  "aggregator",
+ "candid",
  "chrono",
  "ic-cdk",
  "ic-cdk-macros",
