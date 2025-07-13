@@ -196,6 +196,14 @@ export SNS_DISTRIBUTOR=eeeeee-ee
 6. When you update any canister API, run `cargo build --target wasm32-unknown-unknown --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`.
    CI runs this command via `deploy.sh` so the file stays in sync automatically.
 
+## Web UI
+
+A minimal static interface lives in `frontend/`. Replace `<CANISTER_ID>` in
+`index.html` with your aggregator canister ID and open the file in a browser.
+The page uses `@dfinity/auth-client` to sign in via Internet Identity and calls
+`claim_all_rewards` through `@dfinity/agent` when you click **Claim Rewards**.
+
+
 ## Further reading
 
 - [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) summarises the latest security audit
