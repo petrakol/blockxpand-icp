@@ -111,6 +111,9 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     if caller != principal && !CLAIM_WALLETS.contains(&caller) {
         ic_cdk::api::trap("unauthorized");
     }
+    if principal == Principal::anonymous() {
+        ic_cdk::api::trap("invalid principal");
+    }
     {
         let mut locks = CLAIM_LOCKS.lock().unwrap();
         if !locks.insert(principal) {

@@ -91,8 +91,8 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         Ok(b) => b,
         Err(e) => return Err(FetchError::from(e)),
     };
-    let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>)
-        .map_err(|_| FetchError::InvalidResponse)?;
+    let pools: Vec<PoolData> =
+        Decode!(&bytes, Vec<PoolData>).map_err(|_| FetchError::InvalidResponse)?;
     let mut out = Vec::with_capacity(pools.len() * 3);
     for pool in pools.iter() {
         let height = crate::utils::dex_block_height(&agent, pool.canister_id)
@@ -192,8 +192,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
         .call()
         .await
         .map_err(|e| e.to_string())?;
-    let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>)
-        .map_err(|_| "invalid response")?;
+    let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).map_err(|_| "invalid response")?;
     let mut total: u64 = 0;
     for pool in pools {
         let arg = Encode!(&principal, &ledger).expect("encode args");

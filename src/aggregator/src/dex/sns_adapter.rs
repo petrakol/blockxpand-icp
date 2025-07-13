@@ -150,8 +150,8 @@ pub async fn sns_get_claimable(
         .with_arg(arg)
         .call()
         .await?;
-    let claims: Vec<Claimable> =
-        Decode!(&bytes, Vec<Claimable>).map_err(|_| ic_agent::AgentError::MessageError("invalid response".into()))?;
+    let claims: Vec<Claimable> = Decode!(&bytes, Vec<Claimable>)
+        .map_err(|_| ic_agent::AgentError::MessageError("invalid response".into()))?;
     Ok(claims)
 }
 
