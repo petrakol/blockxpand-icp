@@ -170,7 +170,7 @@ where
 
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 fn encode_items(items: &[(String, candid::types::value::IDLValue)]) -> Vec<u8> {
-    Encode!(&items).unwrap()
+    Encode!(&items).expect("encode items")
 }
 
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
@@ -178,7 +178,7 @@ fn encode_items(items: &[(String, candid::types::value::IDLValue)]) -> Vec<u8> {
     use std::fmt::Write;
     let mut s = String::new();
     for (k, v) in items {
-        write!(&mut s, "{k}:{v:?};").unwrap();
+        write!(&mut s, "{k}:{v:?};").expect("write to string");
     }
     s.into_bytes()
 }
@@ -214,14 +214,15 @@ async fn icrc1_metadata(
     agent: &Agent,
     canister_id: Principal,
 ) -> Result<Vec<(String, candid::types::value::IDLValue)>, ic_agent::AgentError> {
-    let arg = candid::Encode!().unwrap();
+    let arg = candid::Encode!().expect("encode args");
     let bytes = agent
         .query(&canister_id, "icrc1_metadata")
         .with_arg(arg)
         .call()
         .await?;
     let res: Vec<(String, candid::types::value::IDLValue)> =
-        candid::Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>).unwrap();
+        candid::Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>)
+            .expect("decode metadata");
     Ok(res)
 }
 
@@ -255,13 +256,13 @@ async fn icrc1_balance_of(
         owner,
         subaccount: None
     })
-    .unwrap();
+    .expect("encode args");
     let bytes = agent
         .query(&canister_id, "icrc1_balance_of")
         .with_arg(arg)
         .call()
         .await?;
-    let res: Nat = candid::Decode!(&bytes, Nat).unwrap();
+    let res: Nat = candid::Decode!(&bytes, Nat).expect("decode balance");
     Ok(res)
 }
 

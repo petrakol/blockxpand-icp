@@ -60,7 +60,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         .await
         .unwrap_or(0);
     let holdings = lp_cache::get_or_fetch(principal, "sonic", height, || async {
-        let mut temp = Vec::new();
+        let mut temp = Vec::with_capacity(positions.len() * 3);
         for pos in positions {
             let a0 = format_amount(pos.token_a_amount, pos.token_a.decimals);
             temp.push(Holding {

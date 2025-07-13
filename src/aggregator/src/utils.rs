@@ -15,6 +15,9 @@ pub const DAY_SECS: u64 = 86_400;
 pub const WEEK_SECS: u64 = DAY_SECS * 7;
 
 #[cfg(not(target_arch = "wasm32"))]
+pub const DEFAULT_LEDGER_URL: &str = "http://localhost:4943";
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -61,7 +64,7 @@ pub async fn get_agent() -> ic_agent::Agent {
     if let Some(a) = AGENT.get() {
         return a.clone();
     }
-    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
+    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| DEFAULT_LEDGER_URL.to_string());
     let agent = ic_agent::Agent::builder()
         .with_url(url)
         .build()
@@ -212,7 +215,7 @@ async fn icrc1_metadata(
     cid: candid::Principal,
 ) -> Option<Vec<(String, candid::types::value::IDLValue)>> {
     use candid::{Decode, Encode};
-    let arg = Encode!().unwrap();
+    let arg = Encode!().expect("encode args");
     let bytes = agent
         .query(&cid, "icrc1_metadata")
         .with_arg(arg)
@@ -290,10 +293,7 @@ pub fn watch_dex_config() {
     tokio::spawn(async move {
         while rx.recv().await.is_some() {
             load_dex_config().await;
-            crate::dex::dex_icpswap::clear_cache();
-            crate::dex::dex_sonic::clear_cache();
-            crate::dex::dex_infinity::clear_cache();
-            crate::dex::sns_adapter::clear_cache();
+            crate::dex::clear_all_caches();
         }
     });
 }
@@ -374,7 +374,7 @@ pub async fn warm_icrc_metadata(cid: candid::Principal) {
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn dex_block_height(agent: &ic_agent::Agent, cid: candid::Principal) -> Option<u64> {
     use candid::{Decode, Encode};
-    let arg = Encode!().unwrap();
+    let arg = Encode!().expect("encode args");
     let bytes = agent
         .query(&cid, "block_height")
         .with_arg(arg)

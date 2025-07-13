@@ -28,3 +28,14 @@ pub mod dex_icpswap;
 pub mod dex_infinity;
 pub mod dex_sonic;
 pub mod sns_adapter;
+
+/// Clear cached metadata for all adapters
+pub fn clear_all_caches() {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        dex_icpswap::clear_cache();
+        dex_sonic::clear_cache();
+        dex_infinity::clear_cache();
+    }
+    sns_adapter::clear_cache();
+}

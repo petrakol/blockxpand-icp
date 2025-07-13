@@ -54,7 +54,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         None => return Err(FetchError::InvalidConfig("vault".into())),
     };
     let agent = get_agent().await;
-    let arg = Encode!(&principal).unwrap();
+    let arg = Encode!(&principal).expect("encode args");
     let bytes = match agent
         .query(&vault_id, "get_user_positions")
         .with_arg(arg)
@@ -69,7 +69,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         .await
         .unwrap_or(0);
     let holdings = lp_cache::get_or_fetch(principal, "infinity", height, || async {
-        let mut temp = Vec::new();
+        let mut temp = Vec::with_capacity(positions.len() * 3);
         for pos in positions {
             let (symbol, decimals) = match fetch_meta(&agent, pos.ledger).await {
                 Some(v) => v,
@@ -113,7 +113,7 @@ async fn balance_of(
         owner,
         subaccount: Some(sub),
     })
-    .unwrap();
+    .expect("encode args");
     let bytes = agent
         .query(&ledger, "icrc1_balance_of")
         .with_arg(arg)
@@ -130,7 +130,7 @@ async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(Strin
             return Some((e.value().0.clone(), e.value().1));
         }
     }
-    let arg = Encode!().unwrap();
+    let arg = Encode!().expect("encode args");
     let bytes = agent
         .query(&ledger, "icrc1_metadata")
         .with_arg(arg)
