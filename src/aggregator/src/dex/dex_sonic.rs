@@ -45,7 +45,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         None => return Err(FetchError::InvalidConfig("router".into())),
     };
     let agent = get_agent().await;
-    let arg = Encode!(&principal).unwrap();
+    let arg = Encode!(&principal).expect("encode args");
     let bytes = match agent
         .query(&router_id, "get_user_positions")
         .with_arg(arg)
@@ -107,7 +107,7 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
     };
     let ledger = LEDGERS.first().cloned().ok_or("ledger")?;
     let agent = get_agent().await;
-    let arg = Encode!(&principal, &ledger).unwrap();
+    let arg = Encode!(&principal, &ledger).expect("encode args");
     let bytes = agent
         .update(&router_id, "claim")
         .with_arg(arg)

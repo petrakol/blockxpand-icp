@@ -23,7 +23,7 @@ pub const DEFAULT_LEDGER_URL: &str = "http://localhost:4943";
 pub fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .expect("system time before UNIX_EPOCH")
         .as_nanos() as u64
 }
 
@@ -109,9 +109,14 @@ static DEX_CONFIG: once_cell::sync::Lazy<
 > = once_cell::sync::Lazy::new(|| std::sync::RwLock::new(std::collections::HashMap::new()));
 
 #[cfg(not(target_arch = "wasm32"))]
+static CONFIG_LOCK: once_cell::sync::Lazy<tokio::sync::Mutex<()>> =
+    once_cell::sync::Lazy::new(|| tokio::sync::Mutex::new(()));
+
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn load_dex_config() {
     use tracing::info;
     use tracing::warn;
+    let _guard = CONFIG_LOCK.lock().await;
 
     let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
     let text = std::fs::read_to_string(&path).unwrap_or_default();
@@ -129,10 +134,15 @@ pub async fn load_dex_config() {
         .cloned()
         .unwrap_or_default();
 
+    use std::collections::HashSet;
     let mut map = std::collections::HashMap::new();
+    let mut seen = HashSet::new();
     for (name, val) in dex_table.iter() {
         if let Some(id_str) = val.as_str() {
             if let Ok(id) = candid::Principal::from_text(id_str) {
+                if !seen.insert(id) {
+                    warn!("duplicate dex id {}", id);
+                }
                 let controller = ctrl_table
                     .get(name)
                     .and_then(|v| v.as_str())
@@ -294,6 +304,7 @@ pub fn watch_dex_config() {
     use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
     use std::path::Path;
     if WATCHER.get().is_some() {
+        tracing::debug!("dex config watcher already running");
         return;
     }
     let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
@@ -309,9 +320,10 @@ pub fn watch_dex_config() {
         notify::Config::default(),
     )
     .expect("watcher");
-    watcher
-        .watch(Path::new(&path), RecursiveMode::NonRecursive)
-        .expect("watch ledgers");
+    if let Err(e) = watcher.watch(Path::new(&path), RecursiveMode::NonRecursive) {
+        tracing::error!("failed to watch dex config: {e}");
+        return;
+    }
     let _ = WATCHER.set(watcher);
     tokio::spawn(async move {
         while rx.recv().await.is_some() {

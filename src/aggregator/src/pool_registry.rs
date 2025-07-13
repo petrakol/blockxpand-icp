@@ -44,6 +44,7 @@ pub fn watch_pools_file() {
     use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
     use std::path::Path;
     if WATCHER.get().is_some() {
+        tracing::debug!("pools watcher already running");
         return;
     }
     let path = std::env::var("POOLS_FILE").unwrap_or_else(|_| "data/pools.toml".to_string());
@@ -59,9 +60,10 @@ pub fn watch_pools_file() {
         notify::Config::default(),
     )
     .expect("watcher");
-    watcher
-        .watch(Path::new(&path), RecursiveMode::NonRecursive)
-        .expect("watch pools");
+    if let Err(e) = watcher.watch(Path::new(&path), RecursiveMode::NonRecursive) {
+        tracing::error!("failed to watch pools file: {e}");
+        return;
+    }
     let _ = WATCHER.set(watcher);
     tokio::spawn(async move {
         while rx.recv().await.is_some() {
