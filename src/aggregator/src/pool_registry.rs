@@ -1,5 +1,7 @@
 use candid::CandidType;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
+#[cfg(not(target_arch = "wasm32"))]
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;

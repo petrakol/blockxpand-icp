@@ -1,7 +1,6 @@
 use crate::error::FetchError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::format_amount;
-#[cfg(not(target_arch = "wasm32"))]
 use bx_core::Holding;
 #[cfg(not(target_arch = "wasm32"))]
 use candid::Nat;
