@@ -198,13 +198,15 @@ export SNS_DISTRIBUTOR=eeeeee-ee
 
 ## Web UI
 
-A minimal static interface lives in `frontend/`. Run
+A minimalistic interface lives in `frontend/`. Run
 `scripts/build_frontend.sh` to produce `frontend/dist/index.html` with your
 aggregator canister ID injected (the script uses `CANISTER_ID` or
-`dfx canister id aggregator`). Open the generated file in a browser. The page
-lets you connect with Internet Identity and shows current holdings. Clicking
-**Claim Rewards** triggers `claim_all_rewards`. Errors are displayed in the
-status field at the bottom of the page.
+`dfx canister id aggregator`). Open the generated file in a browser. Use the
+**Connect Wallet** button to authenticate with Internet Identity, then view your
+current holdings. Claimable tokens appear in a table alongside their source DEX
+and a summary of totals per token. Clicking **Claim Rewards** triggers
+`claim_all_rewards`, refreshes the holdings and displays success or error
+messages in the status area at the bottom of the page.
 
 
 ## Further reading

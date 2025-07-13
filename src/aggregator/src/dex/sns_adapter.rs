@@ -24,9 +24,11 @@ pub fn clear_cache() {}
 pub fn clear_cache() {}
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(clippy::type_complexity)]
 static MOCK_CLAIMABLE: Lazy<Mutex<Option<Result<Vec<Claimable>, String>>>> =
     Lazy::new(|| Mutex::new(None));
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(clippy::type_complexity)]
 static MOCK_CLAIM: Lazy<Mutex<Option<Result<u64, String>>>> = Lazy::new(|| Mutex::new(None));
 
 #[derive(CandidType, Deserialize, Clone)]
