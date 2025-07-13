@@ -30,7 +30,7 @@ fn post_upgrade() {
         Vec<String>,
         Vec<aggregator::ledger_fetcher::StableMeta>,
         Vec<aggregator::lp_cache::StableEntry>,
-        (u64, u64, u64),
+        (u64, u64, u64, u64, u64),
     )>() {
         aggregator::cycles::set_log(log);
         aggregator::ledger_fetcher::stable_restore(meta);

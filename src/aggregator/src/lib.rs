@@ -140,6 +140,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 #[ic_cdk_macros::update]
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     metrics::inc_query();
+    metrics::inc_claim_attempt();
     let caller = ic_cdk::caller();
     if caller != principal && !CLAIM_WALLETS.contains(&caller) {
         ic_cdk::api::trap("unauthorized");
@@ -196,6 +197,7 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
             spent.push(c);
         }
     }
+    metrics::inc_claim_success();
     spent
 }
 
