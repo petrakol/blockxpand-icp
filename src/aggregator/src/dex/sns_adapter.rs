@@ -150,7 +150,8 @@ pub async fn sns_get_claimable(
         .with_arg(arg)
         .call()
         .await?;
-    let claims: Vec<Claimable> = Decode!(&bytes, Vec<Claimable>).unwrap_or_default();
+    let claims: Vec<Claimable> =
+        Decode!(&bytes, Vec<Claimable>).map_err(|_| ic_agent::AgentError::MessageError("invalid response".into()))?;
     Ok(claims)
 }
 
@@ -169,5 +170,5 @@ pub async fn sns_claim(
         .with_arg(arg)
         .call_and_wait()
         .await?;
-    Ok(Decode!(&bytes, u64).unwrap_or_default())
+    Decode!(&bytes, u64).map_err(|_| ic_agent::AgentError::MessageError("invalid response".into()))
 }

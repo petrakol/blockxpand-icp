@@ -62,7 +62,8 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         Ok(b) => b,
         Err(e) => return Err(FetchError::from(e)),
     };
-    let positions: Vec<VaultPosition> = Decode!(&bytes, Vec<VaultPosition>).unwrap_or_default();
+    let positions: Vec<VaultPosition> =
+        Decode!(&bytes, Vec<VaultPosition>).map_err(|_| FetchError::InvalidResponse)?;
     let height = crate::utils::dex_block_height(&agent, vault_id)
         .await
         .unwrap_or(0);

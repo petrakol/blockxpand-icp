@@ -19,6 +19,10 @@ use candid::Principal;
 #[cfg(feature = "claim")]
 use once_cell::sync::Lazy;
 #[cfg(feature = "claim")]
+use std::collections::HashSet;
+#[cfg(feature = "claim")]
+use std::sync::Mutex;
+#[cfg(feature = "claim")]
 static CLAIM_WALLETS: Lazy<Vec<Principal>> = Lazy::new(|| {
     option_env!("CLAIM_WALLETS")
         .unwrap_or("")
@@ -26,6 +30,8 @@ static CLAIM_WALLETS: Lazy<Vec<Principal>> = Lazy::new(|| {
         .filter_map(|s| Principal::from_text(s.trim()).ok())
         .collect()
 });
+#[cfg(feature = "claim")]
+static CLAIM_LOCKS: Lazy<Mutex<HashSet<Principal>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
 async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
     let (ledger, neuron, dex) = futures::join!(
@@ -105,6 +111,19 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     if caller != principal && !CLAIM_WALLETS.contains(&caller) {
         ic_cdk::api::trap("unauthorized");
     }
+    {
+        let mut locks = CLAIM_LOCKS.lock().unwrap();
+        if !locks.insert(principal) {
+            ic_cdk::api::trap("claim already in progress");
+        }
+    }
+    struct Guard(Principal);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            CLAIM_LOCKS.lock().unwrap().remove(&self.0);
+        }
+    }
+    let _guard = Guard(principal);
     use dex::{
         dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
         sns_adapter::SnsAdapter, DexAdapter,

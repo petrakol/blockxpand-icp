@@ -2,6 +2,7 @@
 pub enum FetchError {
     Network(String),
     InvalidConfig(String),
+    InvalidResponse,
 }
 
 #[cfg(not(target_arch = "wasm32"))]

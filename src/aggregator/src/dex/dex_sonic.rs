@@ -55,7 +55,8 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         Ok(b) => b,
         Err(e) => return Err(FetchError::from(e)),
     };
-    let positions: Vec<PositionInfo> = Decode!(&bytes, Vec<PositionInfo>).unwrap_or_default();
+    let positions: Vec<PositionInfo> =
+        Decode!(&bytes, Vec<PositionInfo>).map_err(|_| FetchError::InvalidResponse)?;
     let height = crate::utils::dex_block_height(&agent, router_id)
         .await
         .unwrap_or(0);
@@ -113,7 +114,7 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         .call_and_wait()
         .await
         .map_err(|e| e.to_string())?;
-    let spent: u64 = Decode!(&bytes, u64).unwrap_or_default();
+    let spent: u64 = Decode!(&bytes, u64).map_err(|_| "invalid response")?;
     let holdings = fetch_positions_impl(principal)
         .await
         .map_err(|e| format!("{:?}", e))?;
