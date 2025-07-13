@@ -1,4 +1,4 @@
-use super::{DexAdapter, RewardInfo};
+use super::DexAdapter;
 use crate::error::FetchError;
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 use crate::utils::now;
@@ -125,13 +125,6 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
 impl DexAdapter for SonicAdapter {
     async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError> {
         fetch_positions_impl(principal).await
-    }
-
-    async fn claimable_rewards(
-        &self,
-        _principal: Principal,
-    ) -> Result<Vec<RewardInfo>, FetchError> {
-        Ok(Vec::new())
     }
 
     #[cfg(feature = "claim")]

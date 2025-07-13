@@ -12,9 +12,16 @@ pub struct RewardInfo {
 #[async_trait]
 pub trait DexAdapter: Send + Sync {
     async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError>;
-    async fn claimable_rewards(&self, principal: Principal) -> Result<Vec<RewardInfo>, FetchError>;
+    async fn claimable_rewards(
+        &self,
+        _principal: Principal,
+    ) -> Result<Vec<RewardInfo>, FetchError> {
+        Ok(Vec::new())
+    }
     #[cfg(feature = "claim")]
-    async fn claim_rewards(&self, principal: Principal) -> Result<u64, String>;
+    async fn claim_rewards(&self, _principal: Principal) -> Result<u64, String> {
+        Ok(0)
+    }
 }
 
 pub mod dex_icpswap;

@@ -1,4 +1,4 @@
-use super::{DexAdapter, RewardInfo};
+use super::DexAdapter;
 use crate::error::FetchError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
@@ -59,13 +59,6 @@ const META_TTL_NS: u64 = crate::utils::DAY_NS; // 24h
 impl DexAdapter for IcpswapAdapter {
     async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError> {
         fetch_positions_impl(principal).await
-    }
-
-    async fn claimable_rewards(
-        &self,
-        _principal: Principal,
-    ) -> Result<Vec<RewardInfo>, FetchError> {
-        Ok(Vec::new())
     }
 
     #[cfg(feature = "claim")]

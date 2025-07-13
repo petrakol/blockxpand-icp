@@ -1,4 +1,4 @@
-use super::{DexAdapter, RewardInfo};
+use super::DexAdapter;
 use crate::error::FetchError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
@@ -44,17 +44,7 @@ impl DexAdapter for InfinityAdapter {
         fetch_positions_impl(principal).await
     }
 
-    async fn claimable_rewards(
-        &self,
-        _principal: Principal,
-    ) -> Result<Vec<RewardInfo>, FetchError> {
-        Ok(Vec::new())
-    }
-
-    #[cfg(feature = "claim")]
-    async fn claim_rewards(&self, _principal: Principal) -> Result<u64, String> {
-        Ok(0)
-    }
+    // uses default implementations for claimable_rewards and claim_rewards
 }
 
 #[cfg(not(target_arch = "wasm32"))]
