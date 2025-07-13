@@ -145,6 +145,7 @@ canister controller:
 - `ICPSWAP_FACTORY` – ICPSwap factory canister ID
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
+- `SNS_DISTRIBUTOR` – SNS airdrop distributor canister ID
 - `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
@@ -169,6 +170,7 @@ export CYCLES_WALLET=aaaaa-aa
 export ICPSWAP_FACTORY=bbbbbb-bb
 export SONIC_ROUTER=cccccc-cc
 export INFINITY_VAULT=dddddd-dd
+export SNS_DISTRIBUTOR=eeeeee-ee
 ```
 
 ### Production deployment
@@ -193,6 +195,14 @@ export INFINITY_VAULT=dddddd-dd
    can test deployments without exposing a seed phrase.
 6. When you update any canister API, run `cargo build --target wasm32-unknown-unknown --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`.
    CI runs this command via `deploy.sh` so the file stays in sync automatically.
+
+## Web UI
+
+A minimal static interface lives in `frontend/`. Replace `<CANISTER_ID>` in
+`index.html` with your aggregator canister ID and open the file in a browser.
+The page uses `@dfinity/auth-client` to sign in via Internet Identity and calls
+`claim_all_rewards` through `@dfinity/agent` when you click **Claim Rewards**.
+
 
 ## Further reading
 
