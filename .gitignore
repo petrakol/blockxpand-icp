@@ -2,6 +2,7 @@
 /target
 .dfx
 *.wasm
+frontend/dist
 
 # macOS metadata
 .DS_Store

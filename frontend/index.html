@@ -26,7 +26,12 @@
 
         let authClient;
         let actor;
-
+      
+        function setStatus(msg, isError = false) {
+            const el = document.getElementById("status");
+            el.style.color = isError ? "red" : "green";
+            el.textContent = msg;
+        }
         async function init() {
             authClient = await AuthClient.create();
             if (await authClient.isAuthenticated()) {
@@ -51,21 +56,35 @@
         }
 
         async function claim() {
-            const principal = actor.agent.identity.getPrincipal();
-            const spent = await actor.claim_all_rewards(principal);
-            alert("Spent: " + spent.join(", "));
+            setStatus("");
+            try {
+                const principal = actor.agent.identity.getPrincipal();
+                const spent = await actor.claim_all_rewards(principal);
+                setStatus("Spent: " + spent.join(", "));
+                await fetchHoldings();
+            } catch (err) {
+                setStatus(err.message || err, true);
+            }
         }
 
         async function fetchHoldings() {
-            const principal = actor.agent.identity.getPrincipal();
-            const holdings = await actor.get_holdings(principal);
-            const list = document.getElementById("holdings");
-            list.innerHTML = "";
-            holdings.forEach(h => {
-                const li = document.createElement("li");
-                li.textContent = `${h.source}: ${h.token} ${h.amount}`;
-                list.appendChild(li);
-            });
+            setStatus("");
+            try {
+                const principal = actor.agent.identity.getPrincipal();
+                const holdings = await actor.get_holdings(principal);
+                const list = document.getElementById("holdings");
+                list.innerHTML = "";
+                holdings.forEach(h => {
+                    const li = document.createElement("li");
+                    li.textContent = `${h.source}: ${h.token} ${h.amount}`;
+                    list.appendChild(li);
+                });
+                if (holdings.length === 0) {
+                    setStatus("No rewards available");
+                }
+            } catch (err) {
+                setStatus(err.message || err, true);
+            }
         }
 
         window.connect = connect;
@@ -80,5 +99,6 @@
     <button onclick="connect()">Connect Wallet</button>
     <button id="claimBtn" onclick="claim()" disabled>Claim Rewards</button>
     <ul id="holdings"></ul>
+    <p id="status"></p>
 </body>
 </html>
