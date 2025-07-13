@@ -1,7 +1,5 @@
 use super::{DexAdapter, RewardInfo};
 use crate::error::FetchError;
-#[cfg(target_arch = "wasm32")]
-use crate::utils::format_amount;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::{format_amount, get_agent};
 use async_trait::async_trait;
