@@ -17,10 +17,6 @@ use std::sync::Mutex;
 
 pub struct SnsAdapter;
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn clear_cache() {}
-
-#[cfg(target_arch = "wasm32")]
 pub fn clear_cache() {}
 
 #[cfg(not(target_arch = "wasm32"))]
