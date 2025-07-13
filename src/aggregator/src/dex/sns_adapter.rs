@@ -1,5 +1,7 @@
 use super::{DexAdapter, RewardInfo};
 use crate::error::FetchError;
+#[cfg(target_arch = "wasm32")]
+use crate::utils::format_amount;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::{format_amount, get_agent};
 use async_trait::async_trait;
@@ -7,7 +9,11 @@ use bx_core::Holding;
 use candid::{CandidType, Nat, Principal};
 #[cfg(not(target_arch = "wasm32"))]
 use candid::{Decode, Encode};
+#[cfg(not(target_arch = "wasm32"))]
+use once_cell::sync::Lazy;
 use serde::Deserialize;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Mutex;
 
 pub struct SnsAdapter;
 
@@ -17,11 +23,17 @@ pub fn clear_cache() {}
 #[cfg(target_arch = "wasm32")]
 pub fn clear_cache() {}
 
-#[derive(CandidType, Deserialize)]
-struct Claimable {
-    symbol: String,
-    amount: Nat,
-    decimals: u8,
+#[cfg(not(target_arch = "wasm32"))]
+static MOCK_CLAIMABLE: Lazy<Mutex<Option<Result<Vec<Claimable>, String>>>> =
+    Lazy::new(|| Mutex::new(None));
+#[cfg(not(target_arch = "wasm32"))]
+static MOCK_CLAIM: Lazy<Mutex<Option<Result<u64, String>>>> = Lazy::new(|| Mutex::new(None));
+
+#[derive(CandidType, Deserialize, Clone)]
+pub struct Claimable {
+    pub symbol: String,
+    pub amount: Nat,
+    pub decimals: u8,
 }
 
 #[async_trait]
@@ -53,18 +65,22 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         Some(p) => p,
         None => return Err(FetchError::InvalidConfig("distributor".into())),
     };
+    if let Some(resp) = MOCK_CLAIMABLE.lock().unwrap().clone() {
+        let claims = resp.map_err(FetchError::Network)?;
+        return Ok(claims
+            .into_iter()
+            .map(|c| Holding {
+                source: "SNS".into(),
+                token: c.symbol,
+                amount: format_amount(c.amount, c.decimals),
+                status: "claimable".into(),
+            })
+            .collect());
+    }
     let agent = get_agent().await;
-    let arg = Encode!(&principal).unwrap();
-    let bytes = match agent
-        .query(&distro_id, "get_claimable_tokens")
-        .with_arg(arg)
-        .call()
+    let claims = sns_get_claimable(&agent, distro_id, principal)
         .await
-    {
-        Ok(b) => b,
-        Err(e) => return Err(FetchError::from(e)),
-    };
-    let claims: Vec<Claimable> = Decode!(&bytes, Vec<Claimable>).unwrap_or_default();
+        .map_err(FetchError::from)?;
     let mut out = Vec::new();
     for c in claims {
         out.push(Holding {
@@ -88,15 +104,14 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         Some(p) => p,
         None => return Err("distributor".into()),
     };
+    if let Some(resp) = MOCK_CLAIM.lock().unwrap().clone() {
+        return resp.map_err(|e| e);
+    }
     let agent = get_agent().await;
-    let arg = Encode!(&principal).unwrap();
-    let bytes = agent
-        .update(&distro_id, "claim")
-        .with_arg(arg)
-        .call_and_wait()
+    let spent = sns_claim(&agent, distro_id, principal)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(Decode!(&bytes, u64).unwrap_or_default())
+    Ok(spent)
 }
 
 #[cfg(all(feature = "claim", target_arch = "wasm32"))]
@@ -107,4 +122,56 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         .await
         .map_err(|(_, e)| e)?;
     Ok(spent)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod test_helpers {
+    use super::{Claimable, MOCK_CLAIM, MOCK_CLAIMABLE};
+
+    /// Provide a mocked response for `get_claimable_tokens`.
+    pub fn set_claimable(resp: Result<Vec<Claimable>, String>) {
+        *MOCK_CLAIMABLE.lock().unwrap() = Some(resp);
+    }
+
+    /// Provide a mocked response for `claim`.
+    pub fn set_claim(resp: Result<u64, String>) {
+        *MOCK_CLAIM.lock().unwrap() = Some(resp);
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn sns_get_claimable(
+    agent: &ic_agent::Agent,
+    distro: Principal,
+    principal: Principal,
+) -> Result<Vec<Claimable>, ic_agent::AgentError> {
+    if let Some(resp) = MOCK_CLAIMABLE.lock().unwrap().clone() {
+        return resp.map_err(ic_agent::AgentError::MessageError);
+    }
+    let arg = Encode!(&principal).unwrap();
+    let bytes = agent
+        .query(&distro, "get_claimable_tokens")
+        .with_arg(arg)
+        .call()
+        .await?;
+    let claims: Vec<Claimable> = Decode!(&bytes, Vec<Claimable>).unwrap_or_default();
+    Ok(claims)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn sns_claim(
+    agent: &ic_agent::Agent,
+    distro: Principal,
+    principal: Principal,
+) -> Result<u64, ic_agent::AgentError> {
+    if let Some(resp) = MOCK_CLAIM.lock().unwrap().clone() {
+        return resp.map_err(ic_agent::AgentError::MessageError);
+    }
+    let arg = Encode!(&principal).unwrap();
+    let bytes = agent
+        .update(&distro, "claim")
+        .with_arg(arg)
+        .call_and_wait()
+        .await?;
+    Ok(Decode!(&bytes, u64).unwrap_or_default())
 }
