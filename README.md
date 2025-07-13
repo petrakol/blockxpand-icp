@@ -52,6 +52,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   absolute path
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
+- Calls to `claim_all_rewards` verify the caller matches the principal and can
+  optionally allow trusted wallets via the `CLAIM_WALLETS` environment variable
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - The `get_holdings` query runs ledger, neuron, and DEX fetchers concurrently
   for the quickest possible response
@@ -67,8 +69,15 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   the previous fixed delay
 - A heartbeat-driven queue deterministically warms ledger and DEX metadata
   caches across ticks so refreshes never exceed the 5 s execution limit
+- The warm queue is bounded and deduplicates IDs to prevent unbounded growth
 - A top-up heartbeat pulls cycles from a pre-authorised wallet when balance
   falls below 0.5 T, logging each refill in stable memory
+- Refills back off exponentially when the wallet lacks funds to avoid spam
+- Ledger metadata and LP caches persist across upgrades via stable memory,
+  so deployments start warm
+- Structured `tracing` logs with a `LOG_LEVEL` variable make debugging easy
+- Operational metrics (cycle balance, query and heartbeat counts) are exposed via
+  the `get_metrics` endpoint
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic
@@ -83,7 +92,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 ```bash
 cargo build --quiet
 # When the public API changes regenerate candid/aggregator.did with
-cargo build --features export_candid -p aggregator_canister
+cargo build --target wasm32-unknown-unknown --features export_candid -p aggregator_canister
 # Build with reward claiming enabled
 cargo build --features claim -p aggregator_canister
 ```
@@ -136,6 +145,8 @@ canister controller:
 - `ICPSWAP_FACTORY` – ICPSwap factory canister ID
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
+- `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
+- `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
 When any of these are unset a warning is logged and the fallback from
 `ledgers.toml` is used.  The file is watched for changes so updated IDs take
@@ -149,6 +160,22 @@ CI includes a deploy step so reviewers can exercise the deployment process.
 The repository includes a minimal `dfx.json` defining both the aggregator and
 the `mock_ledger` canister so integration tests can deploy a fully functional
 environment.
+
+### Example environment
+
+```
+export LEDGERS_FILE=config/ledgers.toml
+export CYCLES_WALLET=aaaaa-aa
+export ICPSWAP_FACTORY=bbbbbb-bb
+export SONIC_ROUTER=cccccc-cc
+export INFINITY_VAULT=dddddd-dd
+```
+
+### Production deployment
+
+1. Set the variables above to the mainnet canister IDs and a cycles wallet that can top up the aggregator.
+2. Build the release Wasm with `cargo build --release -p aggregator_canister`.
+3. Deploy to your subnet with `dfx deploy aggregator --network ic --with-wallet $CYCLES_WALLET`.
 
 ## Development workflow
 
@@ -164,10 +191,12 @@ environment.
    secrets appear in the logs.
 5. The `deploy.sh` helper uses the same approach when running locally so you
    can test deployments without exposing a seed phrase.
-6. When you update any canister API, run `cargo build --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`. Include the `claim` feature if exporting `claim_all_rewards`.
+6. When you update any canister API, run `cargo build --target wasm32-unknown-unknown --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`.
+   CI runs this command via `deploy.sh` so the file stays in sync automatically.
 
 ## Further reading
 
 - [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) summarises the latest security audit
 - [docs/DEX_API_matrix.md](docs/DEX_API_matrix.md) lists known DEX canister APIs
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) provides an overview of crate dependencies and runtime processes
 
