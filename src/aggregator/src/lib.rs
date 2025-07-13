@@ -6,6 +6,7 @@ pub mod dex_fetchers;
 pub mod ledger_fetcher;
 pub mod lp_cache;
 pub mod metrics;
+pub mod logging;
 pub mod neuron_fetcher;
 pub mod pool_registry;
 pub mod utils;
@@ -60,7 +61,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
             let (cached, ts) = v.value().clone();
             if now - ts < MINUTE_NS {
                 let used = instructions().saturating_sub(start);
-                ic_cdk::println!(
+                tracing::info!(
                     "get_holdings took {used} instructions ({:.2} B)",
                     used as f64 / 1_000_000_000f64
                 );
@@ -84,7 +85,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         cache::get().insert(principal, (holdings.clone(), now));
     }
     let used = instructions().saturating_sub(start);
-    ic_cdk::println!(
+    tracing::info!(
         "get_holdings took {used} instructions ({:.2} B)",
         used as f64 / 1_000_000_000f64
     );

@@ -40,6 +40,7 @@ pub async fn tick() {
     let now = time();
     let allowed = BACKOFF_UNTIL.with(|b| now >= *b.borrow());
     if !allowed {
+        tracing::debug!("cycle refill backoff active");
         return;
     }
     let run = LAST_CHECK.with(|c| {
@@ -54,6 +55,7 @@ pub async fn tick() {
         return;
     }
     if canister_balance128() < MIN_BALANCE {
+        tracing::debug!("balance below threshold, attempting refill");
         if let Some(w) = *WALLET {
             let before = canister_balance128();
             let res: Result<(), _> = call(w, "wallet_receive", ()).await;
@@ -62,6 +64,7 @@ pub async fn tick() {
                 FAILURES.with(|f| *f.borrow_mut() = 0);
                 BACKOFF_UNTIL.with(|b| *b.borrow_mut() = now);
                 LOG.with(|l| l.borrow_mut().push(format!("{now}: refilled to {after}")));
+                tracing::info!("cycles refilled to {after}");
             } else {
                 let fails = FAILURES.with(|f| {
                     let mut v = f.borrow_mut();
@@ -74,7 +77,10 @@ pub async fn tick() {
                     l.borrow_mut()
                         .push(format!("{now}: refill failed, backoff {backoff_m}m"))
                 });
+                tracing::warn!("cycles refill failed, backoff {backoff_m}m");
             }
+        } else {
+            tracing::warn!("CYCLES_WALLET not configured");
         }
     }
 }

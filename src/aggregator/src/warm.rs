@@ -2,6 +2,7 @@ use candid::Principal;
 use once_cell::sync::Lazy;
 use std::collections::{HashSet, VecDeque};
 use std::sync::Mutex;
+use tracing::{debug, info};
 
 struct Entry {
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
@@ -35,6 +36,7 @@ pub fn init() {
             q.push_back(Entry { cid, next: now });
         }
     }
+    info!(queued = q.len(), "warm queue initialised");
 }
 
 pub async fn tick() {
@@ -52,6 +54,7 @@ pub async fn tick() {
             #[cfg(not(target_arch = "wasm32"))]
             crate::ledger_fetcher::warm_metadata(entry.cid).await;
             crate::utils::warm_icrc_metadata(entry.cid).await;
+            debug!("warmed metadata for {}", entry.cid);
             entry.next = crate::utils::now() + crate::utils::DAY_NS;
         }
 

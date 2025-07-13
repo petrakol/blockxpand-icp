@@ -75,6 +75,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Refills back off exponentially when the wallet lacks funds to avoid spam
 - Ledger metadata and LP caches persist across upgrades via stable memory,
   so deployments start warm
+- Structured `tracing` logs with a `LOG_LEVEL` variable make debugging easy
 - Operational metrics (cycle balance, query and heartbeat counts) are exposed via
   the `get_metrics` endpoint
 - Wasm builds compile cleanly with no warnings
@@ -145,6 +146,7 @@ canister controller:
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
 - `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
+- `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
 When any of these are unset a warning is logged and the fallback from
 `ledgers.toml` is used.  The file is watched for changes so updated IDs take
@@ -173,7 +175,8 @@ environment.
    secrets appear in the logs.
 5. The `deploy.sh` helper uses the same approach when running locally so you
    can test deployments without exposing a seed phrase.
-6. When you update any canister API, run `cargo build --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`. Include the `claim` feature if exporting `claim_all_rewards`.
+6. When you update any canister API, run `cargo build --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`.
+   CI runs this command via `deploy.sh` so the file stays in sync automatically.
 
 ## Further reading
 

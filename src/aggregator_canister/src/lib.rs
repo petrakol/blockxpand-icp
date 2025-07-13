@@ -2,6 +2,7 @@ pub use aggregator::*;
 
 #[ic_cdk_macros::init]
 fn init() {
+    aggregator::logging::init();
     #[cfg(not(target_arch = "wasm32"))]
     ic_cdk::spawn(async { aggregator::utils::load_dex_config().await });
     #[cfg(not(target_arch = "wasm32"))]

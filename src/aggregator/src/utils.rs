@@ -67,7 +67,7 @@ pub async fn get_agent() -> ic_agent::Agent {
         .build()
         .expect("failed to build agent");
     if let Err(e) = agent.fetch_root_key().await {
-        eprintln!("failed to fetch root key: {e}");
+        tracing::warn!("failed to fetch root key: {e}");
     }
     let _ = AGENT.set(agent.clone());
     agent
