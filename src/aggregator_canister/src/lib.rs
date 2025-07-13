@@ -56,5 +56,10 @@ pub fn get_cycles_log() -> Vec<String> {
     aggregator::get_cycles_log()
 }
 
+#[ic_cdk_macros::query]
+pub fn health_check() -> &'static str {
+    aggregator::health_check()
+}
+
 #[cfg(feature = "export_candid")]
 ic_cdk::export_candid!();

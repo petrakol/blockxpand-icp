@@ -64,6 +64,13 @@ static CLAIM_DAILY_LIMIT: Lazy<u32> = Lazy::new(|| {
 });
 
 #[cfg(feature = "claim")]
+static MAX_CLAIM_PER_CALL: Lazy<usize> = Lazy::new(|| {
+    option_env!("MAX_CLAIM_PER_CALL")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(usize::MAX)
+});
+
+#[cfg(feature = "claim")]
 static CLAIM_COUNTS: Lazy<Mutex<HashMap<Principal, (u32, u64)>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
@@ -193,12 +200,15 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
         dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
         sns_adapter::SnsAdapter, DexAdapter,
     };
-    let adapters: Vec<Box<dyn DexAdapter>> = vec![
+    let mut adapters: Vec<Box<dyn DexAdapter>> = vec![
         Box::new(IcpswapAdapter),
         Box::new(SonicAdapter),
         Box::new(InfinityAdapter),
         Box::new(SnsAdapter),
     ];
+    if *MAX_CLAIM_PER_CALL < adapters.len() {
+        adapters.truncate(*MAX_CLAIM_PER_CALL);
+    }
     let mut spent = Vec::with_capacity(adapters.len());
     for a in adapters {
         if let Some(c) = claim_with_timeout(a.claim_rewards(principal)).await {
@@ -300,4 +310,10 @@ pub fn get_version() -> Version {
 pub fn get_cycles_log() -> Vec<String> {
     metrics::inc_query();
     cycles::log()
+}
+
+#[ic_cdk_macros::query]
+pub fn health_check() -> &'static str {
+    metrics::inc_query();
+    "ok"
 }

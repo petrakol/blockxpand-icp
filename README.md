@@ -83,6 +83,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Operational metrics (cycle balance, query and heartbeat counts) are exposed via
   the `get_metrics` endpoint, including claim attempts and successes
 - The `get_cycles_log` query exposes the cycle refill history
+- A simple `health_check` query returns `ok` so load balancers can verify the
+  canister is running
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic
@@ -157,9 +159,12 @@ canister controller:
 - `CLAIM_ADAPTER_TIMEOUT_SECS` – per-adapter claim timeout (default 10)
 - `CLAIM_DAILY_LIMIT` – max `claim_all_rewards` attempts per user per day (default 5)
 - `CLAIM_LIMIT_WINDOW_SECS` – seconds before the claim counter resets (default 86400)
+- `MAX_CLAIM_PER_CALL` – limit how many adapters are used per claim call (default unlimited)
 - `FETCH_ADAPTER_TIMEOUT_SECS` – per-adapter fetch timeout (default 5)
 - `CYCLE_BACKOFF_MAX` – max minutes between failed cycle refills (default 60)
 - `WARM_QUEUE_SIZE` – maximum metadata warm queue size (default 128)
+- `META_TTL_SECS` – seconds ledger metadata stays cached (default 86400)
+- `LEDGER_RETRY_LIMIT` – attempts for ledger calls before giving up (default 3)
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
 When any of these are unset a warning is logged and the fallback from

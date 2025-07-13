@@ -2,7 +2,6 @@ use crate::error::FetchError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::format_amount;
 #[cfg(not(target_arch = "wasm32"))]
-use crate::utils::DAY_NS;
 use bx_core::Holding;
 #[cfg(not(target_arch = "wasm32"))]
 use candid::Nat;
@@ -19,6 +18,8 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 #[cfg(not(target_arch = "wasm32"))]
 use std::future::Future;
+#[cfg(not(target_arch = "wasm32"))]
+use std::num::NonZeroU8;
 
 // Metadata for each ledger is cached with an expiry and a stable hash.
 // When a hash mismatch is detected, the entry is replaced so callers
@@ -78,9 +79,24 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
     ids
 });
 
-/// Duration that cached metadata remains valid (24h)
+/// Duration that cached metadata remains valid (default 24h)
 #[cfg(not(target_arch = "wasm32"))]
-const META_TTL_NS: u64 = DAY_NS;
+static META_TTL_NS: Lazy<u64> = Lazy::new(|| {
+    option_env!("META_TTL_SECS")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(crate::utils::DAY_SECS)
+        * 1_000_000_000u64
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static LEDGER_RETRY_LIMIT: Lazy<NonZeroU8> = Lazy::new(|| {
+    NonZeroU8::new(
+        option_env!("LEDGER_RETRY_LIMIT")
+            .and_then(|v| v.parse::<u8>().ok())
+            .unwrap_or(3),
+    )
+    .unwrap()
+});
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
@@ -155,10 +171,10 @@ where
     Fut: Future<Output = Result<T, ic_agent::AgentError>>,
 {
     let mut delay = 100u64;
-    for attempt in 0..3 {
+    for attempt in 0..LEDGER_RETRY_LIMIT.get() {
         match f().await {
             Ok(v) => return Ok(v),
-            Err(_e) if attempt < 2 => {
+            Err(_e) if attempt < LEDGER_RETRY_LIMIT.get() - 1 => {
                 tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
                 delay *= 2;
             }
@@ -189,10 +205,10 @@ where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, ic_agent::AgentError>>,
 {
-    for attempt in 0..3 {
+    for attempt in 0..LEDGER_RETRY_LIMIT.get() {
         match f().await {
             Ok(v) => return Ok(v),
-            Err(e) if attempt == 2 => return Err(e),
+            Err(e) if attempt + 1 == LEDGER_RETRY_LIMIT.get() => return Err(e),
             Err(_) => continue,
         }
     }
@@ -336,7 +352,7 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u6
                 cid,
                 Meta {
                     hash,
-                    expires: now() + META_TTL_NS,
+                    expires: now() + *META_TTL_NS,
                     ..meta.clone()
                 },
             );
@@ -374,7 +390,7 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u6
             decimals,
             fee,
             hash,
-            expires: now() + META_TTL_NS,
+            expires: now() + *META_TTL_NS,
         },
     );
     Ok((symbol, decimals, fee))
@@ -444,7 +460,7 @@ mod tests {
         assert_eq!(v2, ("AAA".into(), 2, 10));
         assert_eq!(META_CACHE.get(&cid).unwrap().symbol, "AAA");
 
-        set_now(META_TTL_NS + 3);
+        set_now(*META_TTL_NS + 3);
         let v3 = fetch_metadata(&agent, cid).await.unwrap();
         assert_eq!(v3, ("BBB".into(), 3, 20));
         assert_eq!(META_CACHE.get(&cid).unwrap().symbol, "BBB");
