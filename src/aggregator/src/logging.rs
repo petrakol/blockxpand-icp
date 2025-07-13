@@ -32,6 +32,7 @@ pub fn init() {
                 .with_max_level(lvl)
                 .with_ansi(false)
                 .with_writer(|| IcWriter)
+                .without_time()
                 .finish();
             let _ = tracing::subscriber::set_global_default(subscriber);
         }
