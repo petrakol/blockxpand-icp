@@ -29,7 +29,12 @@ pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
         .into_iter()
         .map(|a| async move { a.fetch_positions(principal).await });
     let results = join_all(tasks).await;
-    let mut out = Vec::new();
+    let capacity: usize = results
+        .iter()
+        .filter_map(|r| r.as_ref().ok())
+        .map(|v| v.len())
+        .sum();
+    let mut out = Vec::with_capacity(capacity);
     for r in results {
         match r {
             Ok(v) => out.extend(v),

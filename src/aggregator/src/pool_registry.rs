@@ -46,7 +46,7 @@ pub async fn refresh() {
 
 fn load_content(content: &str) {
     if let Ok(pf) = toml::from_str::<PoolsFile>(content) {
-        let mut map = HashMap::new();
+        let mut map = HashMap::with_capacity(pf.pool.len());
         for p in pf.pool.into_iter() {
             map.insert(p.id.clone(), p);
         }

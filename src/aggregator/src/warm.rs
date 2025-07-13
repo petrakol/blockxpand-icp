@@ -10,7 +10,8 @@ struct Entry {
     next: u64,
 }
 
-static QUEUE: Lazy<Mutex<VecDeque<Entry>>> = Lazy::new(|| Mutex::new(VecDeque::new()));
+static QUEUE: Lazy<Mutex<VecDeque<Entry>>> =
+    Lazy::new(|| Mutex::new(VecDeque::with_capacity(MAX_QUEUE_SIZE)));
 
 const ITEMS_PER_TICK: usize = 3;
 const MAX_QUEUE_SIZE: usize = 128;

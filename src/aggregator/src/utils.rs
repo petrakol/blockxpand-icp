@@ -273,6 +273,9 @@ static WATCHER: OnceCell<notify::RecommendedWatcher> = OnceCell::new();
 pub fn watch_dex_config() {
     use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
     use std::path::Path;
+    if WATCHER.get().is_some() {
+        return;
+    }
     let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     let mut watcher = RecommendedWatcher::new(
