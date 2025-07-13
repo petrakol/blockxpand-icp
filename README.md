@@ -48,8 +48,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   asynchronous file I/O on native builds (embedded on Wasm builds via the correct
   relative path) and exported via the `pools_graphql` endpoint. A timer schedules
   a nightly refresh on both targets; override the path on native builds via
-  `POOLS_FILE`. A file watcher automatically reloads changes and logs if a
-  watcher is already active; for Wasm builds the
+  `POOLS_FILE`. A file watcher automatically reloads changes, logging the path
+  and warning if a watcher is already active; for Wasm builds the
   file is embedded using a compile-time absolute path
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
@@ -73,7 +73,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   the previous fixed delay
 - A heartbeat-driven queue deterministically warms ledger and DEX metadata
   caches across ticks so refreshes never exceed the 5 s execution limit
-- The warm queue is bounded and deduplicates IDs to prevent unbounded growth
+  - The warm queue is bounded (size configurable via `WARM_QUEUE_SIZE`) and deduplicates IDs to prevent unbounded growth
 - A top-up heartbeat pulls cycles from a pre-authorised wallet when balance
   falls below 0.5 T, logging each refill in stable memory
 - Refills back off exponentially when the wallet lacks funds to avoid spam
@@ -153,6 +153,8 @@ canister controller:
 - `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
 - `CLAIM_DENYLIST` – principals forbidden from calling `claim_all_rewards`
 - `CLAIM_LOCK_TIMEOUT_SECS` – how long claim locks persist after errors (default 300)
+- `CLAIM_ADAPTER_TIMEOUT_SECS` – per-adapter claim timeout (default 10)
+- `WARM_QUEUE_SIZE` – maximum metadata warm queue size (default 128)
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
 When any of these are unset a warning is logged and the fallback from

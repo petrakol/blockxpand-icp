@@ -148,22 +148,25 @@ pub async fn load_dex_config() {
     let mut seen = HashSet::with_capacity(dex_table.len());
     for (name, val) in dex_table.iter() {
         if let Some(id_str) = val.as_str() {
-            if let Ok(id) = candid::Principal::from_text(id_str) {
-                if !seen.insert(id) {
-                    warn!("duplicate dex id {}", id);
+            match candid::Principal::from_text(id_str) {
+                Ok(id) => {
+                    if !seen.insert(id) {
+                        warn!("duplicate dex id {}", id);
+                    }
+                    let controller = ctrl_table
+                        .get(name)
+                        .and_then(|v| v.as_str())
+                        .and_then(|s| candid::Principal::from_text(s).ok());
+                    map.insert(
+                        name.clone(),
+                        DexEntry {
+                            id,
+                            controller,
+                            enabled: true,
+                        },
+                    );
                 }
-                let controller = ctrl_table
-                    .get(name)
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| candid::Principal::from_text(s).ok());
-                map.insert(
-                    name.clone(),
-                    DexEntry {
-                        id,
-                        controller,
-                        enabled: true,
-                    },
-                );
+                Err(e) => warn!("invalid dex id {id_str}: {e}"),
             }
         }
     }
@@ -334,6 +337,7 @@ pub fn watch_dex_config() {
         return;
     }
     let _ = WATCHER.set(watcher);
+    tracing::info!("watching dex config at {}", path);
     tokio::spawn(async move {
         while rx.recv().await.is_some() {
             load_dex_config().await;

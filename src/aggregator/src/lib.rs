@@ -48,6 +48,12 @@ static CLAIM_LOCK_TIMEOUT_NS: Lazy<u64> = Lazy::new(|| {
         * 1_000_000_000u64
 });
 
+static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<u64> = Lazy::new(|| {
+    option_env!("CLAIM_ADAPTER_TIMEOUT_SECS")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(10)
+});
+
 async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
     let (ledger, neuron, dex) = futures::join!(
         ledger_fetcher::fetch(principal),
@@ -175,7 +181,7 @@ where
     #[cfg(not(target_arch = "wasm32"))]
     {
         use tokio::time::{timeout, Duration};
-        match timeout(Duration::from_secs(10), fut).await {
+        match timeout(Duration::from_secs(*CLAIM_ADAPTER_TIMEOUT_SECS), fut).await {
             Ok(Ok(v)) => Some(v),
             Ok(Err(e)) => {
                 tracing::error!("claim failed: {e}");

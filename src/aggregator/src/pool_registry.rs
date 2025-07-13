@@ -65,6 +65,7 @@ pub fn watch_pools_file() {
         return;
     }
     let _ = WATCHER.set(watcher);
+    tracing::info!("watching pools file at {}", path);
     tokio::spawn(async move {
         while rx.recv().await.is_some() {
             refresh().await;
@@ -82,11 +83,13 @@ pub async fn refresh() {
 
 fn load_content(content: &str) {
     if let Ok(pf) = toml::from_str::<PoolsFile>(content) {
-        let mut map = HashMap::with_capacity(pf.pool.len());
+        let count = pf.pool.len();
+        let mut map = HashMap::with_capacity(count);
         for p in pf.pool.into_iter() {
             map.insert(p.id.clone(), p);
         }
         *REGISTRY.write().unwrap() = map;
+        tracing::info!(count, "pool registry loaded");
     }
 }
 
