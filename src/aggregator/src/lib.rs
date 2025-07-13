@@ -3,15 +3,15 @@ pub mod cert;
 pub mod cycles;
 pub mod dex;
 pub mod dex_fetchers;
+pub mod error;
 pub mod ledger_fetcher;
+pub mod logging;
 pub mod lp_cache;
 pub mod metrics;
-pub mod logging;
 pub mod neuron_fetcher;
 pub mod pool_registry;
 pub mod utils;
 pub mod warm;
-pub mod error;
 
 use crate::utils::{now, MINUTE_NS};
 use bx_core::Holding;
@@ -103,12 +103,13 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     }
     use dex::{
         dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
-        DexAdapter,
+        sns_adapter::SnsAdapter, DexAdapter,
     };
     let adapters: Vec<Box<dyn DexAdapter>> = vec![
         Box::new(IcpswapAdapter),
         Box::new(SonicAdapter),
         Box::new(InfinityAdapter),
+        Box::new(SnsAdapter),
     ];
     let mut spent = Vec::new();
     for a in adapters {

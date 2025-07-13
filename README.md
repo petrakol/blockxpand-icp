@@ -145,6 +145,7 @@ canister controller:
 - `ICPSWAP_FACTORY` – ICPSwap factory canister ID
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
+- `SNS_DISTRIBUTOR` – SNS airdrop distributor canister ID
 - `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
@@ -169,6 +170,7 @@ export CYCLES_WALLET=aaaaa-aa
 export ICPSWAP_FACTORY=bbbbbb-bb
 export SONIC_ROUTER=cccccc-cc
 export INFINITY_VAULT=dddddd-dd
+export SNS_DISTRIBUTOR=eeeeee-ee
 ```
 
 ### Production deployment

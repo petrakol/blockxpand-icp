@@ -1,7 +1,7 @@
+use crate::error::FetchError;
 use async_trait::async_trait;
 use bx_core::Holding;
 use candid::Principal;
-use crate::error::FetchError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RewardInfo {
@@ -20,3 +20,4 @@ pub trait DexAdapter: Send + Sync {
 pub mod dex_icpswap;
 pub mod dex_infinity;
 pub mod dex_sonic;
+pub mod sns_adapter;
