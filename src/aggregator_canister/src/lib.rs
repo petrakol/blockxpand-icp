@@ -30,7 +30,7 @@ fn post_upgrade() {
         Vec<String>,
         Vec<aggregator::ledger_fetcher::StableMeta>,
         Vec<aggregator::lp_cache::StableEntry>,
-        (u64, u64, u64, u64, u64),
+        (u64, u64, u64, u64, u64, u64, u64),
     )>() {
         aggregator::cycles::set_log(log);
         aggregator::ledger_fetcher::stable_restore(meta);
@@ -49,6 +49,11 @@ async fn heartbeat() {
 #[ic_cdk_macros::query]
 fn get_metrics() -> aggregator::metrics::Metrics {
     aggregator::metrics::get()
+}
+
+#[ic_cdk_macros::query]
+pub fn get_cycles_log() -> Vec<String> {
+    aggregator::get_cycles_log()
 }
 
 #[cfg(feature = "export_candid")]

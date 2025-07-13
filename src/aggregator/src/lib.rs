@@ -49,6 +49,14 @@ static CLAIM_LOCK_TIMEOUT_NS: Lazy<u64> = Lazy::new(|| {
 });
 
 #[cfg(feature = "claim")]
+static CLAIM_LIMIT_WINDOW_NS: Lazy<u64> = Lazy::new(|| {
+    option_env!("CLAIM_LIMIT_WINDOW_SECS")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(crate::utils::DAY_SECS)
+        * 1_000_000_000u64
+});
+
+#[cfg(feature = "claim")]
 static CLAIM_DAILY_LIMIT: Lazy<u32> = Lazy::new(|| {
     option_env!("CLAIM_DAILY_LIMIT")
         .and_then(|v| v.parse::<u32>().ok())
@@ -156,9 +164,9 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
         let now = now();
         let entry = counts
             .entry(principal)
-            .or_insert((0, now + crate::utils::DAY_NS));
+            .or_insert((0, now + *CLAIM_LIMIT_WINDOW_NS));
         if now > entry.1 {
-            *entry = (0, now + crate::utils::DAY_NS);
+            *entry = (0, now + *CLAIM_LIMIT_WINDOW_NS);
         }
         if entry.0 >= *CLAIM_DAILY_LIMIT {
             ic_cdk::api::trap("claim limit reached");
@@ -286,4 +294,10 @@ pub fn get_version() -> Version {
         git_sha: option_env!("GIT_SHA").unwrap_or("unknown"),
         build_time: option_env!("BUILD_TIME").unwrap_or("unknown"),
     }
+}
+
+#[ic_cdk_macros::query]
+pub fn get_cycles_log() -> Vec<String> {
+    metrics::inc_query();
+    cycles::log()
 }

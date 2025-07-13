@@ -82,6 +82,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Structured `tracing` logs with a `LOG_LEVEL` variable make debugging easy
 - Operational metrics (cycle balance, query and heartbeat counts) are exposed via
   the `get_metrics` endpoint, including claim attempts and successes
+- The `get_cycles_log` query exposes the cycle refill history
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic
@@ -155,7 +156,9 @@ canister controller:
 - `CLAIM_LOCK_TIMEOUT_SECS` – how long claim locks persist after errors (default 300)
 - `CLAIM_ADAPTER_TIMEOUT_SECS` – per-adapter claim timeout (default 10)
 - `CLAIM_DAILY_LIMIT` – max `claim_all_rewards` attempts per user per day (default 5)
+- `CLAIM_LIMIT_WINDOW_SECS` – seconds before the claim counter resets (default 86400)
 - `FETCH_ADAPTER_TIMEOUT_SECS` – per-adapter fetch timeout (default 5)
+- `CYCLE_BACKOFF_MAX` – max minutes between failed cycle refills (default 60)
 - `WARM_QUEUE_SIZE` – maximum metadata warm queue size (default 128)
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
