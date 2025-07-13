@@ -74,7 +74,6 @@ pub async fn get_agent() -> ic_agent::Agent {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-#[cfg(not(target_arch = "wasm32"))]
 pub struct DexEntry {
     pub id: candid::Principal,
     pub controller: Option<candid::Principal>,
@@ -265,7 +264,7 @@ async fn controller_matches(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-static mut WATCHER: Option<notify::RecommendedWatcher> = None;
+static WATCHER: OnceCell<notify::RecommendedWatcher> = OnceCell::new();
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn watch_dex_config() {
@@ -287,9 +286,7 @@ pub fn watch_dex_config() {
     watcher
         .watch(Path::new(&path), RecursiveMode::NonRecursive)
         .expect("watch ledgers");
-    unsafe {
-        WATCHER = Some(watcher);
-    }
+    let _ = WATCHER.set(watcher);
     tokio::spawn(async move {
         while rx.recv().await.is_some() {
             load_dex_config().await;
