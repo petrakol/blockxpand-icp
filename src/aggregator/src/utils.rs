@@ -73,6 +73,15 @@ pub fn idl_to_u8(val: &candid::types::value::IDLValue) -> Option<u8> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+pub fn idl_to_string(val: &candid::types::value::IDLValue) -> Option<String> {
+    use candid::types::value::IDLValue;
+    match val {
+        IDLValue::Text(s) => Some(s.clone()),
+        _ => None,
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 static AGENT: OnceCell<ic_agent::Agent> = OnceCell::new();
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -135,8 +144,8 @@ pub async fn load_dex_config() {
         .unwrap_or_default();
 
     use std::collections::HashSet;
-    let mut map = std::collections::HashMap::new();
-    let mut seen = HashSet::new();
+    let mut map = std::collections::HashMap::with_capacity(dex_table.len());
+    let mut seen = HashSet::with_capacity(dex_table.len());
     for (name, val) in dex_table.iter() {
         if let Some(id_str) = val.as_str() {
             if let Ok(id) = candid::Principal::from_text(id_str) {

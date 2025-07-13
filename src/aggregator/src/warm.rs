@@ -20,7 +20,7 @@ pub fn init() {
     let now = crate::utils::now();
     let mut q = QUEUE.lock().unwrap();
     q.clear();
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::with_capacity(MAX_QUEUE_SIZE);
     for cid in crate::ledger_fetcher::LEDGERS.iter().cloned() {
         if q.len() >= MAX_QUEUE_SIZE {
             break;
@@ -81,7 +81,7 @@ pub fn init_for_tests(ledgers: Vec<Principal>, dexes: Vec<Principal>) {
     let now = crate::utils::now();
     let mut q = QUEUE.lock().unwrap();
     q.clear();
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::with_capacity(MAX_QUEUE_SIZE);
     for cid in ledgers {
         if q.len() >= MAX_QUEUE_SIZE {
             break;

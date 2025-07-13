@@ -15,7 +15,7 @@ thread_local! {
 pub fn update(principal: candid::Principal, holdings: &[bx_core::Holding]) {
     TREE.with(|t| {
         let mut tree = t.borrow_mut();
-        let bytes = serde_json::to_vec(holdings).unwrap_or_default();
+        let bytes = serde_json::to_vec(holdings).expect("serialize holdings");
         tree.insert(principal.to_text().into_bytes(), leaf_hash(&bytes));
         ic_cdk::api::set_certified_data(&tree.root_hash());
     });
@@ -33,7 +33,7 @@ pub fn witness(principal: candid::Principal) -> Vec<u8> {
         let _ = ser.self_describe();
         tree.witness(principal.to_text().as_bytes())
             .serialize(&mut ser)
-            .unwrap();
+            .expect("serialize witness");
         out
     })
 }

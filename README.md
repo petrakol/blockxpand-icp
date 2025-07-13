@@ -48,14 +48,15 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   asynchronous file I/O on native builds (embedded on Wasm builds via the correct
   relative path) and exported via the `pools_graphql` endpoint. A timer schedules
   a nightly refresh on both targets; override the path on native builds via
-  `POOLS_FILE`. A file watcher automatically reloads changes; for Wasm builds the
+  `POOLS_FILE`. A file watcher automatically reloads changes and logs if a
+  watcher is already active; for Wasm builds the
   file is embedded using a compile-time absolute path
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
 - Calls to `claim_all_rewards` verify the caller matches the principal and can
   optionally allow trusted wallets via the `CLAIM_WALLETS` environment variable.
   Anonymous principals are rejected and a mutex ensures only one claim per user
-  can run at a time
+  can run at a time, trapping callers who try to start a concurrent claim
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - The `get_holdings` query runs ledger, neuron, and DEX fetchers concurrently
   for the quickest possible response
@@ -152,8 +153,8 @@ canister controller:
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
 When any of these are unset a warning is logged and the fallback from
-`ledgers.toml` is used.  The file is watched for changes so updated IDs take
-effect without redeploying.  Integration tests set the variables
+`ledgers.toml` is used.  The file is watched for changes and duplicate watchers
+are ignored so updated IDs take effect without redeploying. Integration tests set the variables
 automatically for the local environment.
 
 ## Deployment
