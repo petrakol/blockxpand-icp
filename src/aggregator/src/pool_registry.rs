@@ -1,5 +1,5 @@
 use candid::CandidType;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -23,6 +23,9 @@ struct PoolsFile {
 static REGISTRY: Lazy<RwLock<HashMap<String, PoolMeta>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
+#[cfg(not(target_arch = "wasm32"))]
+static WATCHER: OnceCell<notify::RecommendedWatcher> = OnceCell::new();
+
 pub fn list() -> Vec<PoolMeta> {
     REGISTRY.read().unwrap().values().cloned().collect()
 }
@@ -34,6 +37,37 @@ pub async fn refresh() {
         Ok(content) => load_content(&content),
         Err(e) => tracing::error!("pool registry refresh failed: {e}"),
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn watch_pools_file() {
+    use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+    use std::path::Path;
+    if WATCHER.get().is_some() {
+        return;
+    }
+    let path = std::env::var("POOLS_FILE").unwrap_or_else(|_| "data/pools.toml".to_string());
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut watcher = RecommendedWatcher::new(
+        move |res: notify::Result<notify::Event>| {
+            if let Ok(ev) = res {
+                if matches!(ev.kind, EventKind::Modify(_) | EventKind::Create(_)) {
+                    let _ = tx.send(());
+                }
+            }
+        },
+        notify::Config::default(),
+    )
+    .expect("watcher");
+    watcher
+        .watch(Path::new(&path), RecursiveMode::NonRecursive)
+        .expect("watch pools");
+    let _ = WATCHER.set(watcher);
+    tokio::spawn(async move {
+        while rx.recv().await.is_some() {
+            refresh().await;
+        }
+    });
 }
 
 #[cfg(target_arch = "wasm32")]

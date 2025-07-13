@@ -77,7 +77,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
     let claims = sns_get_claimable(&agent, distro_id, principal)
         .await
         .map_err(FetchError::from)?;
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(claims.len());
     for c in claims {
         out.push(Holding {
             source: "SNS".into(),

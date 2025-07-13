@@ -13,8 +13,6 @@ use candid::{Decode, Encode};
 use dashmap::DashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use futures::future::join_all;
-#[cfg(not(target_arch = "wasm32"))]
-use num_traits::cast::ToPrimitive;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 #[cfg(not(target_arch = "wasm32"))]
@@ -347,19 +345,23 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u6
     let mut decimals: u8 = 0;
     let mut fee: u64 = 0;
     for (k, v) in items {
-        use candid::types::value::IDLValue::*;
-        match (k.as_str(), v) {
-            ("icrc1:symbol", Text(s)) => symbol = s,
-            ("icrc1:decimals", Nat(n)) => decimals = n.0.to_u64().unwrap_or(0) as u8,
-            ("icrc1:decimals", Nat32(n)) => decimals = n as u8,
-            ("icrc1:decimals", Nat64(n)) => decimals = n as u8,
-            ("icrc1:decimals", Nat16(n)) => decimals = n as u8,
-            ("icrc1:decimals", Nat8(n)) => decimals = n,
-            ("icrc1:fee", Nat(n)) => fee = n.0.to_u64().unwrap_or(0),
-            ("icrc1:fee", Nat32(n)) => fee = n as u64,
-            ("icrc1:fee", Nat64(n)) => fee = n,
-            ("icrc1:fee", Nat16(n)) => fee = n as u64,
-            ("icrc1:fee", Nat8(n)) => fee = n as u64,
+        use candid::types::value::IDLValue::Text;
+        match k.as_str() {
+            "icrc1:symbol" => {
+                if let Text(s) = v {
+                    symbol = s;
+                }
+            }
+            "icrc1:decimals" => {
+                if let Some(d) = crate::utils::idl_to_u8(&v) {
+                    decimals = d;
+                }
+            }
+            "icrc1:fee" => {
+                if let Some(f) = crate::utils::idl_to_u64(&v) {
+                    fee = f;
+                }
+            }
             _ => {}
         }
     }

@@ -7,6 +7,8 @@ fn init() {
     ic_cdk::spawn(async { aggregator::utils::load_dex_config().await });
     #[cfg(not(target_arch = "wasm32"))]
     aggregator::utils::watch_dex_config();
+    #[cfg(not(target_arch = "wasm32"))]
+    aggregator::pool_registry::watch_pools_file();
     ic_cdk::spawn(async { aggregator::pool_registry::refresh().await });
     aggregator::pool_registry::schedule_refresh();
     aggregator::lp_cache::schedule_eviction();

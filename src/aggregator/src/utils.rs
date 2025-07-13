@@ -1,5 +1,7 @@
 use candid::Nat;
 #[cfg(not(target_arch = "wasm32"))]
+use num_traits::cast::ToPrimitive;
+#[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::{Lazy, OnceCell};
 #[cfg(not(target_arch = "wasm32"))]
 use std::collections::HashMap;
@@ -50,6 +52,24 @@ pub fn format_amount(n: Nat, decimals: u8) -> String {
 #[cfg(target_arch = "wasm32")]
 pub fn format_amount(n: Nat, _decimals: u8) -> String {
     n.0.to_string()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn idl_to_u64(val: &candid::types::value::IDLValue) -> Option<u64> {
+    use candid::types::value::IDLValue;
+    match val {
+        IDLValue::Nat(n) => Some(n.0.to_u64().unwrap_or(0)),
+        IDLValue::Nat8(n) => Some(*n as u64),
+        IDLValue::Nat16(n) => Some(*n as u64),
+        IDLValue::Nat32(n) => Some(*n as u64),
+        IDLValue::Nat64(n) => Some(*n),
+        _ => None,
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn idl_to_u8(val: &candid::types::value::IDLValue) -> Option<u8> {
+    idl_to_u64(val).map(|v| v as u8)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -297,6 +317,7 @@ pub fn watch_dex_config() {
         while rx.recv().await.is_some() {
             load_dex_config().await;
             crate::dex::clear_all_caches();
+            crate::warm::init();
         }
     });
 }

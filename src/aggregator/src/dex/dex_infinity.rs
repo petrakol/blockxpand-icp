@@ -15,8 +15,6 @@ use candid::{Decode, Encode};
 #[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
 #[cfg(not(target_arch = "wasm32"))]
-use num_traits::cast::ToPrimitive;
-#[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 
@@ -141,15 +139,19 @@ async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(Strin
         Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>).ok()?;
     let mut symbol = String::new();
     let mut decimals = 0u8;
-    use candid::types::value::IDLValue as Val;
     for (k, v) in items {
-        match (k.as_str(), v) {
-            ("icrc1:symbol", Val::Text(s)) => symbol = s,
-            ("icrc1:decimals", Val::Nat(n)) => decimals = n.0.to_u64().unwrap_or(0) as u8,
-            ("icrc1:decimals", Val::Nat8(n)) => decimals = n,
-            ("icrc1:decimals", Val::Nat16(n)) => decimals = n as u8,
-            ("icrc1:decimals", Val::Nat32(n)) => decimals = n as u8,
-            ("icrc1:decimals", Val::Nat64(n)) => decimals = n as u8,
+        use candid::types::value::IDLValue::Text;
+        match k.as_str() {
+            "icrc1:symbol" => {
+                if let Text(s) = v {
+                    symbol = s;
+                }
+            }
+            "icrc1:decimals" => {
+                if let Some(d) = crate::utils::idl_to_u8(&v) {
+                    decimals = d;
+                }
+            }
             _ => {}
         }
     }
