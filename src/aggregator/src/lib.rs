@@ -48,15 +48,18 @@ static CLAIM_LOCK_TIMEOUT_NS: Lazy<u64> = Lazy::new(|| {
         * 1_000_000_000u64
 });
 
+#[cfg(feature = "claim")]
 static CLAIM_DAILY_LIMIT: Lazy<u32> = Lazy::new(|| {
     option_env!("CLAIM_DAILY_LIMIT")
         .and_then(|v| v.parse::<u32>().ok())
         .unwrap_or(5)
 });
 
+#[cfg(feature = "claim")]
 static CLAIM_COUNTS: Lazy<Mutex<HashMap<Principal, (u32, u64)>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
+#[cfg(feature = "claim")]
 static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<u64> = Lazy::new(|| {
     option_env!("CLAIM_ADAPTER_TIMEOUT_SECS")
         .and_then(|v| v.parse::<u64>().ok())
