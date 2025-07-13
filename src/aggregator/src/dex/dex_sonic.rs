@@ -1,4 +1,5 @@
 use super::{DexAdapter, RewardInfo};
+use crate::error::FetchError;
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 use crate::utils::now;
 #[cfg(not(target_arch = "wasm32"))]
@@ -7,7 +8,6 @@ use crate::{
     utils::{format_amount, get_agent},
 };
 use async_trait::async_trait;
-use crate::error::FetchError;
 use bx_core::Holding;
 use candid::{CandidType, Nat, Principal};
 #[cfg(not(target_arch = "wasm32"))]
@@ -127,7 +127,10 @@ impl DexAdapter for SonicAdapter {
         fetch_positions_impl(principal).await
     }
 
-    async fn claimable_rewards(&self, _principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
+    async fn claimable_rewards(
+        &self,
+        _principal: Principal,
+    ) -> Result<Vec<RewardInfo>, FetchError> {
         Ok(Vec::new())
     }
 

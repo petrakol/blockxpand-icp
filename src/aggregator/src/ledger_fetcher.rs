@@ -1,8 +1,8 @@
+use crate::error::FetchError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::format_amount;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::DAY_NS;
-use crate::error::FetchError;
 use bx_core::Holding;
 #[cfg(not(target_arch = "wasm32"))]
 use candid::Nat;
@@ -323,10 +323,7 @@ pub async fn fetch(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn fetch_metadata(
-    agent: &Agent,
-    cid: Principal,
-) -> Result<(String, u8, u64), FetchError> {
+async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u64), FetchError> {
     if let Some(meta) = META_CACHE.get(&cid) {
         if meta.expires > now() {
             return Ok((meta.symbol.clone(), meta.decimals, meta.fee));

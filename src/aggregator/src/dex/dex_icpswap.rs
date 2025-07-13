@@ -1,11 +1,11 @@
 use super::{DexAdapter, RewardInfo};
+use crate::error::FetchError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     lp_cache,
     utils::{format_amount, get_agent, now},
 };
 use async_trait::async_trait;
-use crate::error::FetchError;
 use bx_core::Holding;
 use candid::{CandidType, Nat, Principal};
 #[cfg(not(target_arch = "wasm32"))]
@@ -61,7 +61,10 @@ impl DexAdapter for IcpswapAdapter {
         fetch_positions_impl(principal).await
     }
 
-    async fn claimable_rewards(&self, _principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
+    async fn claimable_rewards(
+        &self,
+        _principal: Principal,
+    ) -> Result<Vec<RewardInfo>, FetchError> {
         Ok(Vec::new())
     }
 

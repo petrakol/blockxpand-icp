@@ -13,7 +13,9 @@ impl std::io::Write for IcWriter {
         ic_cdk::println!("{s}");
         Ok(buf.len())
     }
-    fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 pub fn init() {

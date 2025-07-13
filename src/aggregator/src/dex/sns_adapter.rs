@@ -107,7 +107,7 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         None => return Err("distributor".into()),
     };
     if let Some(resp) = MOCK_CLAIM.lock().unwrap().clone() {
-        return resp.map_err(|e| e);
+        return resp;
     }
     let agent = get_agent().await;
     let spent = sns_claim(&agent, distro_id, principal)
