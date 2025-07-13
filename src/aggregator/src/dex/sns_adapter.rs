@@ -144,7 +144,7 @@ pub async fn sns_get_claimable(
     if let Some(resp) = MOCK_CLAIMABLE.lock().unwrap().clone() {
         return resp.map_err(ic_agent::AgentError::MessageError);
     }
-    let arg = Encode!(&principal).expect("encode args");
+    let arg = Encode!(&principal).map_err(|e| ic_agent::AgentError::MessageError(e.to_string()))?;
     let bytes = agent
         .query(&distro, "get_claimable_tokens")
         .with_arg(arg)
@@ -164,7 +164,7 @@ pub async fn sns_claim(
     if let Some(resp) = MOCK_CLAIM.lock().unwrap().clone() {
         return resp.map_err(ic_agent::AgentError::MessageError);
     }
-    let arg = Encode!(&principal).expect("encode args");
+    let arg = Encode!(&principal).map_err(|e| ic_agent::AgentError::MessageError(e.to_string()))?;
     let bytes = agent
         .update(&distro, "claim")
         .with_arg(arg)

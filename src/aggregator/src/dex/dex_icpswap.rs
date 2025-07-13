@@ -81,7 +81,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         None => return Err(FetchError::InvalidConfig("factory".into())),
     };
     let agent = get_agent().await;
-    let arg = Encode!().expect("encode args");
+    let arg = Encode!().map_err(|_| FetchError::InvalidResponse)?;
     let bytes = match agent
         .query(&factory_id, "getPools")
         .with_arg(arg)
@@ -144,7 +144,7 @@ async fn query_positions(
     cid: Principal,
     owner: Principal,
 ) -> Option<Vec<UserPositionInfoWithTokenAmount>> {
-    let arg = Encode!(&owner).expect("encode args");
+    let arg = Encode!(&owner).ok()?;
     let bytes = agent
         .query(&cid, "get_user_positions_by_principal")
         .with_arg(arg)
@@ -161,7 +161,7 @@ async fn fetch_meta(agent: &ic_agent::Agent, cid: Principal) -> Option<PoolMetad
             return Some(entry.value().0.clone());
         }
     }
-    let arg = Encode!().expect("encode args");
+    let arg = Encode!().ok()?;
     let bytes = agent
         .query(&cid, "metadata")
         .with_arg(arg)
@@ -185,7 +185,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
         .cloned()
         .ok_or("ledger")?;
     let agent = get_agent().await;
-    let arg = Encode!().expect("encode args");
+    let arg = Encode!().map_err(|_| "encode")?;
     let bytes = agent
         .query(&factory_id, "getPools")
         .with_arg(arg)
@@ -195,7 +195,7 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).map_err(|_| "invalid response")?;
     let mut total: u64 = 0;
     for pool in pools {
-        let arg = Encode!(&principal, &ledger).expect("encode args");
+        let arg = Encode!(&principal, &ledger).map_err(|e| e.to_string())?;
         let bytes = agent
             .update(&pool.canister_id, "claim")
             .with_arg(arg)

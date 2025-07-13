@@ -19,7 +19,7 @@ use candid::Principal;
 #[cfg(feature = "claim")]
 use once_cell::sync::Lazy;
 #[cfg(feature = "claim")]
-use std::collections::HashSet;
+use std::collections::HashMap;
 #[cfg(feature = "claim")]
 use std::sync::Mutex;
 #[cfg(feature = "claim")]
@@ -31,7 +31,22 @@ static CLAIM_WALLETS: Lazy<Vec<Principal>> = Lazy::new(|| {
         .collect()
 });
 #[cfg(feature = "claim")]
-static CLAIM_LOCKS: Lazy<Mutex<HashSet<Principal>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+static CLAIM_DENYLIST: Lazy<Vec<Principal>> = Lazy::new(|| {
+    option_env!("CLAIM_DENYLIST")
+        .unwrap_or("")
+        .split(',')
+        .filter_map(|s| Principal::from_text(s.trim()).ok())
+        .collect()
+});
+#[cfg(feature = "claim")]
+static CLAIM_LOCKS: Lazy<Mutex<HashMap<Principal, u64>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+#[cfg(feature = "claim")]
+static CLAIM_LOCK_TIMEOUT_NS: Lazy<u64> = Lazy::new(|| {
+    option_env!("CLAIM_LOCK_TIMEOUT_SECS")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(300)
+        * 1_000_000_000u64
+});
 
 async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
     let (ledger, neuron, dex) = futures::join!(
@@ -114,11 +129,17 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     if principal == Principal::anonymous() {
         ic_cdk::api::trap("invalid principal");
     }
+    if CLAIM_DENYLIST.contains(&principal) {
+        ic_cdk::api::trap("denied");
+    }
     {
         let mut locks = CLAIM_LOCKS.lock().unwrap();
-        if !locks.insert(principal) {
+        let now = now();
+        locks.retain(|_, exp| *exp > now);
+        if locks.contains_key(&principal) {
             ic_cdk::api::trap("claim already in progress");
         }
+        locks.insert(principal, now + *CLAIM_LOCK_TIMEOUT_NS);
     }
     struct Guard(Principal);
     impl Drop for Guard {
@@ -139,11 +160,43 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     ];
     let mut spent = Vec::with_capacity(adapters.len());
     for a in adapters {
-        if let Ok(c) = a.claim_rewards(principal).await {
+        if let Some(c) = claim_with_timeout(a.claim_rewards(principal)).await {
             spent.push(c);
         }
     }
     spent
+}
+
+#[cfg(feature = "claim")]
+async fn claim_with_timeout<F>(fut: F) -> Option<u64>
+where
+    F: std::future::Future<Output = Result<u64, String>>,
+{
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use tokio::time::{timeout, Duration};
+        match timeout(Duration::from_secs(10), fut).await {
+            Ok(Ok(v)) => Some(v),
+            Ok(Err(e)) => {
+                tracing::error!("claim failed: {e}");
+                None
+            }
+            Err(_) => {
+                tracing::error!("claim timed out");
+                None
+            }
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        match fut.await {
+            Ok(v) => Some(v),
+            Err(e) => {
+                tracing::error!("claim failed: {e}");
+                None
+            }
+        }
+    }
 }
 
 #[ic_cdk_macros::query]

@@ -55,8 +55,9 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   feature flag
 - Calls to `claim_all_rewards` verify the caller matches the principal and can
   optionally allow trusted wallets via the `CLAIM_WALLETS` environment variable.
-  Anonymous principals are rejected and a mutex ensures only one claim per user
-  can run at a time, trapping callers who try to start a concurrent claim
+  Anonymous principals are rejected and claims are serialized per user with
+  an expiring mutex. Claim calls time out after 10 seconds per adapter and
+  principals listed in `CLAIM_DENYLIST` are rejected outright
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - The `get_holdings` query runs ledger, neuron, and DEX fetchers concurrently
   for the quickest possible response
@@ -150,6 +151,8 @@ canister controller:
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
 - `SNS_DISTRIBUTOR` – SNS airdrop distributor canister ID
 - `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
+- `CLAIM_DENYLIST` – principals forbidden from calling `claim_all_rewards`
+- `CLAIM_LOCK_TIMEOUT_SECS` – how long claim locks persist after errors (default 300)
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
 When any of these are unset a warning is logged and the fallback from
