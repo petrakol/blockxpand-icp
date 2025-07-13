@@ -198,9 +198,11 @@ export SNS_DISTRIBUTOR=eeeeee-ee
 
 ## Web UI
 
-A minimal static interface lives in `frontend/`. Replace `<CANISTER_ID>` in
-`index.html` with your aggregator canister ID and open the file in a browser.
-The page uses `@dfinity/auth-client` to sign in via Internet Identity and calls
+A minimal static interface lives in `frontend/`. Run
+`scripts/build_frontend.sh` to produce `frontend/dist/index.html` with your
+aggregator canister ID injected (the script uses `CANISTER_ID` or
+`dfx canister id aggregator`). Open the generated file in a browser. The page
+uses `@dfinity/auth-client` to sign in via Internet Identity and calls
 `claim_all_rewards` through `@dfinity/agent` when you click **Claim Rewards**.
 
 
