@@ -560,8 +560,11 @@ mod tests {
         struct Metrics {
             cycles: u64,
             query_count: u64,
+            query_instructions: u64,
             heartbeat_count: u64,
             last_heartbeat: u64,
+            claim_count: u64,
+            claim_instructions: u64,
         }
         let m1: Metrics = candid::Decode!(&bytes, Metrics).unwrap();
 

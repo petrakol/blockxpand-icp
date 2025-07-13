@@ -48,6 +48,6 @@ The current architecture is functional but several enhancements would improve us
 
 1. **Front-end integration** – Build a lightweight Web UI that calls the canister via Candid or HTTP, letting users connect their wallet and trigger `claim_all_rewards`.
 2. **Persistent settings** – Store user preferences (e.g., favourite ledgers) in stable memory for a personalised experience.
-3. **Expanded metrics** – Export cycle usage per query and reward-claim statistics to aid monitoring.
+3. **Expanded metrics** – Metrics now track cycle usage per query and reward-claim statistics for monitoring.
 4. **Additional adapters** – Support upcoming DEXes or SNS token distributions so users can claim rewards from more sources.
 

@@ -78,6 +78,7 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Structured `tracing` logs with a `LOG_LEVEL` variable make debugging easy
 - Operational metrics (cycle balance, query and heartbeat counts) are exposed via
   the `get_metrics` endpoint
+- Metrics now include total instructions per query and reward-claim statistics
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic

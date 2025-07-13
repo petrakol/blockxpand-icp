@@ -22,7 +22,10 @@ service: {
   "get_metrics": () -> (record {
     cycles: nat64;
     query_count: nat64;
+    query_instructions: nat64;
     heartbeat_count: nat64;
     last_heartbeat: nat64;
+    claim_count: nat64;
+    claim_instructions: nat64;
   }) query;
 };

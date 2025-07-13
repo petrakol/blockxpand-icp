@@ -66,6 +66,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
                     "get_holdings took {used} instructions ({:.2} B)",
                     used as f64 / 1_000_000_000f64
                 );
+                metrics::add_query_instructions(used);
                 return cached;
             }
         }
@@ -90,6 +91,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         "get_holdings took {used} instructions ({:.2} B)",
         used as f64 / 1_000_000_000f64
     );
+    metrics::add_query_instructions(used);
     holdings
 }
 
@@ -97,6 +99,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 #[ic_cdk_macros::update]
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     metrics::inc_query();
+    let start = instructions();
     let caller = ic_cdk::caller();
     if caller != principal && !CLAIM_WALLETS.contains(&caller) {
         ic_cdk::api::trap("unauthorized");
@@ -116,13 +119,20 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
             spent.push(c);
         }
     }
+    let used = instructions().saturating_sub(start);
+    metrics::add_query_instructions(used);
+    metrics::inc_claim(spent.len() as u64, used);
     spent
 }
 
 #[ic_cdk_macros::query]
 pub fn pools_graphql(query: String) -> String {
     metrics::inc_query();
-    pool_registry::graphql(query)
+    let start = instructions();
+    let out = pool_registry::graphql(query);
+    let used = instructions().saturating_sub(start);
+    metrics::add_query_instructions(used);
+    out
 }
 
 #[derive(candid::CandidType, serde::Serialize)]
@@ -137,26 +147,33 @@ pub struct CertifiedHoldings {
 #[ic_cdk_macros::update]
 pub async fn refresh_holdings(principal: Principal) {
     metrics::inc_query();
+    let start = instructions();
     let now = now();
     let holdings = calculate_holdings(principal).await;
     cache::get().insert(principal, (holdings.clone(), now));
     cert::update(principal, &holdings);
+    let used = instructions().saturating_sub(start);
+    metrics::add_query_instructions(used);
 }
 
 #[ic_cdk_macros::query]
 pub fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
     metrics::inc_query();
+    let start = instructions();
     let holdings = cache::get()
         .get(&principal)
         .map(|v| v.value().0.clone())
         .unwrap_or_default();
     let certificate = ic_cdk::api::data_certificate().unwrap_or_default();
     let witness = cert::witness(principal);
-    CertifiedHoldings {
+    let out = CertifiedHoldings {
         holdings,
         certificate,
         witness,
-    }
+    };
+    let used = instructions().saturating_sub(start);
+    metrics::add_query_instructions(used);
+    out
 }
 
 #[derive(candid::CandidType, serde::Serialize)]
@@ -168,8 +185,12 @@ pub struct Version {
 #[ic_cdk_macros::query]
 pub fn get_version() -> Version {
     metrics::inc_query();
-    Version {
+    let start = instructions();
+    let v = Version {
         git_sha: option_env!("GIT_SHA").unwrap_or("unknown"),
         build_time: option_env!("BUILD_TIME").unwrap_or("unknown"),
-    }
+    };
+    let used = instructions().saturating_sub(start);
+    metrics::add_query_instructions(used);
+    v
 }
