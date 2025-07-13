@@ -303,7 +303,7 @@ pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
         }
     });
     let results = join_all(futures).await;
-    let mut holdings = Vec::new();
+    let mut holdings = Vec::with_capacity(LEDGERS.len());
     for r in results {
         match r {
             Ok(h) => holdings.push(h),

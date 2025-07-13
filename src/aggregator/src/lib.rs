@@ -34,7 +34,9 @@ async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
         dex_fetchers::fetch(principal)
     );
 
-    let mut holdings = Vec::new();
+    let capacity =
+        ledger.as_ref().map_or(0, |v| v.len()) + neuron.len() + dex.as_ref().map_or(0, |v| v.len());
+    let mut holdings = Vec::with_capacity(capacity);
     holdings.extend(ledger.unwrap_or_default());
     holdings.extend(neuron);
     holdings.extend(dex.unwrap_or_default());
@@ -77,7 +79,9 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         dex_fetchers::fetch(principal)
     );
 
-    let mut holdings = Vec::new();
+    let capacity =
+        ledger.as_ref().map_or(0, |v| v.len()) + neuron.len() + dex.as_ref().map_or(0, |v| v.len());
+    let mut holdings = Vec::with_capacity(capacity);
     holdings.extend(ledger.unwrap_or_default());
     holdings.extend(neuron);
     holdings.extend(dex.unwrap_or_default());
@@ -111,7 +115,7 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
         Box::new(InfinityAdapter),
         Box::new(SnsAdapter),
     ];
-    let mut spent = Vec::new();
+    let mut spent = Vec::with_capacity(adapters.len());
     for a in adapters {
         if let Ok(c) = a.claim_rewards(principal).await {
             spent.push(c);
