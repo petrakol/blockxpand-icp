@@ -26,13 +26,12 @@
 
         let authClient;
         let actor;
-
+      
         function setStatus(msg, isError = false) {
             const el = document.getElementById("status");
             el.style.color = isError ? "red" : "green";
             el.textContent = msg;
         }
-
         async function init() {
             authClient = await AuthClient.create();
             if (await authClient.isAuthenticated()) {
