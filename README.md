@@ -52,6 +52,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   absolute path
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
+- Calls to `claim_all_rewards` verify the caller matches the principal and can
+  optionally allow trusted wallets via the `CLAIM_WALLETS` environment variable
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - The `get_holdings` query runs ledger, neuron, and DEX fetchers concurrently
   for the quickest possible response
@@ -142,6 +144,7 @@ canister controller:
 - `ICPSWAP_FACTORY` – ICPSwap factory canister ID
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
+- `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
 
 When any of these are unset a warning is logged and the fallback from
 `ledgers.toml` is used.  The file is watched for changes so updated IDs take

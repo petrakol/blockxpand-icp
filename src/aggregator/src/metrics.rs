@@ -1,5 +1,5 @@
-use core::sync::atomic::{AtomicU64, Ordering};
 use candid::CandidType;
+use core::sync::atomic::{AtomicU64, Ordering};
 use serde::Serialize;
 
 static QUERY_COUNT: AtomicU64 = AtomicU64::new(0);

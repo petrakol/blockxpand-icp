@@ -29,6 +29,11 @@ fn max_backoff_minutes() -> u64 {
         .unwrap_or(60)
 }
 
+#[cfg(any(target_arch = "wasm32", test))]
+fn compute_backoff_minutes(fails: u8, max: u64) -> u64 {
+    (1u64 << fails.min(6) as u64).min(max.max(1))
+}
+
 #[cfg(target_arch = "wasm32")]
 pub async fn tick() {
     use crate::utils::MINUTE_NS;
@@ -63,9 +68,12 @@ pub async fn tick() {
                     *v = v.saturating_add(1);
                     *v
                 });
-                let backoff_m = (1u64 << fails.min(6) as u64).min(max_backoff_minutes().max(1));
+                let backoff_m = compute_backoff_minutes(fails, max_backoff_minutes());
                 BACKOFF_UNTIL.with(|b| *b.borrow_mut() = now + backoff_m * MINUTE_NS);
-                LOG.with(|l| l.borrow_mut().push(format!("{now}: refill failed, backoff {backoff_m}m")));
+                LOG.with(|l| {
+                    l.borrow_mut()
+                        .push(format!("{now}: refill failed, backoff {backoff_m}m"))
+                });
             }
         }
     }
@@ -98,3 +106,16 @@ pub fn take_log() -> Vec<String> {
 }
 #[cfg(not(target_arch = "wasm32"))]
 pub fn set_log(_: Vec<String>) {}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::compute_backoff_minutes;
+
+    #[test]
+    fn backoff_growth_and_cap() {
+        assert_eq!(compute_backoff_minutes(0, 60), 1);
+        assert_eq!(compute_backoff_minutes(1, 60), 2);
+        assert_eq!(compute_backoff_minutes(5, 60), 32);
+        assert_eq!(compute_backoff_minutes(7, 60), 60);
+    }
+}

@@ -1,11 +1,11 @@
 pub mod cache;
 pub mod cert;
 pub mod cycles;
-pub mod metrics;
 pub mod dex;
 pub mod dex_fetchers;
 pub mod ledger_fetcher;
 pub mod lp_cache;
+pub mod metrics;
 pub mod neuron_fetcher;
 pub mod pool_registry;
 pub mod utils;
@@ -14,6 +14,16 @@ pub mod warm;
 use crate::utils::{now, MINUTE_NS};
 use bx_core::Holding;
 use candid::Principal;
+#[cfg(feature = "claim")]
+use once_cell::sync::Lazy;
+#[cfg(feature = "claim")]
+static CLAIM_WALLETS: Lazy<Vec<Principal>> = Lazy::new(|| {
+    option_env!("CLAIM_WALLETS")
+        .unwrap_or("")
+        .split(',')
+        .filter_map(|s| Principal::from_text(s.trim()).ok())
+        .collect()
+});
 
 async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
     let (ledger, neuron, dex) = futures::join!(
@@ -85,6 +95,10 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 #[ic_cdk_macros::update]
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     metrics::inc_query();
+    let caller = ic_cdk::caller();
+    if caller != principal && !CLAIM_WALLETS.contains(&caller) {
+        ic_cdk::api::trap("unauthorized");
+    }
     use dex::{
         dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
         DexAdapter,

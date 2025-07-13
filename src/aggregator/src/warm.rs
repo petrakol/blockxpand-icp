@@ -61,3 +61,74 @@ pub async fn tick() {
         }
     }
 }
+
+#[cfg(test)]
+pub fn len() -> usize {
+    QUEUE.lock().unwrap().len()
+}
+
+#[cfg(test)]
+pub fn dump() -> Vec<Principal> {
+    QUEUE.lock().unwrap().iter().map(|e| e.cid).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn gen_principal(i: u8) -> Principal {
+        let bytes = [i; 32];
+        Principal::self_authenticating(&bytes)
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    #[serial]
+    async fn init_bounds_queue() {
+        let mut f = NamedTempFile::new().unwrap();
+        writeln!(f, "[ledgers]").unwrap();
+        for i in 0..150u8 {
+            writeln!(f, "L{i} = \"{}\"", gen_principal(i).to_text()).unwrap();
+        }
+        writeln!(f, "[dex]").unwrap();
+        for i in 0..150u8 {
+            writeln!(f, "D{i} = \"{}\"", gen_principal(i).to_text()).unwrap();
+        }
+        std::env::set_var("LEDGERS_FILE", f.path());
+        crate::utils::load_dex_config().await;
+        once_cell::sync::Lazy::force(&crate::ledger_fetcher::LEDGERS);
+        init();
+        assert_eq!(len(), MAX_QUEUE_SIZE);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    #[serial]
+    async fn init_deduplicates() {
+        let mut f = NamedTempFile::new().unwrap();
+        writeln!(f, "[ledgers]\nA = \"aaaaa-aa\"\nB = \"aaaaa-aa\"").unwrap();
+        writeln!(f, "[dex]\nX = \"aaaaa-aa\"\nY = \"aaaaa-aa\"").unwrap();
+        std::env::set_var("LEDGERS_FILE", f.path());
+        crate::utils::load_dex_config().await;
+        once_cell::sync::Lazy::force(&crate::ledger_fetcher::LEDGERS);
+        init();
+        assert_eq!(len(), 2);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    #[serial]
+    async fn deterministic_after_reinit() {
+        let mut f = NamedTempFile::new().unwrap();
+        writeln!(f, "[ledgers]\nMOCK = \"aaaaa-aa\"").unwrap();
+        writeln!(f, "[dex]\nX = \"bbbbbb-baaaa-aaaaa-aaadq-cai\"").unwrap();
+        std::env::set_var("LEDGERS_FILE", f.path());
+        crate::utils::load_dex_config().await;
+        once_cell::sync::Lazy::force(&crate::ledger_fetcher::LEDGERS);
+        init();
+        let first = dump();
+        init();
+        let second = dump();
+        assert_eq!(first, second);
+    }
+}
