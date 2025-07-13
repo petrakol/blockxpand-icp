@@ -7,6 +7,7 @@ use crate::{
     utils::{format_amount, get_agent},
 };
 use async_trait::async_trait;
+use crate::error::FetchError;
 use bx_core::Holding;
 use candid::{CandidType, Nat, Principal};
 #[cfg(not(target_arch = "wasm32"))]
@@ -38,10 +39,10 @@ pub struct SonicAdapter;
 pub fn clear_cache() {}
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
+async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, FetchError> {
     let router_id = match crate::utils::env_principal("SONIC_ROUTER") {
         Some(p) => p,
-        None => return Vec::new(),
+        None => return Err(FetchError::InvalidConfig("router".into())),
     };
     let agent = get_agent().await;
     let arg = Encode!(&principal).unwrap();
@@ -52,7 +53,7 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         .await
     {
         Ok(b) => b,
-        Err(_) => return Vec::new(),
+        Err(e) => return Err(FetchError::from(e)),
     };
     let positions: Vec<PositionInfo> = Decode!(&bytes, Vec<PositionInfo>).unwrap_or_default();
     let height = crate::utils::dex_block_height(&agent, router_id)
@@ -88,12 +89,12 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         temp
     })
     .await;
-    holdings
+    Ok(holdings)
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
-    Vec::new()
+async fn fetch_positions_impl(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
+    Ok(Vec::new())
 }
 
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
@@ -113,19 +114,21 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         .await
         .map_err(|e| e.to_string())?;
     let spent: u64 = Decode!(&bytes, u64).unwrap_or_default();
-    let holdings = fetch_positions_impl(principal).await;
+    let holdings = fetch_positions_impl(principal)
+        .await
+        .map_err(|e| format!("{:?}", e))?;
     cache::get().insert(principal, (holdings, now()));
     Ok(spent)
 }
 
 #[async_trait]
 impl DexAdapter for SonicAdapter {
-    async fn fetch_positions(&self, principal: Principal) -> Vec<Holding> {
+    async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError> {
         fetch_positions_impl(principal).await
     }
 
-    async fn claimable_rewards(&self, _principal: Principal) -> Vec<RewardInfo> {
-        Vec::new()
+    async fn claimable_rewards(&self, _principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
+        Ok(Vec::new())
     }
 
     #[cfg(feature = "claim")]
@@ -145,7 +148,7 @@ mod tests {
         std::env::remove_var("SONIC_ROUTER");
         let adapter = SonicAdapter;
         let res = adapter.fetch_positions(Principal::anonymous()).await;
-        assert!(res.is_empty());
+        assert!(matches!(res, Err(FetchError::InvalidConfig(_))));
     }
 
     #[quickcheck]

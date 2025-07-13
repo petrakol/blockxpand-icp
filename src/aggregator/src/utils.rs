@@ -67,7 +67,7 @@ pub async fn get_agent() -> ic_agent::Agent {
         .build()
         .expect("failed to build agent");
     if let Err(e) = agent.fetch_root_key().await {
-        eprintln!("failed to fetch root key: {e}");
+        tracing::warn!("failed to fetch root key: {e}");
     }
     let _ = AGENT.set(agent.clone());
     agent
@@ -135,7 +135,12 @@ pub async fn load_dex_config() {
     // clear cached principals so updates take effect immediately
     PRINCIPAL_CACHE.write().unwrap().clear();
 
-    for key in ["ICPSWAP_FACTORY", "SONIC_ROUTER", "INFINITY_VAULT"] {
+    for key in [
+        "ICPSWAP_FACTORY",
+        "SONIC_ROUTER",
+        "INFINITY_VAULT",
+        "SNS_DISTRIBUTOR",
+    ] {
         if let Ok(val) = std::env::var(key) {
             match candid::Principal::from_text(&val) {
                 Ok(p) => {
@@ -291,6 +296,7 @@ pub fn watch_dex_config() {
             crate::dex::dex_icpswap::clear_cache();
             crate::dex::dex_sonic::clear_cache();
             crate::dex::dex_infinity::clear_cache();
+            crate::dex::dex_sns::clear_cache();
         }
     });
 }
@@ -322,6 +328,39 @@ pub fn dex_ids() -> Vec<candid::Principal> {
         .filter(|e| e.enabled)
         .map(|e| e.id)
         .collect()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn env_principal(name: &str) -> Option<candid::Principal> {
+    match name {
+        "ICPSWAP_FACTORY" => {
+            option_env!("ICPSWAP_FACTORY").and_then(|s| candid::Principal::from_text(s).ok())
+        }
+        "SONIC_ROUTER" => {
+            option_env!("SONIC_ROUTER").and_then(|s| candid::Principal::from_text(s).ok())
+        }
+        "INFINITY_VAULT" => {
+            option_env!("INFINITY_VAULT").and_then(|s| candid::Principal::from_text(s).ok())
+        }
+        "SNS_DISTRIBUTOR" => {
+            option_env!("SNS_DISTRIBUTOR").and_then(|s| candid::Principal::from_text(s).ok())
+        }
+        _ => None,
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn dex_ids() -> Vec<candid::Principal> {
+    ["ICPSWAP_FACTORY", "SONIC_ROUTER", "INFINITY_VAULT", "SNS_DISTRIBUTOR"]
+        .into_iter()
+        .filter_map(env_principal)
+        .collect()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn warm_icrc_metadata(cid: candid::Principal) {
+    let _: Result<(Vec<(String, candid::types::value::IDLValue)>,), _> =
+        ic_cdk::api::call::call(cid, "icrc1_metadata", ()).await;
 }
 
 #[cfg(not(target_arch = "wasm32"))]

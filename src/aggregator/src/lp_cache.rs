@@ -13,6 +13,45 @@ struct Entry {
 
 static CACHE: Lazy<DashMap<(Principal, String), Entry>> = Lazy::new(DashMap::new);
 
+#[derive(candid::CandidType, serde::Serialize, serde::Deserialize)]
+pub struct StableEntry {
+    principal: Principal,
+    pool: String,
+    data: Vec<Holding>,
+    height: u64,
+    ts: u64,
+}
+
+pub fn stable_save() -> Vec<StableEntry> {
+    CACHE
+        .iter()
+        .map(|e| {
+            let (p, pool) = e.key();
+            StableEntry {
+                principal: *p,
+                pool: pool.clone(),
+                data: e.value().data.clone(),
+                height: e.value().height,
+                ts: e.value().ts,
+            }
+        })
+        .collect()
+}
+
+pub fn stable_restore(entries: Vec<StableEntry>) {
+    CACHE.clear();
+    for e in entries {
+        CACHE.insert(
+            (e.principal, e.pool.clone()),
+            Entry {
+                data: e.data,
+                height: e.height,
+                ts: e.ts,
+            },
+        );
+    }
+}
+
 const STALE_NS: u64 = WEEK_NS; // one week
 
 pub async fn get_or_fetch<F, Fut>(

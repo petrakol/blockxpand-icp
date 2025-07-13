@@ -22,6 +22,7 @@ num-integer = "0.1"
 sha2 = "0.10"
 ic-cdk-timers = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 notify = { workspace = true }
 serde_cbor = "0.11"
 ic-certified-map = "0.4"
@@ -32,6 +33,7 @@ quickcheck = "1"
 quickcheck_macros = "1"
 tokio = { workspace = true }
 once_cell = { workspace = true }
+tempfile = "3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true }
