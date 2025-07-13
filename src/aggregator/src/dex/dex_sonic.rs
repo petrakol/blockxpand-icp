@@ -147,8 +147,8 @@ mod tests {
     async fn empty_without_env() {
         std::env::remove_var("SONIC_ROUTER");
         let adapter = SonicAdapter;
-        let res = adapter.fetch_positions(Principal::anonymous()).await.unwrap();
-        assert!(res.is_empty());
+        let res = adapter.fetch_positions(Principal::anonymous()).await;
+        assert!(matches!(res, Err(FetchError::InvalidConfig(_))));
     }
 
     #[quickcheck]

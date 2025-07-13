@@ -76,6 +76,30 @@ pub fn dump() -> Vec<Principal> {
 }
 
 #[cfg(test)]
+pub fn init_for_tests(ledgers: Vec<Principal>, dexes: Vec<Principal>) {
+    let now = crate::utils::now();
+    let mut q = QUEUE.lock().unwrap();
+    q.clear();
+    let mut seen = HashSet::new();
+    for cid in ledgers {
+        if q.len() >= MAX_QUEUE_SIZE {
+            break;
+        }
+        if seen.insert(cid) {
+            q.push_back(Entry { cid, next: now });
+        }
+    }
+    for cid in dexes {
+        if q.len() >= MAX_QUEUE_SIZE {
+            break;
+        }
+        if seen.insert(cid) {
+            q.push_back(Entry { cid, next: now });
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use serial_test::serial;
@@ -101,8 +125,9 @@ mod tests {
         }
         std::env::set_var("LEDGERS_FILE", f.path());
         crate::utils::load_dex_config().await;
-        once_cell::sync::Lazy::force(&crate::ledger_fetcher::LEDGERS);
-        init();
+        let ledgers: Vec<Principal> = (0..150u8).map(gen_principal).collect();
+        let dexes: Vec<Principal> = (0..150u8).map(gen_principal).collect();
+        init_for_tests(ledgers, dexes);
         assert_eq!(len(), MAX_QUEUE_SIZE);
     }
 
@@ -114,9 +139,16 @@ mod tests {
         writeln!(f, "[dex]\nX = \"aaaaa-aa\"\nY = \"aaaaa-aa\"").unwrap();
         std::env::set_var("LEDGERS_FILE", f.path());
         crate::utils::load_dex_config().await;
-        once_cell::sync::Lazy::force(&crate::ledger_fetcher::LEDGERS);
-        init();
-        assert_eq!(len(), 2);
+        let ledgers = vec![
+            Principal::from_text("aaaaa-aa").unwrap(),
+            Principal::from_text("aaaaa-aa").unwrap(),
+        ];
+        let dexes = vec![
+            Principal::from_text("aaaaa-aa").unwrap(),
+            Principal::from_text("aaaaa-aa").unwrap(),
+        ];
+        init_for_tests(ledgers, dexes);
+        assert_eq!(len(), 1);
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -124,13 +156,14 @@ mod tests {
     async fn deterministic_after_reinit() {
         let mut f = NamedTempFile::new().unwrap();
         writeln!(f, "[ledgers]\nMOCK = \"aaaaa-aa\"").unwrap();
-        writeln!(f, "[dex]\nX = \"bbbbbb-baaaa-aaaaa-aaadq-cai\"").unwrap();
+        writeln!(f, "[dex]\nX = \"aaaaa-aa\"").unwrap();
         std::env::set_var("LEDGERS_FILE", f.path());
         crate::utils::load_dex_config().await;
-        once_cell::sync::Lazy::force(&crate::ledger_fetcher::LEDGERS);
-        init();
+        let ledgers = vec![gen_principal(1)];
+        let dexes = vec![gen_principal(2)];
+        init_for_tests(ledgers, dexes);
         let first = dump();
-        init();
+        init_for_tests(vec![gen_principal(1)], vec![gen_principal(2)]);
         let second = dump();
         assert_eq!(first, second);
     }

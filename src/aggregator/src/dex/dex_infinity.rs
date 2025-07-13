@@ -174,8 +174,8 @@ mod tests {
     async fn empty_without_env() {
         std::env::remove_var("INFINITY_VAULT");
         let adapter = InfinityAdapter;
-        let res = adapter.fetch_positions(Principal::anonymous()).await.unwrap();
-        assert!(res.is_empty());
+        let res = adapter.fetch_positions(Principal::anonymous()).await;
+        assert!(matches!(res, Err(FetchError::InvalidConfig(_))));
     }
 
     #[quickcheck]

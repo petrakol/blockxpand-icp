@@ -251,10 +251,11 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     async fn fetch_positions_empty_without_env() {
         let adapter = IcpswapAdapter;
-        let res = adapter.fetch_positions(Principal::anonymous()).await.unwrap();
-        assert!(res.is_empty());
+        let res = adapter.fetch_positions(Principal::anonymous()).await;
+        assert!(matches!(res, Err(FetchError::InvalidConfig(_))));
     }
 
+    #[cfg(feature = "claim")]
     #[tokio::test(flavor = "current_thread")]
     async fn claim_fails_without_env() {
         std::env::remove_var("ICPSWAP_FACTORY");

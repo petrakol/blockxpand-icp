@@ -462,10 +462,7 @@ mod tests {
         set_mock_metadata(Err("fail".into()));
         META_CACHE.clear();
         let err = fetch_metadata(&agent, cid).await.unwrap_err();
-        match err {
-            ic_agent::AgentError::MessageError(s) => assert_eq!(s, "fail".to_string()),
-            _ => panic!("unexpected error"),
-        }
+        assert!(matches!(err, FetchError::Network(_)));
     }
 
     #[tokio::test(flavor = "current_thread")]
