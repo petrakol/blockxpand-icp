@@ -23,6 +23,20 @@ static WALLET: Lazy<Option<Principal>> =
 const MIN_BALANCE: u128 = 500_000_000_000; // 0.5 T
 
 #[cfg(target_arch = "wasm32")]
+const LOG_LIMIT: usize = 100;
+
+#[cfg(target_arch = "wasm32")]
+fn push_log(entry: String) {
+    LOG.with(|l| {
+        let mut log = l.borrow_mut();
+        if log.len() >= LOG_LIMIT {
+            log.remove(0);
+        }
+        log.push(entry);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
 fn max_backoff_minutes() -> u64 {
     option_env!("CYCLE_BACKOFF_MAX")
         .and_then(|s| s.parse().ok())
@@ -63,7 +77,7 @@ pub async fn tick() {
             if res.is_ok() && after > before {
                 FAILURES.with(|f| *f.borrow_mut() = 0);
                 BACKOFF_UNTIL.with(|b| *b.borrow_mut() = now);
-                LOG.with(|l| l.borrow_mut().push(format!("{now}: refilled to {after}")));
+                push_log(format!("{now}: refilled to {after}"));
                 tracing::info!("cycles refilled to {after}");
             } else {
                 let fails = FAILURES.with(|f| {
@@ -73,10 +87,7 @@ pub async fn tick() {
                 });
                 let backoff_m = compute_backoff_minutes(fails, max_backoff_minutes());
                 BACKOFF_UNTIL.with(|b| *b.borrow_mut() = now + backoff_m * MINUTE_NS);
-                LOG.with(|l| {
-                    l.borrow_mut()
-                        .push(format!("{now}: refill failed, backoff {backoff_m}m"))
-                });
+                push_log(format!("{now}: refill failed, backoff {backoff_m}m"));
                 tracing::warn!("cycles refill failed, backoff {backoff_m}m");
             }
         } else {
@@ -97,7 +108,14 @@ pub fn take_log() -> Vec<String> {
 
 #[cfg(target_arch = "wasm32")]
 pub fn set_log(log: Vec<String>) {
-    LOG.with(|l| *l.borrow_mut() = log);
+    LOG.with(|l| {
+        let mut target = l.borrow_mut();
+        *target = if log.len() > LOG_LIMIT {
+            log[log.len() - LOG_LIMIT..].to_vec()
+        } else {
+            log
+        };
+    });
 }
 
 #[cfg(not(target_arch = "wasm32"))]

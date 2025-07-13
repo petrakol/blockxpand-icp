@@ -198,4 +198,5 @@ export INFINITY_VAULT=dddddd-dd
 
 - [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) summarises the latest security audit
 - [docs/DEX_API_matrix.md](docs/DEX_API_matrix.md) lists known DEX canister APIs
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) provides an overview of crate dependencies and runtime processes
 
