@@ -32,7 +32,7 @@ pub async fn refresh() {
     let path = std::env::var("POOLS_FILE").unwrap_or_else(|_| "data/pools.toml".into());
     match tokio::fs::read_to_string(&path).await {
         Ok(content) => load_content(&content),
-        Err(e) => eprintln!("pool registry refresh failed: {e}"),
+        Err(e) => tracing::error!("pool registry refresh failed: {e}"),
     }
 }
 

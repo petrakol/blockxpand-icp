@@ -501,4 +501,89 @@ mod tests {
         let out = blockxpand_icp::pools_graphql("query { pools { id } }".into());
         assert!(out.contains("pool1"));
     }
+
+    #[tokio::test]
+    async fn heartbeat_metrics_survive_upgrade() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let cid = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
+
+        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+
+        aggregator::utils::load_dex_config().await;
+
+        let aggr_id = match deploy(replica.dir.path(), "aggregator") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy aggregator; skipping test");
+                return;
+            }
+        };
+
+        let agent = Agent::builder()
+            .with_url("http://127.0.0.1:4943")
+            .with_identity(AnonymousIdentity {})
+            .build()
+            .unwrap();
+        let _ = agent.fetch_root_key().await;
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+        let arg = candid::Encode!().unwrap();
+        let bytes = agent
+            .query(&Principal::from_text(&aggr_id).unwrap(), "get_metrics")
+            .with_arg(arg.clone())
+            .call()
+            .await
+            .unwrap();
+        #[derive(candid::CandidType, serde::Deserialize)]
+        struct Metrics {
+            cycles: u64,
+            query_count: u64,
+            query_instructions: u64,
+            heartbeat_count: u64,
+            last_heartbeat: u64,
+            claim_count: u64,
+            claim_instructions: u64,
+        }
+        let m1: Metrics = candid::Decode!(&bytes, Metrics).unwrap();
+
+        Command::new("dfx")
+            .args(["deploy", "aggregator", "--network", "emulator"])
+            .current_dir(replica.dir.path())
+            .stdout(Stdio::null())
+            .status()
+            .ok();
+
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+        let bytes2 = agent
+            .query(&Principal::from_text(&aggr_id).unwrap(), "get_metrics")
+            .with_arg(arg)
+            .call()
+            .await
+            .unwrap();
+        let m2: Metrics = candid::Decode!(&bytes2, Metrics).unwrap();
+        assert!(m2.heartbeat_count >= m1.heartbeat_count);
+    }
 }

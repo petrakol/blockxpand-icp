@@ -5,6 +5,7 @@ use crate::{
     utils::{format_amount, get_agent, now},
 };
 use async_trait::async_trait;
+use crate::error::FetchError;
 use bx_core::Holding;
 use candid::{CandidType, Nat, Principal};
 #[cfg(not(target_arch = "wasm32"))]
@@ -56,12 +57,12 @@ const META_TTL_NS: u64 = crate::utils::DAY_NS; // 24h
 
 #[async_trait]
 impl DexAdapter for IcpswapAdapter {
-    async fn fetch_positions(&self, principal: Principal) -> Vec<Holding> {
+    async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError> {
         fetch_positions_impl(principal).await
     }
 
-    async fn claimable_rewards(&self, _principal: Principal) -> Vec<RewardInfo> {
-        Vec::new()
+    async fn claimable_rewards(&self, _principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
+        Ok(Vec::new())
     }
 
     #[cfg(feature = "claim")]
@@ -78,10 +79,10 @@ pub fn clear_cache() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
+async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, FetchError> {
     let factory_id = match crate::utils::env_principal("ICPSWAP_FACTORY") {
         Some(p) => p,
-        None => return Vec::new(),
+        None => return Err(FetchError::InvalidConfig("factory".into())),
     };
     let agent = get_agent().await;
     let arg = Encode!().unwrap();
@@ -92,7 +93,7 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         .await
     {
         Ok(b) => b,
-        Err(_) => return Vec::new(),
+        Err(e) => return Err(FetchError::from(e)),
     };
     let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).unwrap_or_default();
     let mut out = Vec::new();
@@ -132,12 +133,12 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         .await;
         out.extend(holdings);
     }
-    out
+    Ok(out)
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
-    Vec::new()
+async fn fetch_positions_impl(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
+    Ok(Vec::new())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -208,7 +209,36 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
         total = total.checked_add(spent).ok_or("overflow")?;
     }
     // refresh cache
-    let holdings = fetch_positions_impl(principal).await;
+    let holdings = fetch_positions_impl(principal)
+        .await
+        .map_err(|e| format!("{:?}", e))?;
+    cache::get().insert(principal, (holdings, now()));
+    Ok(total)
+}
+
+#[cfg(all(feature = "claim", target_arch = "wasm32"))]
+async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
+    use crate::cache;
+    use ic_cdk::api::call::call;
+    let factory_id = match crate::utils::env_principal("ICPSWAP_FACTORY") {
+        Some(p) => p,
+        None => return Err("factory".into()),
+    };
+    let ledger = crate::ledger_fetcher::LEDGERS
+        .first()
+        .cloned()
+        .ok_or("ledger")?;
+    let (pools,): (Vec<PoolData>,) = call(factory_id, "getPools", ()).await.map_err(|(_, e)| e)?;
+    let mut total: u64 = 0;
+    for pool in pools {
+        let (spent,): (u64,) = call(pool.canister_id, "claim", (principal, ledger))
+            .await
+            .map_err(|(_, e)| e)?;
+        total = total.checked_add(spent).ok_or("overflow")?;
+    }
+    let holdings = fetch_positions_impl(principal)
+        .await
+        .map_err(|e| format!("{:?}", e))?;
     cache::get().insert(principal, (holdings, now()));
     Ok(total)
 }
@@ -222,9 +252,10 @@ mod tests {
     async fn fetch_positions_empty_without_env() {
         let adapter = IcpswapAdapter;
         let res = adapter.fetch_positions(Principal::anonymous()).await;
-        assert!(res.is_empty());
+        assert!(matches!(res, Err(FetchError::InvalidConfig(_))));
     }
 
+    #[cfg(feature = "claim")]
     #[tokio::test(flavor = "current_thread")]
     async fn claim_fails_without_env() {
         std::env::remove_var("ICPSWAP_FACTORY");
