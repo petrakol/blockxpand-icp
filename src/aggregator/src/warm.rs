@@ -10,18 +10,24 @@ struct Entry {
     next: u64,
 }
 
-static QUEUE: Lazy<Mutex<VecDeque<Entry>>> = Lazy::new(|| Mutex::new(VecDeque::new()));
+static MAX_QUEUE_SIZE: Lazy<usize> = Lazy::new(|| {
+    option_env!("WARM_QUEUE_SIZE")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(128)
+});
+
+static QUEUE: Lazy<Mutex<VecDeque<Entry>>> =
+    Lazy::new(|| Mutex::new(VecDeque::with_capacity(*MAX_QUEUE_SIZE)));
 
 const ITEMS_PER_TICK: usize = 3;
-const MAX_QUEUE_SIZE: usize = 128;
 
 pub fn init() {
     let now = crate::utils::now();
     let mut q = QUEUE.lock().unwrap();
     q.clear();
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::with_capacity(*MAX_QUEUE_SIZE);
     for cid in crate::ledger_fetcher::LEDGERS.iter().cloned() {
-        if q.len() >= MAX_QUEUE_SIZE {
+        if q.len() >= *MAX_QUEUE_SIZE {
             break;
         }
         if seen.insert(cid) {
@@ -29,7 +35,7 @@ pub fn init() {
         }
     }
     for cid in crate::utils::dex_ids() {
-        if q.len() >= MAX_QUEUE_SIZE {
+        if q.len() >= *MAX_QUEUE_SIZE {
             break;
         }
         if seen.insert(cid) {
@@ -80,9 +86,9 @@ pub fn init_for_tests(ledgers: Vec<Principal>, dexes: Vec<Principal>) {
     let now = crate::utils::now();
     let mut q = QUEUE.lock().unwrap();
     q.clear();
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::with_capacity(*MAX_QUEUE_SIZE);
     for cid in ledgers {
-        if q.len() >= MAX_QUEUE_SIZE {
+        if q.len() >= *MAX_QUEUE_SIZE {
             break;
         }
         if seen.insert(cid) {
@@ -90,7 +96,7 @@ pub fn init_for_tests(ledgers: Vec<Principal>, dexes: Vec<Principal>) {
         }
     }
     for cid in dexes {
-        if q.len() >= MAX_QUEUE_SIZE {
+        if q.len() >= *MAX_QUEUE_SIZE {
             break;
         }
         if seen.insert(cid) {
@@ -128,7 +134,7 @@ mod tests {
         let ledgers: Vec<Principal> = (0..150u8).map(gen_principal).collect();
         let dexes: Vec<Principal> = (0..150u8).map(gen_principal).collect();
         init_for_tests(ledgers, dexes);
-        assert_eq!(len(), MAX_QUEUE_SIZE);
+        assert_eq!(len(), *MAX_QUEUE_SIZE);
     }
 
     #[tokio::test(flavor = "current_thread")]

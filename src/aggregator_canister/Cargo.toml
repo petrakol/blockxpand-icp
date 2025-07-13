@@ -16,6 +16,8 @@ claim = ["aggregator/claim"]
 
 [lib]
 crate-type = ["cdylib"]
+test = false
+doctest = false
 
 [build-dependencies]
 chrono = { workspace = true }

@@ -7,6 +7,8 @@ fn init() {
     ic_cdk::spawn(async { aggregator::utils::load_dex_config().await });
     #[cfg(not(target_arch = "wasm32"))]
     aggregator::utils::watch_dex_config();
+    #[cfg(not(target_arch = "wasm32"))]
+    aggregator::pool_registry::watch_pools_file();
     ic_cdk::spawn(async { aggregator::pool_registry::refresh().await });
     aggregator::pool_registry::schedule_refresh();
     aggregator::lp_cache::schedule_eviction();
@@ -28,7 +30,7 @@ fn post_upgrade() {
         Vec<String>,
         Vec<aggregator::ledger_fetcher::StableMeta>,
         Vec<aggregator::lp_cache::StableEntry>,
-        (u64, u64, u64),
+        (u64, u64, u64, u64, u64, u64, u64),
     )>() {
         aggregator::cycles::set_log(log);
         aggregator::ledger_fetcher::stable_restore(meta);
@@ -48,6 +50,5 @@ async fn heartbeat() {
 fn get_metrics() -> aggregator::metrics::Metrics {
     aggregator::metrics::get()
 }
-
 #[cfg(feature = "export_candid")]
 ic_cdk::export_candid!();

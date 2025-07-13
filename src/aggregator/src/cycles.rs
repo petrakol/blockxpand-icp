@@ -71,10 +71,12 @@ pub async fn tick() {
     if canister_balance128() < MIN_BALANCE {
         tracing::debug!("balance below threshold, attempting refill");
         if let Some(w) = *WALLET {
+            crate::metrics::inc_cycle_refill_attempt();
             let before = canister_balance128();
             let res: Result<(), _> = call(w, "wallet_receive", ()).await;
             let after = canister_balance128();
             if res.is_ok() && after > before {
+                crate::metrics::inc_cycle_refill_success();
                 FAILURES.with(|f| *f.borrow_mut() = 0);
                 BACKOFF_UNTIL.with(|b| *b.borrow_mut() = now);
                 push_log(format!("{now}: refilled to {after}"));
