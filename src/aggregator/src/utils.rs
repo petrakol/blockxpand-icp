@@ -123,11 +123,15 @@ static CONFIG_LOCK: once_cell::sync::Lazy<tokio::sync::Mutex<()>> =
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn load_dex_config() {
-    use tracing::info;
-    use tracing::warn;
+    use std::path::Path;
+    use tracing::{info, warn};
     let _guard = CONFIG_LOCK.lock().await;
 
     let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    if !Path::new(&path).exists() {
+        tracing::error!("dex config {path} missing");
+        return;
+    }
     let text = std::fs::read_to_string(&path).unwrap_or_default();
     let value: toml::Value =
         toml::from_str(&text).unwrap_or(toml::Value::Table(Default::default()));
@@ -320,6 +324,10 @@ pub fn watch_dex_config() {
         return;
     }
     let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    if !Path::new(&path).exists() {
+        tracing::error!("dex config {path} missing");
+        return;
+    }
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     let mut watcher = RecommendedWatcher::new(
         move |res: notify::Result<notify::Event>| {

@@ -59,6 +59,7 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
         .map(|id| Principal::from_text(id).expect("invalid principal"))
         .collect();
     ids.sort();
+    ids.dedup();
     ids
 });
 
@@ -73,6 +74,7 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
         .map(|id| Principal::from_text(id).expect("invalid principal"))
         .collect();
     ids.sort();
+    ids.dedup();
     ids
 });
 

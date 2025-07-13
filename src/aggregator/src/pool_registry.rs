@@ -48,6 +48,10 @@ pub fn watch_pools_file() {
         return;
     }
     let path = std::env::var("POOLS_FILE").unwrap_or_else(|_| "data/pools.toml".to_string());
+    if !Path::new(&path).exists() {
+        tracing::error!("pools file {path} missing");
+        return;
+    }
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     let mut watcher = RecommendedWatcher::new(
         move |res: notify::Result<notify::Event>| {

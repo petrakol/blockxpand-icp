@@ -154,6 +154,7 @@ canister controller:
 - `CLAIM_DENYLIST` – principals forbidden from calling `claim_all_rewards`
 - `CLAIM_LOCK_TIMEOUT_SECS` – how long claim locks persist after errors (default 300)
 - `CLAIM_ADAPTER_TIMEOUT_SECS` – per-adapter claim timeout (default 10)
+- `CLAIM_DAILY_LIMIT` – max `claim_all_rewards` attempts per user per day (default 5)
 - `WARM_QUEUE_SIZE` – maximum metadata warm queue size (default 128)
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 

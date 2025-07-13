@@ -48,6 +48,15 @@ static CLAIM_LOCK_TIMEOUT_NS: Lazy<u64> = Lazy::new(|| {
         * 1_000_000_000u64
 });
 
+static CLAIM_DAILY_LIMIT: Lazy<u32> = Lazy::new(|| {
+    option_env!("CLAIM_DAILY_LIMIT")
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(5)
+});
+
+static CLAIM_COUNTS: Lazy<Mutex<HashMap<Principal, (u32, u64)>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
 static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<u64> = Lazy::new(|| {
     option_env!("CLAIM_ADAPTER_TIMEOUT_SECS")
         .and_then(|v| v.parse::<u64>().ok())
@@ -137,6 +146,20 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     }
     if CLAIM_DENYLIST.contains(&principal) {
         ic_cdk::api::trap("denied");
+    }
+    {
+        let mut counts = CLAIM_COUNTS.lock().unwrap();
+        let now = now();
+        let entry = counts
+            .entry(principal)
+            .or_insert((0, now + crate::utils::DAY_NS));
+        if now > entry.1 {
+            *entry = (0, now + crate::utils::DAY_NS);
+        }
+        if entry.0 >= *CLAIM_DAILY_LIMIT {
+            ic_cdk::api::trap("claim limit reached");
+        }
+        entry.0 += 1;
     }
     {
         let mut locks = CLAIM_LOCKS.lock().unwrap();
