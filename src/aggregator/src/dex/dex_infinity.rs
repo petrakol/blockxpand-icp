@@ -5,6 +5,7 @@ use crate::{
     utils::{format_amount, get_agent, now},
 };
 use async_trait::async_trait;
+use crate::error::FetchError;
 use bx_core::Holding;
 #[cfg(not(target_arch = "wasm32"))]
 use candid::Nat;
@@ -39,12 +40,12 @@ const META_TTL_NS: u64 = crate::utils::DAY_NS; // 24h
 
 #[async_trait]
 impl DexAdapter for InfinityAdapter {
-    async fn fetch_positions(&self, principal: Principal) -> Vec<Holding> {
+    async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError> {
         fetch_positions_impl(principal).await
     }
 
-    async fn claimable_rewards(&self, _principal: Principal) -> Vec<RewardInfo> {
-        Vec::new()
+    async fn claimable_rewards(&self, _principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
+        Ok(Vec::new())
     }
 
     #[cfg(feature = "claim")]
@@ -54,10 +55,10 @@ impl DexAdapter for InfinityAdapter {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
+async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, FetchError> {
     let vault_id = match crate::utils::env_principal("INFINITY_VAULT") {
         Some(p) => p,
-        None => return Vec::new(),
+        None => return Err(FetchError::InvalidConfig("vault".into())),
     };
     let agent = get_agent().await;
     let arg = Encode!(&principal).unwrap();
@@ -68,7 +69,7 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         .await
     {
         Ok(b) => b,
-        Err(_) => return Vec::new(),
+        Err(e) => return Err(FetchError::from(e)),
     };
     let positions: Vec<VaultPosition> = Decode!(&bytes, Vec<VaultPosition>).unwrap_or_default();
     let height = crate::utils::dex_block_height(&agent, vault_id)
@@ -95,12 +96,12 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         temp
     })
     .await;
-    holdings
+    Ok(holdings)
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
-    Vec::new()
+async fn fetch_positions_impl(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
+    Ok(Vec::new())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -173,7 +174,7 @@ mod tests {
     async fn empty_without_env() {
         std::env::remove_var("INFINITY_VAULT");
         let adapter = InfinityAdapter;
-        let res = adapter.fetch_positions(Principal::anonymous()).await;
+        let res = adapter.fetch_positions(Principal::anonymous()).await.unwrap();
         assert!(res.is_empty());
     }
 

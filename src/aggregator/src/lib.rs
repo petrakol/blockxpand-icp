@@ -11,6 +11,7 @@ pub mod neuron_fetcher;
 pub mod pool_registry;
 pub mod utils;
 pub mod warm;
+pub mod error;
 
 use crate::utils::{now, MINUTE_NS};
 use bx_core::Holding;
@@ -34,9 +35,9 @@ async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
     );
 
     let mut holdings = Vec::new();
-    holdings.extend(ledger);
+    holdings.extend(ledger.unwrap_or_default());
     holdings.extend(neuron);
-    holdings.extend(dex);
+    holdings.extend(dex.unwrap_or_default());
     holdings
 }
 
@@ -77,9 +78,9 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
     );
 
     let mut holdings = Vec::new();
-    holdings.extend(ledger);
+    holdings.extend(ledger.unwrap_or_default());
     holdings.extend(neuron);
-    holdings.extend(dex);
+    holdings.extend(dex.unwrap_or_default());
 
     {
         cache::get().insert(principal, (holdings.clone(), now));

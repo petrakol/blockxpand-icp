@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use bx_core::Holding;
 use candid::Principal;
+use crate::error::FetchError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RewardInfo {
@@ -10,8 +11,8 @@ pub struct RewardInfo {
 
 #[async_trait]
 pub trait DexAdapter: Send + Sync {
-    async fn fetch_positions(&self, principal: Principal) -> Vec<Holding>;
-    async fn claimable_rewards(&self, principal: Principal) -> Vec<RewardInfo>;
+    async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError>;
+    async fn claimable_rewards(&self, principal: Principal) -> Result<Vec<RewardInfo>, FetchError>;
     #[cfg(feature = "claim")]
     async fn claim_rewards(&self, principal: Principal) -> Result<u64, String>;
 }

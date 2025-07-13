@@ -2,6 +2,7 @@
 use crate::utils::format_amount;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::DAY_NS;
+use crate::error::FetchError;
 use bx_core::Holding;
 #[cfg(not(target_arch = "wasm32"))]
 use candid::Nat;
@@ -286,59 +287,54 @@ async fn icrc1_balance_of(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn fetch(principal: Principal) -> Vec<Holding> {
+pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
     let agent = get_agent().await;
     let mut ids: Vec<Principal> = LEDGERS.iter().cloned().collect();
     ids.sort();
     let futures = ids.into_iter().map(|cid| {
         let agent = agent.clone();
         async move {
-            let (symbol, decimals, _) = match fetch_metadata(&agent, cid).await {
-                Ok(v) => v,
-                Err(_) => {
-                    return Holding {
-                        source: "ledger".into(),
-                        token: "unknown".into(),
-                        amount: "0".into(),
-                        status: "error".into(),
-                    }
-                }
-            };
-            match with_retry(|| icrc1_balance_of(&agent, cid, principal)).await {
-                Ok(nat) => Holding {
-                    source: "ledger".into(),
-                    token: symbol,
-                    amount: format_amount(nat, decimals),
-                    status: "liquid".into(),
-                },
-                Err(_) => Holding {
-                    source: "ledger".into(),
-                    token: symbol,
-                    amount: "0".into(),
-                    status: "error".into(),
-                },
-            }
+            let (symbol, decimals, _) = fetch_metadata(&agent, cid).await?;
+            let nat = with_retry(|| icrc1_balance_of(&agent, cid, principal))
+                .await
+                .map_err(FetchError::from)?;
+            Ok::<Holding, FetchError>(Holding {
+                source: "ledger".into(),
+                token: symbol,
+                amount: format_amount(nat, decimals),
+                status: "liquid".into(),
+            })
         }
     });
-    join_all(futures).await
+    let results = join_all(futures).await;
+    let mut holdings = Vec::new();
+    for r in results {
+        match r {
+            Ok(h) => holdings.push(h),
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(holdings)
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn fetch(_principal: Principal) -> Vec<Holding> {
-    Vec::new()
+pub async fn fetch(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
+    Ok(Vec::new())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_metadata(
     agent: &Agent,
     cid: Principal,
-) -> Result<(String, u8, u64), ic_agent::AgentError> {
+) -> Result<(String, u8, u64), FetchError> {
     if let Some(meta) = META_CACHE.get(&cid) {
         if meta.expires > now() {
             return Ok((meta.symbol.clone(), meta.decimals, meta.fee));
         }
     }
-    let items = with_retry(|| icrc1_metadata(agent, cid)).await?;
+    let items = with_retry(|| icrc1_metadata(agent, cid))
+        .await
+        .map_err(FetchError::from)?;
     let encoded = encode_items(&items);
     let hash: [u8; 32] = Sha256::digest(&encoded).into();
     if let Some(meta) = META_CACHE.get(&cid) {
@@ -504,7 +500,7 @@ mod tests {
         set_mock_balance(Ok(Nat::from(1234u64)));
         META_CACHE.clear();
         let principal = Principal::from_text("aaaaa-aa").unwrap();
-        let res = fetch(principal).await;
+        let res = fetch(principal).await.unwrap();
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].token, "AAA");
         assert_eq!(res[0].amount, "12.34");
@@ -523,9 +519,8 @@ mod tests {
         set_mock_balance(Err("oops".into()));
         META_CACHE.clear();
         let principal = Principal::from_text("aaaaa-aa").unwrap();
-        let res = fetch(principal).await;
-        assert_eq!(res[0].status, "error");
-        assert_eq!(res[0].amount, "0");
+        let err = fetch(principal).await.unwrap_err();
+        assert!(matches!(err, FetchError::Network(_)));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -537,8 +532,7 @@ mod tests {
         set_mock_balance(Ok(Nat::from(10u64)));
         META_CACHE.clear();
         let principal = Principal::from_text("aaaaa-aa").unwrap();
-        let res = fetch(principal).await;
-        assert_eq!(res[0].token, "unknown");
-        assert_eq!(res[0].status, "error");
+        let err = fetch(principal).await.unwrap_err();
+        assert!(matches!(err, FetchError::Network(_)));
     }
 }

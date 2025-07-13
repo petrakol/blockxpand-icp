@@ -161,6 +161,22 @@ The repository includes a minimal `dfx.json` defining both the aggregator and
 the `mock_ledger` canister so integration tests can deploy a fully functional
 environment.
 
+### Example environment
+
+```
+export LEDGERS_FILE=config/ledgers.toml
+export CYCLES_WALLET=aaaaa-aa
+export ICPSWAP_FACTORY=bbbbbb-bb
+export SONIC_ROUTER=cccccc-cc
+export INFINITY_VAULT=dddddd-dd
+```
+
+### Production deployment
+
+1. Set the variables above to the mainnet canister IDs and a cycles wallet that can top up the aggregator.
+2. Build the release Wasm with `cargo build --release -p aggregator_canister`.
+3. Deploy to your subnet with `dfx deploy aggregator --network ic --with-wallet $CYCLES_WALLET`.
+
 ## Development workflow
 
 1. Install Rust and run `./install_dfx.sh` to install `dfx`. Add the `wasm32-unknown-unknown` target and the `rustfmt` and `clippy` components with:

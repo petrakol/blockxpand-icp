@@ -5,6 +5,7 @@ use crate::{
     utils::{format_amount, get_agent, now},
 };
 use async_trait::async_trait;
+use crate::error::FetchError;
 use bx_core::Holding;
 use candid::{CandidType, Nat, Principal};
 #[cfg(not(target_arch = "wasm32"))]
@@ -56,12 +57,12 @@ const META_TTL_NS: u64 = crate::utils::DAY_NS; // 24h
 
 #[async_trait]
 impl DexAdapter for IcpswapAdapter {
-    async fn fetch_positions(&self, principal: Principal) -> Vec<Holding> {
+    async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError> {
         fetch_positions_impl(principal).await
     }
 
-    async fn claimable_rewards(&self, _principal: Principal) -> Vec<RewardInfo> {
-        Vec::new()
+    async fn claimable_rewards(&self, _principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
+        Ok(Vec::new())
     }
 
     #[cfg(feature = "claim")]
@@ -78,10 +79,10 @@ pub fn clear_cache() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
+async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, FetchError> {
     let factory_id = match crate::utils::env_principal("ICPSWAP_FACTORY") {
         Some(p) => p,
-        None => return Vec::new(),
+        None => return Err(FetchError::InvalidConfig("factory".into())),
     };
     let agent = get_agent().await;
     let arg = Encode!().unwrap();
@@ -92,7 +93,7 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         .await
     {
         Ok(b) => b,
-        Err(_) => return Vec::new(),
+        Err(e) => return Err(FetchError::from(e)),
     };
     let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).unwrap_or_default();
     let mut out = Vec::new();
@@ -132,12 +133,12 @@ async fn fetch_positions_impl(principal: Principal) -> Vec<Holding> {
         .await;
         out.extend(holdings);
     }
-    out
+    Ok(out)
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn fetch_positions_impl(_principal: Principal) -> Vec<Holding> {
-    Vec::new()
+async fn fetch_positions_impl(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
+    Ok(Vec::new())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -208,7 +209,9 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
         total = total.checked_add(spent).ok_or("overflow")?;
     }
     // refresh cache
-    let holdings = fetch_positions_impl(principal).await;
+    let holdings = fetch_positions_impl(principal)
+        .await
+        .map_err(|e| format!("{:?}", e))?;
     cache::get().insert(principal, (holdings, now()));
     Ok(total)
 }
@@ -233,7 +236,9 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
             .map_err(|(_, e)| e)?;
         total = total.checked_add(spent).ok_or("overflow")?;
     }
-    let holdings = fetch_positions_impl(principal).await;
+    let holdings = fetch_positions_impl(principal)
+        .await
+        .map_err(|e| format!("{:?}", e))?;
     cache::get().insert(principal, (holdings, now()));
     Ok(total)
 }
@@ -246,7 +251,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     async fn fetch_positions_empty_without_env() {
         let adapter = IcpswapAdapter;
-        let res = adapter.fetch_positions(Principal::anonymous()).await;
+        let res = adapter.fetch_positions(Principal::anonymous()).await.unwrap();
         assert!(res.is_empty());
     }
 
