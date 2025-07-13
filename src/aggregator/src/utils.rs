@@ -15,6 +15,8 @@ pub const WEEK_NS: u64 = DAY_NS * 7;
 pub const DAY_SECS: u64 = 86_400;
 /// Seconds in one week
 pub const WEEK_SECS: u64 = DAY_SECS * 7;
+/// Maximum decimals supported for token formatting
+pub const MAX_DECIMALS: u8 = 18;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub const DEFAULT_LEDGER_URL: &str = "http://localhost:4943";

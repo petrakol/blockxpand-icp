@@ -150,7 +150,7 @@ async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(Strin
             }
             "icrc1:decimals" => {
                 if let Some(d) = crate::utils::idl_to_u8(&v) {
-                    decimals = d;
+                    decimals = d.min(crate::utils::MAX_DECIMALS);
                 }
             }
             _ => {}

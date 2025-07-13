@@ -371,7 +371,7 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u6
             }
             "icrc1:decimals" => {
                 if let Some(d) = crate::utils::idl_to_u8(&v) {
-                    decimals = d;
+                    decimals = d.min(crate::utils::MAX_DECIMALS);
                 }
             }
             "icrc1:fee" => {

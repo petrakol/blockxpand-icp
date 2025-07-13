@@ -16,27 +16,32 @@ pub mod warm;
 use crate::utils::{now, MINUTE_NS};
 use bx_core::Holding;
 use candid::Principal;
-#[cfg(feature = "claim")]
 use once_cell::sync::Lazy;
 #[cfg(feature = "claim")]
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 #[cfg(feature = "claim")]
 use std::sync::Mutex;
+
+static MAX_HOLDINGS: Lazy<usize> = Lazy::new(|| {
+    option_env!("MAX_HOLDINGS")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(500)
+});
 #[cfg(feature = "claim")]
-static CLAIM_WALLETS: Lazy<Vec<Principal>> = Lazy::new(|| {
+static CLAIM_WALLETS: Lazy<HashSet<Principal>> = Lazy::new(|| {
     option_env!("CLAIM_WALLETS")
         .unwrap_or("")
         .split(',')
         .filter_map(|s| Principal::from_text(s.trim()).ok())
-        .collect()
+        .collect::<HashSet<_>>()
 });
 #[cfg(feature = "claim")]
-static CLAIM_DENYLIST: Lazy<Vec<Principal>> = Lazy::new(|| {
+static CLAIM_DENYLIST: Lazy<HashSet<Principal>> = Lazy::new(|| {
     option_env!("CLAIM_DENYLIST")
         .unwrap_or("")
         .split(',')
         .filter_map(|s| Principal::from_text(s.trim()).ok())
-        .collect()
+        .collect::<HashSet<_>>()
 });
 #[cfg(feature = "claim")]
 static CLAIM_LOCKS: Lazy<Mutex<HashMap<Principal, u64>>> = Lazy::new(|| Mutex::new(HashMap::new()));
@@ -61,6 +66,13 @@ static CLAIM_DAILY_LIMIT: Lazy<u32> = Lazy::new(|| {
     option_env!("CLAIM_DAILY_LIMIT")
         .and_then(|v| v.parse::<u32>().ok())
         .unwrap_or(5)
+});
+
+#[cfg(feature = "claim")]
+static CLAIM_MAX_TOTAL: Lazy<u64> = Lazy::new(|| {
+    option_env!("CLAIM_MAX_TOTAL")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(u64::MAX)
 });
 
 #[cfg(feature = "claim")]
@@ -94,6 +106,9 @@ async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
     holdings.extend(ledger.unwrap_or_default());
     holdings.extend(neuron);
     holdings.extend(dex.unwrap_or_default());
+    if holdings.len() > *MAX_HOLDINGS {
+        holdings.truncate(*MAX_HOLDINGS);
+    }
     holdings
 }
 
@@ -210,8 +225,16 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
         adapters.truncate(*MAX_CLAIM_PER_CALL);
     }
     let mut spent = Vec::with_capacity(adapters.len());
+    let mut total: u64 = 0;
     for a in adapters {
+        if total >= *CLAIM_MAX_TOTAL {
+            break;
+        }
         if let Some(c) = claim_with_timeout(a.claim_rewards(principal)).await {
+            total = total.saturating_add(c);
+            if total > *CLAIM_MAX_TOTAL {
+                ic_cdk::api::trap("claim total exceeded");
+            }
             spent.push(c);
         }
     }
@@ -310,6 +333,37 @@ pub fn get_version() -> Version {
 pub fn get_cycles_log() -> Vec<String> {
     metrics::inc_query();
     cycles::log()
+}
+
+#[cfg(feature = "claim")]
+#[derive(candid::CandidType, serde::Serialize)]
+pub struct ClaimStatus {
+    pub attempts: u32,
+    pub window_expires: u64,
+    pub locked: bool,
+}
+
+#[cfg(feature = "claim")]
+#[ic_cdk_macros::query]
+pub fn get_claim_status(principal: Principal) -> ClaimStatus {
+    metrics::inc_query();
+    let now = now();
+    let (attempts, window_expires) = CLAIM_COUNTS
+        .lock()
+        .unwrap()
+        .get(&principal)
+        .cloned()
+        .unwrap_or((0, now + *CLAIM_LIMIT_WINDOW_NS));
+    let locked = CLAIM_LOCKS
+        .lock()
+        .unwrap()
+        .get(&principal)
+        .is_some_and(|exp| *exp > now);
+    ClaimStatus {
+        attempts,
+        window_expires,
+        locked,
+    }
 }
 
 #[ic_cdk_macros::query]
