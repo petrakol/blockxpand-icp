@@ -45,11 +45,6 @@ static TEST_NOW: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
 fn now() -> u64 {
     *TEST_NOW.lock().unwrap()
 }
-#[cfg(target_arch = "wasm32")]
-#[allow(dead_code)]
-fn now() -> u64 {
-    crate::utils::now()
-}
 
 #[derive(Deserialize)]
 struct LedgersConfig {
