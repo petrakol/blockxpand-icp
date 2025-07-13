@@ -135,7 +135,12 @@ pub async fn load_dex_config() {
     // clear cached principals so updates take effect immediately
     PRINCIPAL_CACHE.write().unwrap().clear();
 
-    for key in ["ICPSWAP_FACTORY", "SONIC_ROUTER", "INFINITY_VAULT"] {
+    for key in [
+        "ICPSWAP_FACTORY",
+        "SONIC_ROUTER",
+        "INFINITY_VAULT",
+        "SNS_DISTRIBUTOR",
+    ] {
         if let Ok(val) = std::env::var(key) {
             match candid::Principal::from_text(&val) {
                 Ok(p) => {
@@ -291,6 +296,7 @@ pub fn watch_dex_config() {
             crate::dex::dex_icpswap::clear_cache();
             crate::dex::dex_sonic::clear_cache();
             crate::dex::dex_infinity::clear_cache();
+            crate::dex::sns_adapter::clear_cache();
         }
     });
 }
@@ -336,16 +342,24 @@ pub fn env_principal(name: &str) -> Option<candid::Principal> {
         "INFINITY_VAULT" => {
             option_env!("INFINITY_VAULT").and_then(|s| candid::Principal::from_text(s).ok())
         }
+        "SNS_DISTRIBUTOR" => {
+            option_env!("SNS_DISTRIBUTOR").and_then(|s| candid::Principal::from_text(s).ok())
+        }
         _ => None,
     }
 }
 
 #[cfg(target_arch = "wasm32")]
 pub fn dex_ids() -> Vec<candid::Principal> {
-    ["ICPSWAP_FACTORY", "SONIC_ROUTER", "INFINITY_VAULT"]
-        .into_iter()
-        .filter_map(env_principal)
-        .collect()
+    [
+        "ICPSWAP_FACTORY",
+        "SONIC_ROUTER",
+        "INFINITY_VAULT",
+        "SNS_DISTRIBUTOR",
+    ]
+    .into_iter()
+    .filter_map(env_principal)
+    .collect()
 }
 
 #[cfg(target_arch = "wasm32")]
