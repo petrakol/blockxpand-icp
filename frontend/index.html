@@ -13,6 +13,14 @@
 
         const canisterId = "<CANISTER_ID>"; // replace with aggregator canister ID
         const idlFactory = ({IDL}) => IDL.Service({
+            get_holdings: IDL.Func([IDL.Principal], [IDL.Vec(
+                IDL.Record({
+                    source: IDL.Text,
+                    token: IDL.Text,
+                    amount: IDL.Text,
+                    status: IDL.Text,
+                })
+            )], ["query"]),
             claim_all_rewards: IDL.Func([IDL.Principal], [IDL.Vec(IDL.Nat64)], [])
         });
 
@@ -39,6 +47,7 @@
             actor = Actor.createActor(idlFactory, { agent, canisterId });
             document.getElementById("principal").textContent = identity.getPrincipal().toText();
             document.getElementById("claimBtn").disabled = false;
+            await fetchHoldings();
         }
 
         async function claim() {
@@ -47,15 +56,29 @@
             alert("Spent: " + spent.join(", "));
         }
 
+        async function fetchHoldings() {
+            const principal = actor.agent.identity.getPrincipal();
+            const holdings = await actor.get_holdings(principal);
+            const list = document.getElementById("holdings");
+            list.innerHTML = "";
+            holdings.forEach(h => {
+                const li = document.createElement("li");
+                li.textContent = `${h.source}: ${h.token} ${h.amount}`;
+                list.appendChild(li);
+            });
+        }
+
         window.connect = connect;
         window.claim = claim;
+        window.fetchHoldings = fetchHoldings;
         init();
     </script>
 </head>
 <body>
     <h1>BlockXpand Rewards</h1>
     <p>Principal: <span id="principal">not connected</span></p>
-    <button onclick="connect()">Connect</button>
+    <button onclick="connect()">Connect Wallet</button>
     <button id="claimBtn" onclick="claim()" disabled>Claim Rewards</button>
+    <ul id="holdings"></ul>
 </body>
 </html>
