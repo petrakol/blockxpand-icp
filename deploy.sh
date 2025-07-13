@@ -9,5 +9,5 @@ dfx identity new ci --force --storage-mode plaintext >/dev/null 2>&1 || true
 dfx identity use ci
 dfx start --background --clean
 trap 'dfx stop' EXIT
-cargo build --features export_candid -p aggregator_canister --quiet
+cargo build --target wasm32-unknown-unknown --features export_candid -p aggregator_canister --quiet
 dfx deploy
