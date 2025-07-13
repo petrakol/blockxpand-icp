@@ -1,6 +1,7 @@
 use crate::dex::dex_icpswap::IcpswapAdapter;
 use crate::dex::dex_infinity::InfinityAdapter;
 use crate::dex::dex_sonic::SonicAdapter;
+use crate::dex::sns_adapter::SnsAdapter;
 use crate::dex::DexAdapter;
 use crate::error::FetchError;
 use bx_core::Holding;
@@ -22,6 +23,7 @@ pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
         Box::new(IcpswapAdapter),
         Box::new(SonicAdapter),
         Box::new(InfinityAdapter),
+        Box::new(SnsAdapter),
     ];
     let tasks = adapters
         .into_iter()

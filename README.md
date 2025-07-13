@@ -145,6 +145,7 @@ canister controller:
 - `ICPSWAP_FACTORY` – ICPSwap factory canister ID
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
+- `SNS_DISTRIBUTOR` – SNS airdrop distributor canister ID
 - `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
@@ -169,6 +170,7 @@ export CYCLES_WALLET=aaaaa-aa
 export ICPSWAP_FACTORY=bbbbbb-bb
 export SONIC_ROUTER=cccccc-cc
 export INFINITY_VAULT=dddddd-dd
+export SNS_DISTRIBUTOR=eeeeee-ee
 ```
 
 ### Production deployment
@@ -193,6 +195,19 @@ export INFINITY_VAULT=dddddd-dd
    can test deployments without exposing a seed phrase.
 6. When you update any canister API, run `cargo build --target wasm32-unknown-unknown --features export_candid -p aggregator_canister` and copy the output to `candid/aggregator.did`.
    CI runs this command via `deploy.sh` so the file stays in sync automatically.
+
+## Web UI
+
+A minimal static interface lives in `frontend/`. Run
+`scripts/build_frontend.sh` to produce `frontend/dist/index.html` with your
+aggregator canister ID injected (the script uses `CANISTER_ID` or
+`dfx canister id aggregator`). Open the generated file in a browser. The page
+lets you connect with Internet Identity and shows current holdings. Claimable
+tokens appear in a table with their source dex and a summary row totals each
+token. Clicking **Claim Rewards** triggers `claim_all_rewards`, refreshes the
+holdings and prints a success or error message in the status field at the
+bottom of the page.
+
 
 ## Further reading
 
