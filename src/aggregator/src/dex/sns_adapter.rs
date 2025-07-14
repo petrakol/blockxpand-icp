@@ -1,7 +1,5 @@
 use super::{DexAdapter, RewardInfo};
 use crate::error::FetchError;
-#[cfg(target_arch = "wasm32")]
-use crate::utils::format_amount;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::{format_amount, get_agent};
 use async_trait::async_trait;
@@ -17,10 +15,6 @@ use std::sync::Mutex;
 
 pub struct SnsAdapter;
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn clear_cache() {}
-
-#[cfg(target_arch = "wasm32")]
 pub fn clear_cache() {}
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -83,7 +77,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
     let claims = sns_get_claimable(&agent, distro_id, principal)
         .await
         .map_err(FetchError::from)?;
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(claims.len());
     for c in claims {
         out.push(Holding {
             source: "SNS".into(),
@@ -107,7 +101,7 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
         None => return Err("distributor".into()),
     };
     if let Some(resp) = MOCK_CLAIM.lock().unwrap().clone() {
-        return resp.map_err(|e| e);
+        return resp;
     }
     let agent = get_agent().await;
     let spent = sns_claim(&agent, distro_id, principal)
@@ -150,13 +144,14 @@ pub async fn sns_get_claimable(
     if let Some(resp) = MOCK_CLAIMABLE.lock().unwrap().clone() {
         return resp.map_err(ic_agent::AgentError::MessageError);
     }
-    let arg = Encode!(&principal).unwrap();
+    let arg = Encode!(&principal).map_err(|e| ic_agent::AgentError::MessageError(e.to_string()))?;
     let bytes = agent
         .query(&distro, "get_claimable_tokens")
         .with_arg(arg)
         .call()
         .await?;
-    let claims: Vec<Claimable> = Decode!(&bytes, Vec<Claimable>).unwrap_or_default();
+    let claims: Vec<Claimable> = Decode!(&bytes, Vec<Claimable>)
+        .map_err(|_| ic_agent::AgentError::MessageError("invalid response".into()))?;
     Ok(claims)
 }
 
@@ -169,11 +164,11 @@ pub async fn sns_claim(
     if let Some(resp) = MOCK_CLAIM.lock().unwrap().clone() {
         return resp.map_err(ic_agent::AgentError::MessageError);
     }
-    let arg = Encode!(&principal).unwrap();
+    let arg = Encode!(&principal).map_err(|e| ic_agent::AgentError::MessageError(e.to_string()))?;
     let bytes = agent
         .update(&distro, "claim")
         .with_arg(arg)
         .call_and_wait()
         .await?;
-    Ok(Decode!(&bytes, u64).unwrap_or_default())
+    Decode!(&bytes, u64).map_err(|_| ic_agent::AgentError::MessageError("invalid response".into()))
 }

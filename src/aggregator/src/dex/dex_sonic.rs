@@ -1,4 +1,5 @@
-use super::{DexAdapter, RewardInfo};
+use super::DexAdapter;
+use crate::error::FetchError;
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
 use crate::utils::now;
 #[cfg(not(target_arch = "wasm32"))]
@@ -7,7 +8,6 @@ use crate::{
     utils::{format_amount, get_agent},
 };
 use async_trait::async_trait;
-use crate::error::FetchError;
 use bx_core::Holding;
 use candid::{CandidType, Nat, Principal};
 #[cfg(not(target_arch = "wasm32"))]
@@ -45,7 +45,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         None => return Err(FetchError::InvalidConfig("router".into())),
     };
     let agent = get_agent().await;
-    let arg = Encode!(&principal).unwrap();
+    let arg = Encode!(&principal).map_err(|_| FetchError::InvalidResponse)?;
     let bytes = match agent
         .query(&router_id, "get_user_positions")
         .with_arg(arg)
@@ -55,12 +55,13 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         Ok(b) => b,
         Err(e) => return Err(FetchError::from(e)),
     };
-    let positions: Vec<PositionInfo> = Decode!(&bytes, Vec<PositionInfo>).unwrap_or_default();
+    let positions: Vec<PositionInfo> =
+        Decode!(&bytes, Vec<PositionInfo>).map_err(|_| FetchError::InvalidResponse)?;
     let height = crate::utils::dex_block_height(&agent, router_id)
         .await
         .unwrap_or(0);
     let holdings = lp_cache::get_or_fetch(principal, "sonic", height, || async {
-        let mut temp = Vec::new();
+        let mut temp = Vec::with_capacity(positions.len() * 3);
         for pos in positions {
             let a0 = format_amount(pos.token_a_amount, pos.token_a.decimals);
             temp.push(Holding {
@@ -106,14 +107,14 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
     };
     let ledger = LEDGERS.first().cloned().ok_or("ledger")?;
     let agent = get_agent().await;
-    let arg = Encode!(&principal, &ledger).unwrap();
+    let arg = Encode!(&principal, &ledger).map_err(|e| e.to_string())?;
     let bytes = agent
         .update(&router_id, "claim")
         .with_arg(arg)
         .call_and_wait()
         .await
         .map_err(|e| e.to_string())?;
-    let spent: u64 = Decode!(&bytes, u64).unwrap_or_default();
+    let spent: u64 = Decode!(&bytes, u64).map_err(|_| "invalid response")?;
     let holdings = fetch_positions_impl(principal)
         .await
         .map_err(|e| format!("{:?}", e))?;
@@ -125,10 +126,6 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
 impl DexAdapter for SonicAdapter {
     async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError> {
         fetch_positions_impl(principal).await
-    }
-
-    async fn claimable_rewards(&self, _principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
-        Ok(Vec::new())
     }
 
     #[cfg(feature = "claim")]

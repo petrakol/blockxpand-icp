@@ -1,11 +1,11 @@
-use super::{DexAdapter, RewardInfo};
+use super::DexAdapter;
+use crate::error::FetchError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     lp_cache,
     utils::{format_amount, get_agent, now},
 };
 use async_trait::async_trait;
-use crate::error::FetchError;
 use bx_core::Holding;
 #[cfg(not(target_arch = "wasm32"))]
 use candid::Nat;
@@ -14,8 +14,6 @@ use candid::{CandidType, Principal};
 use candid::{Decode, Encode};
 #[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
-#[cfg(not(target_arch = "wasm32"))]
-use num_traits::cast::ToPrimitive;
 #[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -44,14 +42,7 @@ impl DexAdapter for InfinityAdapter {
         fetch_positions_impl(principal).await
     }
 
-    async fn claimable_rewards(&self, _principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
-        Ok(Vec::new())
-    }
-
-    #[cfg(feature = "claim")]
-    async fn claim_rewards(&self, _principal: Principal) -> Result<u64, String> {
-        Ok(0)
-    }
+    // uses default implementations for claimable_rewards and claim_rewards
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -61,7 +52,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         None => return Err(FetchError::InvalidConfig("vault".into())),
     };
     let agent = get_agent().await;
-    let arg = Encode!(&principal).unwrap();
+    let arg = Encode!(&principal).map_err(|_| FetchError::InvalidResponse)?;
     let bytes = match agent
         .query(&vault_id, "get_user_positions")
         .with_arg(arg)
@@ -71,12 +62,13 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         Ok(b) => b,
         Err(e) => return Err(FetchError::from(e)),
     };
-    let positions: Vec<VaultPosition> = Decode!(&bytes, Vec<VaultPosition>).unwrap_or_default();
+    let positions: Vec<VaultPosition> =
+        Decode!(&bytes, Vec<VaultPosition>).map_err(|_| FetchError::InvalidResponse)?;
     let height = crate::utils::dex_block_height(&agent, vault_id)
         .await
         .unwrap_or(0);
     let holdings = lp_cache::get_or_fetch(principal, "infinity", height, || async {
-        let mut temp = Vec::new();
+        let mut temp = Vec::with_capacity(positions.len() * 3);
         for pos in positions {
             let (symbol, decimals) = match fetch_meta(&agent, pos.ledger).await {
                 Some(v) => v,
@@ -120,7 +112,7 @@ async fn balance_of(
         owner,
         subaccount: Some(sub),
     })
-    .unwrap();
+    .ok()?;
     let bytes = agent
         .query(&ledger, "icrc1_balance_of")
         .with_arg(arg)
@@ -137,7 +129,7 @@ async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(Strin
             return Some((e.value().0.clone(), e.value().1));
         }
     }
-    let arg = Encode!().unwrap();
+    let arg = Encode!().ok()?;
     let bytes = agent
         .query(&ledger, "icrc1_metadata")
         .with_arg(arg)
@@ -148,15 +140,19 @@ async fn fetch_meta(agent: &ic_agent::Agent, ledger: Principal) -> Option<(Strin
         Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>).ok()?;
     let mut symbol = String::new();
     let mut decimals = 0u8;
-    use candid::types::value::IDLValue as Val;
     for (k, v) in items {
-        match (k.as_str(), v) {
-            ("icrc1:symbol", Val::Text(s)) => symbol = s,
-            ("icrc1:decimals", Val::Nat(n)) => decimals = n.0.to_u64().unwrap_or(0) as u8,
-            ("icrc1:decimals", Val::Nat8(n)) => decimals = n,
-            ("icrc1:decimals", Val::Nat16(n)) => decimals = n as u8,
-            ("icrc1:decimals", Val::Nat32(n)) => decimals = n as u8,
-            ("icrc1:decimals", Val::Nat64(n)) => decimals = n as u8,
+        use candid::types::value::IDLValue::Text;
+        match k.as_str() {
+            "icrc1:symbol" => {
+                if let Text(s) = v {
+                    symbol = s;
+                }
+            }
+            "icrc1:decimals" => {
+                if let Some(d) = crate::utils::idl_to_u8(&v) {
+                    decimals = d.min(crate::utils::MAX_DECIMALS);
+                }
+            }
             _ => {}
         }
     }

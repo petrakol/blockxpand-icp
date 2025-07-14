@@ -12,11 +12,13 @@
   <img alt="latency" src="https://img.shields.io/badge/p95%20latency-142&nbsp;ms-green">
 </p>
 
-> **Built for WCHL25 – Fully On-Chain Track**  
-> • Aggregates balances from **ICP ledger, neurons, ICPSwap, Sonic, InfinitySwap**  
-> • 24 h token-metadata cache + 60 s hot cache  
-> • Deterministic WASM; CI deploys to a test subnet on every PR  
-> • Extensible via `config/ledgers.toml` — add any ICRC-1 canister in seconds
+> **Built for WCHL25 – Fully On-Chain Track**
+
+- Aggregates balances from **ICP ledger**, neurons and major DEXes (ICPSwap,
+  Sonic, InfinitySwap)
+- 24&nbsp;h token metadata cache plus a 60&nbsp;s hot cache
+- Deterministic Wasm with CI deploying to a test subnet on each PR
+- Easily extensible via `config/ledgers.toml`—add any ICRC‑1 ledger in seconds
 
 ---
 
@@ -48,12 +50,16 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   asynchronous file I/O on native builds (embedded on Wasm builds via the correct
   relative path) and exported via the `pools_graphql` endpoint. A timer schedules
   a nightly refresh on both targets; override the path on native builds via
-  `POOLS_FILE`. For Wasm builds the file is embedded using a compile-time
-  absolute path
+  `POOLS_FILE`. A file watcher reloads changes automatically and logs the path.
+  Duplicate watchers are ignored. On Wasm builds the file is embedded at
+  compile time using an absolute path.
 - Optional **reward claiming** via `claim_all_rewards` behind the `claim`
   feature flag
 - Calls to `claim_all_rewards` verify the caller matches the principal and can
-  optionally allow trusted wallets via the `CLAIM_WALLETS` environment variable
+  optionally allow trusted wallets via the `CLAIM_WALLETS` environment variable.
+  Anonymous principals are rejected and claims are serialized per user with
+  an expiring mutex. Claim calls time out after 10 seconds per adapter and
+  principals listed in `CLAIM_DENYLIST` are rejected outright
 - All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
 - The `get_holdings` query runs ledger, neuron, and DEX fetchers concurrently
   for the quickest possible response
@@ -69,15 +75,20 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
   the previous fixed delay
 - A heartbeat-driven queue deterministically warms ledger and DEX metadata
   caches across ticks so refreshes never exceed the 5 s execution limit
-- The warm queue is bounded and deduplicates IDs to prevent unbounded growth
+  - The warm queue is bounded (size configurable via `WARM_QUEUE_SIZE`) and deduplicates IDs to prevent unbounded growth
 - A top-up heartbeat pulls cycles from a pre-authorised wallet when balance
   falls below 0.5 T, logging each refill in stable memory
 - Refills back off exponentially when the wallet lacks funds to avoid spam
 - Ledger metadata and LP caches persist across upgrades via stable memory,
   so deployments start warm
+- Token decimals above 18 are clamped to 18 when formatting amounts
 - Structured `tracing` logs with a `LOG_LEVEL` variable make debugging easy
 - Operational metrics (cycle balance, query and heartbeat counts) are exposed via
-  the `get_metrics` endpoint
+  the `get_metrics` endpoint, including claim attempts and successes
+- The `get_cycles_log` query exposes the cycle refill history
+- A simple `health_check` query returns `ok` so load balancers can verify the
+  canister is running
+- `get_claim_status` reports a caller's remaining claim attempts and lock state
 - Wasm builds compile cleanly with no warnings
 - `deploy.sh` spins up a replica using a temporary identity so local tests never
   leak a mnemonic
@@ -147,12 +158,25 @@ canister controller:
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
 - `SNS_DISTRIBUTOR` – SNS airdrop distributor canister ID
 - `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
+- `CLAIM_DENYLIST` – principals forbidden from calling `claim_all_rewards`
+- `CLAIM_LOCK_TIMEOUT_SECS` – how long claim locks persist after errors (default 300)
+- `CLAIM_ADAPTER_TIMEOUT_SECS` – per-adapter claim timeout (default 10)
+- `CLAIM_DAILY_LIMIT` – max `claim_all_rewards` attempts per user per day (default 5)
+- `CLAIM_LIMIT_WINDOW_SECS` – seconds before the claim counter resets (default 86400)
+- `MAX_CLAIM_PER_CALL` – limit how many adapters are used per claim call (default unlimited)
+- `CLAIM_MAX_TOTAL` – maximum total reward units claimable per call (default unlimited)
+- `FETCH_ADAPTER_TIMEOUT_SECS` – per-adapter fetch timeout (default 5)
+- `CYCLE_BACKOFF_MAX` – max minutes between failed cycle refills (default 60)
+- `WARM_QUEUE_SIZE` – maximum metadata warm queue size (default 128)
+- `META_TTL_SECS` – seconds ledger metadata stays cached (default 86400)
+- `LEDGER_RETRY_LIMIT` – attempts for ledger calls before giving up (default 3)
+- `MAX_HOLDINGS` – maximum holdings entries returned per query (default 500)
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
 
 When any of these are unset a warning is logged and the fallback from
-`ledgers.toml` is used.  The file is watched for changes so updated IDs take
-effect without redeploying.  Integration tests set the variables
-automatically for the local environment.
+`ledgers.toml` is used. The file is watched for changes so updated IDs take
+effect without redeploying; duplicate watchers are ignored. Integration tests
+set the variables automatically for the local environment.
 
 ## Deployment
 
