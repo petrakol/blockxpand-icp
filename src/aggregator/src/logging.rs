@@ -9,11 +9,13 @@ struct IcWriter;
 #[cfg(target_arch = "wasm32")]
 impl std::io::Write for IcWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let s = std::str::from_utf8(buf).unwrap_or_default();
+        let s = String::from_utf8_lossy(buf);
         ic_cdk::println!("{s}");
         Ok(buf.len())
     }
-    fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 pub fn init() {

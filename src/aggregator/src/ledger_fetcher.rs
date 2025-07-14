@@ -1,8 +1,6 @@
+use crate::error::FetchError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::utils::format_amount;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::utils::DAY_NS;
-use crate::error::FetchError;
 use bx_core::Holding;
 #[cfg(not(target_arch = "wasm32"))]
 use candid::Nat;
@@ -13,14 +11,14 @@ use candid::{Decode, Encode};
 use dashmap::DashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use futures::future::join_all;
-#[cfg(not(target_arch = "wasm32"))]
-use num_traits::cast::ToPrimitive;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 #[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
 #[cfg(not(target_arch = "wasm32"))]
 use std::future::Future;
+#[cfg(not(target_arch = "wasm32"))]
+use std::num::NonZeroU8;
 
 // Metadata for each ledger is cached with an expiry and a stable hash.
 // When a hash mismatch is detected, the entry is replaced so callers
@@ -45,11 +43,6 @@ static TEST_NOW: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(0));
 fn now() -> u64 {
     *TEST_NOW.lock().unwrap()
 }
-#[cfg(target_arch = "wasm32")]
-#[allow(dead_code)]
-fn now() -> u64 {
-    crate::utils::now()
-}
 
 #[derive(Deserialize)]
 struct LedgersConfig {
@@ -66,6 +59,7 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
         .map(|id| Principal::from_text(id).expect("invalid principal"))
         .collect();
     ids.sort();
+    ids.dedup();
     ids
 });
 
@@ -80,12 +74,28 @@ pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
         .map(|id| Principal::from_text(id).expect("invalid principal"))
         .collect();
     ids.sort();
+    ids.dedup();
     ids
 });
 
-/// Duration that cached metadata remains valid (24h)
+/// Duration that cached metadata remains valid (default 24h)
 #[cfg(not(target_arch = "wasm32"))]
-const META_TTL_NS: u64 = DAY_NS;
+static META_TTL_NS: Lazy<u64> = Lazy::new(|| {
+    option_env!("META_TTL_SECS")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(crate::utils::DAY_SECS)
+        * 1_000_000_000u64
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+static LEDGER_RETRY_LIMIT: Lazy<NonZeroU8> = Lazy::new(|| {
+    NonZeroU8::new(
+        option_env!("LEDGER_RETRY_LIMIT")
+            .and_then(|v| v.parse::<u8>().ok())
+            .unwrap_or(3),
+    )
+    .unwrap()
+});
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone)]
@@ -160,10 +170,10 @@ where
     Fut: Future<Output = Result<T, ic_agent::AgentError>>,
 {
     let mut delay = 100u64;
-    for attempt in 0..3 {
+    for attempt in 0..LEDGER_RETRY_LIMIT.get() {
         match f().await {
             Ok(v) => return Ok(v),
-            Err(_e) if attempt < 2 => {
+            Err(_e) if attempt < LEDGER_RETRY_LIMIT.get() - 1 => {
                 tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
                 delay *= 2;
             }
@@ -175,7 +185,7 @@ where
 
 #[cfg(all(any(not(test), feature = "live-test"), not(target_arch = "wasm32")))]
 fn encode_items(items: &[(String, candid::types::value::IDLValue)]) -> Vec<u8> {
-    Encode!(&items).unwrap()
+    Encode!(&items).expect("encode items")
 }
 
 #[cfg(all(test, not(feature = "live-test"), not(target_arch = "wasm32")))]
@@ -183,7 +193,7 @@ fn encode_items(items: &[(String, candid::types::value::IDLValue)]) -> Vec<u8> {
     use std::fmt::Write;
     let mut s = String::new();
     for (k, v) in items {
-        write!(&mut s, "{k}:{v:?};").unwrap();
+        write!(&mut s, "{k}:{v:?};").expect("write to string");
     }
     s.into_bytes()
 }
@@ -194,10 +204,10 @@ where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, ic_agent::AgentError>>,
 {
-    for attempt in 0..3 {
+    for attempt in 0..LEDGER_RETRY_LIMIT.get() {
         match f().await {
             Ok(v) => return Ok(v),
-            Err(e) if attempt == 2 => return Err(e),
+            Err(e) if attempt + 1 == LEDGER_RETRY_LIMIT.get() => return Err(e),
             Err(_) => continue,
         }
     }
@@ -219,14 +229,15 @@ async fn icrc1_metadata(
     agent: &Agent,
     canister_id: Principal,
 ) -> Result<Vec<(String, candid::types::value::IDLValue)>, ic_agent::AgentError> {
-    let arg = candid::Encode!().unwrap();
+    let arg = candid::Encode!().expect("encode args");
     let bytes = agent
         .query(&canister_id, "icrc1_metadata")
         .with_arg(arg)
         .call()
         .await?;
     let res: Vec<(String, candid::types::value::IDLValue)> =
-        candid::Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>).unwrap();
+        candid::Decode!(&bytes, Vec<(String, candid::types::value::IDLValue)>)
+            .expect("decode metadata");
     Ok(res)
 }
 
@@ -260,13 +271,13 @@ async fn icrc1_balance_of(
         owner,
         subaccount: None
     })
-    .unwrap();
+    .expect("encode args");
     let bytes = agent
         .query(&canister_id, "icrc1_balance_of")
         .with_arg(arg)
         .call()
         .await?;
-    let res: Nat = candid::Decode!(&bytes, Nat).unwrap();
+    let res: Nat = candid::Decode!(&bytes, Nat).expect("decode balance");
     Ok(res)
 }
 
@@ -307,7 +318,7 @@ pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
         }
     });
     let results = join_all(futures).await;
-    let mut holdings = Vec::new();
+    let mut holdings = Vec::with_capacity(LEDGERS.len());
     for r in results {
         match r {
             Ok(h) => holdings.push(h),
@@ -323,10 +334,7 @@ pub async fn fetch(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn fetch_metadata(
-    agent: &Agent,
-    cid: Principal,
-) -> Result<(String, u8, u64), FetchError> {
+async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u64), FetchError> {
     if let Some(meta) = META_CACHE.get(&cid) {
         if meta.expires > now() {
             return Ok((meta.symbol.clone(), meta.decimals, meta.fee));
@@ -343,7 +351,7 @@ async fn fetch_metadata(
                 cid,
                 Meta {
                     hash,
-                    expires: now() + META_TTL_NS,
+                    expires: now() + *META_TTL_NS,
                     ..meta.clone()
                 },
             );
@@ -354,19 +362,23 @@ async fn fetch_metadata(
     let mut decimals: u8 = 0;
     let mut fee: u64 = 0;
     for (k, v) in items {
-        use candid::types::value::IDLValue::*;
-        match (k.as_str(), v) {
-            ("icrc1:symbol", Text(s)) => symbol = s,
-            ("icrc1:decimals", Nat(n)) => decimals = n.0.to_u64().unwrap_or(0) as u8,
-            ("icrc1:decimals", Nat32(n)) => decimals = n as u8,
-            ("icrc1:decimals", Nat64(n)) => decimals = n as u8,
-            ("icrc1:decimals", Nat16(n)) => decimals = n as u8,
-            ("icrc1:decimals", Nat8(n)) => decimals = n,
-            ("icrc1:fee", Nat(n)) => fee = n.0.to_u64().unwrap_or(0),
-            ("icrc1:fee", Nat32(n)) => fee = n as u64,
-            ("icrc1:fee", Nat64(n)) => fee = n,
-            ("icrc1:fee", Nat16(n)) => fee = n as u64,
-            ("icrc1:fee", Nat8(n)) => fee = n as u64,
+        use candid::types::value::IDLValue::Text;
+        match k.as_str() {
+            "icrc1:symbol" => {
+                if let Text(s) = v {
+                    symbol = s;
+                }
+            }
+            "icrc1:decimals" => {
+                if let Some(d) = crate::utils::idl_to_u8(&v) {
+                    decimals = d.min(crate::utils::MAX_DECIMALS);
+                }
+            }
+            "icrc1:fee" => {
+                if let Some(f) = crate::utils::idl_to_u64(&v) {
+                    fee = f;
+                }
+            }
             _ => {}
         }
     }
@@ -377,7 +389,7 @@ async fn fetch_metadata(
             decimals,
             fee,
             hash,
-            expires: now() + META_TTL_NS,
+            expires: now() + *META_TTL_NS,
         },
     );
     Ok((symbol, decimals, fee))
@@ -447,7 +459,7 @@ mod tests {
         assert_eq!(v2, ("AAA".into(), 2, 10));
         assert_eq!(META_CACHE.get(&cid).unwrap().symbol, "AAA");
 
-        set_now(META_TTL_NS + 3);
+        set_now(*META_TTL_NS + 3);
         let v3 = fetch_metadata(&agent, cid).await.unwrap();
         assert_eq!(v3, ("BBB".into(), 3, 20));
         assert_eq!(META_CACHE.get(&cid).unwrap().symbol, "BBB");
