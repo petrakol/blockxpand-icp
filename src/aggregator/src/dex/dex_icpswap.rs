@@ -1,11 +1,11 @@
-use super::{DexAdapter, RewardInfo};
+use super::DexAdapter;
+use crate::error::FetchError;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     lp_cache,
     utils::{format_amount, get_agent, now},
 };
 use async_trait::async_trait;
-use crate::error::FetchError;
 use bx_core::Holding;
 use candid::{CandidType, Nat, Principal};
 #[cfg(not(target_arch = "wasm32"))]
@@ -61,10 +61,6 @@ impl DexAdapter for IcpswapAdapter {
         fetch_positions_impl(principal).await
     }
 
-    async fn claimable_rewards(&self, _principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
-        Ok(Vec::new())
-    }
-
     #[cfg(feature = "claim")]
     async fn claim_rewards(&self, principal: Principal) -> Result<u64, String> {
         claim_rewards_impl(principal).await
@@ -85,7 +81,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         None => return Err(FetchError::InvalidConfig("factory".into())),
     };
     let agent = get_agent().await;
-    let arg = Encode!().unwrap();
+    let arg = Encode!().map_err(|_| FetchError::InvalidResponse)?;
     let bytes = match agent
         .query(&factory_id, "getPools")
         .with_arg(arg)
@@ -95,8 +91,9 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
         Ok(b) => b,
         Err(e) => return Err(FetchError::from(e)),
     };
-    let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).unwrap_or_default();
-    let mut out = Vec::new();
+    let pools: Vec<PoolData> =
+        Decode!(&bytes, Vec<PoolData>).map_err(|_| FetchError::InvalidResponse)?;
+    let mut out = Vec::with_capacity(pools.len() * 3);
     for pool in pools.iter() {
         let height = crate::utils::dex_block_height(&agent, pool.canister_id)
             .await
@@ -111,7 +108,7 @@ async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, Fetc
                 Some(m) => m,
                 None => return Vec::new(),
             };
-            let mut temp = Vec::new();
+            let mut temp = Vec::with_capacity(positions.len() * 3);
             for pos in positions {
                 let a0 = format_amount(pos.token0_amount, meta.token0_decimals);
                 temp.push(Holding {
@@ -147,7 +144,7 @@ async fn query_positions(
     cid: Principal,
     owner: Principal,
 ) -> Option<Vec<UserPositionInfoWithTokenAmount>> {
-    let arg = Encode!(&owner).unwrap();
+    let arg = Encode!(&owner).ok()?;
     let bytes = agent
         .query(&cid, "get_user_positions_by_principal")
         .with_arg(arg)
@@ -164,7 +161,7 @@ async fn fetch_meta(agent: &ic_agent::Agent, cid: Principal) -> Option<PoolMetad
             return Some(entry.value().0.clone());
         }
     }
-    let arg = Encode!().unwrap();
+    let arg = Encode!().ok()?;
     let bytes = agent
         .query(&cid, "metadata")
         .with_arg(arg)
@@ -188,24 +185,24 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
         .cloned()
         .ok_or("ledger")?;
     let agent = get_agent().await;
-    let arg = Encode!().unwrap();
+    let arg = Encode!().map_err(|_| "encode")?;
     let bytes = agent
         .query(&factory_id, "getPools")
         .with_arg(arg)
         .call()
         .await
         .map_err(|e| e.to_string())?;
-    let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).unwrap_or_default();
+    let pools: Vec<PoolData> = Decode!(&bytes, Vec<PoolData>).map_err(|_| "invalid response")?;
     let mut total: u64 = 0;
     for pool in pools {
-        let arg = Encode!(&principal, &ledger).unwrap();
+        let arg = Encode!(&principal, &ledger).map_err(|e| e.to_string())?;
         let bytes = agent
             .update(&pool.canister_id, "claim")
             .with_arg(arg)
             .call_and_wait()
             .await
             .map_err(|e| e.to_string())?;
-        let spent: u64 = Decode!(&bytes, u64).unwrap_or_default();
+        let spent: u64 = Decode!(&bytes, u64).map_err(|_| "invalid response")?;
         total = total.checked_add(spent).ok_or("overflow")?;
     }
     // refresh cache

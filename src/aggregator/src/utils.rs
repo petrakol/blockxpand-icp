@@ -1,5 +1,7 @@
 use candid::Nat;
 #[cfg(not(target_arch = "wasm32"))]
+use num_traits::cast::ToPrimitive;
+#[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::{Lazy, OnceCell};
 #[cfg(not(target_arch = "wasm32"))]
 use std::collections::HashMap;
@@ -13,12 +15,17 @@ pub const WEEK_NS: u64 = DAY_NS * 7;
 pub const DAY_SECS: u64 = 86_400;
 /// Seconds in one week
 pub const WEEK_SECS: u64 = DAY_SECS * 7;
+/// Maximum decimals supported for token formatting
+pub const MAX_DECIMALS: u8 = 18;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub const DEFAULT_LEDGER_URL: &str = "http://localhost:4943";
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .expect("system time before UNIX_EPOCH")
         .as_nanos() as u64
 }
 
@@ -50,6 +57,33 @@ pub fn format_amount(n: Nat, _decimals: u8) -> String {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+pub fn idl_to_u64(val: &candid::types::value::IDLValue) -> Option<u64> {
+    use candid::types::value::IDLValue;
+    match val {
+        IDLValue::Nat(n) => Some(n.0.to_u64().unwrap_or(0)),
+        IDLValue::Nat8(n) => Some(*n as u64),
+        IDLValue::Nat16(n) => Some(*n as u64),
+        IDLValue::Nat32(n) => Some(*n as u64),
+        IDLValue::Nat64(n) => Some(*n),
+        _ => None,
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn idl_to_u8(val: &candid::types::value::IDLValue) -> Option<u8> {
+    idl_to_u64(val).map(|v| v as u8)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn idl_to_string(val: &candid::types::value::IDLValue) -> Option<String> {
+    use candid::types::value::IDLValue;
+    match val {
+        IDLValue::Text(s) => Some(s.clone()),
+        _ => None,
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 static AGENT: OnceCell<ic_agent::Agent> = OnceCell::new();
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -61,7 +95,7 @@ pub async fn get_agent() -> ic_agent::Agent {
     if let Some(a) = AGENT.get() {
         return a.clone();
     }
-    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| "http://localhost:4943".into());
+    let url = std::env::var("LEDGER_URL").unwrap_or_else(|_| DEFAULT_LEDGER_URL.to_string());
     let agent = ic_agent::Agent::builder()
         .with_url(url)
         .build()
@@ -73,7 +107,6 @@ pub async fn get_agent() -> ic_agent::Agent {
     agent
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
 pub struct DexEntry {
     pub id: candid::Principal,
@@ -87,11 +120,20 @@ static DEX_CONFIG: once_cell::sync::Lazy<
 > = once_cell::sync::Lazy::new(|| std::sync::RwLock::new(std::collections::HashMap::new()));
 
 #[cfg(not(target_arch = "wasm32"))]
+static CONFIG_LOCK: once_cell::sync::Lazy<tokio::sync::Mutex<()>> =
+    once_cell::sync::Lazy::new(|| tokio::sync::Mutex::new(()));
+
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn load_dex_config() {
-    use tracing::info;
-    use tracing::warn;
+    use std::path::Path;
+    use tracing::{info, warn};
+    let _guard = CONFIG_LOCK.lock().await;
 
     let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    if !Path::new(&path).exists() {
+        tracing::error!("dex config {path} missing");
+        return;
+    }
     let text = std::fs::read_to_string(&path).unwrap_or_default();
     let value: toml::Value =
         toml::from_str(&text).unwrap_or(toml::Value::Table(Default::default()));
@@ -107,22 +149,30 @@ pub async fn load_dex_config() {
         .cloned()
         .unwrap_or_default();
 
-    let mut map = std::collections::HashMap::new();
+    use std::collections::HashSet;
+    let mut map = std::collections::HashMap::with_capacity(dex_table.len());
+    let mut seen = HashSet::with_capacity(dex_table.len());
     for (name, val) in dex_table.iter() {
         if let Some(id_str) = val.as_str() {
-            if let Ok(id) = candid::Principal::from_text(id_str) {
-                let controller = ctrl_table
-                    .get(name)
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| candid::Principal::from_text(s).ok());
-                map.insert(
-                    name.clone(),
-                    DexEntry {
-                        id,
-                        controller,
-                        enabled: true,
-                    },
-                );
+            match candid::Principal::from_text(id_str) {
+                Ok(id) => {
+                    if !seen.insert(id) {
+                        warn!("duplicate dex id {}", id);
+                    }
+                    let controller = ctrl_table
+                        .get(name)
+                        .and_then(|v| v.as_str())
+                        .and_then(|s| candid::Principal::from_text(s).ok());
+                    map.insert(
+                        name.clone(),
+                        DexEntry {
+                            id,
+                            controller,
+                            enabled: true,
+                        },
+                    );
+                }
+                Err(e) => warn!("invalid dex id {id_str}: {e}"),
             }
         }
     }
@@ -213,7 +263,7 @@ async fn icrc1_metadata(
     cid: candid::Principal,
 ) -> Option<Vec<(String, candid::types::value::IDLValue)>> {
     use candid::{Decode, Encode};
-    let arg = Encode!().unwrap();
+    let arg = Encode!().expect("encode args");
     let bytes = agent
         .query(&cid, "icrc1_metadata")
         .with_arg(arg)
@@ -265,13 +315,21 @@ async fn controller_matches(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-static mut WATCHER: Option<notify::RecommendedWatcher> = None;
+static WATCHER: OnceCell<notify::RecommendedWatcher> = OnceCell::new();
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn watch_dex_config() {
     use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
     use std::path::Path;
+    if WATCHER.get().is_some() {
+        tracing::debug!("dex config watcher already running");
+        return;
+    }
     let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    if !Path::new(&path).exists() {
+        tracing::error!("dex config {path} missing");
+        return;
+    }
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     let mut watcher = RecommendedWatcher::new(
         move |res: notify::Result<notify::Event>| {
@@ -284,19 +342,17 @@ pub fn watch_dex_config() {
         notify::Config::default(),
     )
     .expect("watcher");
-    watcher
-        .watch(Path::new(&path), RecursiveMode::NonRecursive)
-        .expect("watch ledgers");
-    unsafe {
-        WATCHER = Some(watcher);
+    if let Err(e) = watcher.watch(Path::new(&path), RecursiveMode::NonRecursive) {
+        tracing::error!("failed to watch dex config: {e}");
+        return;
     }
+    let _ = WATCHER.set(watcher);
+    tracing::info!("watching dex config at {}", path);
     tokio::spawn(async move {
         while rx.recv().await.is_some() {
             load_dex_config().await;
-            crate::dex::dex_icpswap::clear_cache();
-            crate::dex::dex_sonic::clear_cache();
-            crate::dex::dex_infinity::clear_cache();
-            crate::dex::sns_adapter::clear_cache();
+            crate::dex::clear_all_caches();
+            crate::warm::init();
         }
     });
 }
@@ -377,7 +433,7 @@ pub async fn warm_icrc_metadata(cid: candid::Principal) {
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn dex_block_height(agent: &ic_agent::Agent, cid: candid::Principal) -> Option<u64> {
     use candid::{Decode, Encode};
-    let arg = Encode!().unwrap();
+    let arg = Encode!().expect("encode args");
     let bytes = agent
         .query(&cid, "block_height")
         .with_arg(arg)

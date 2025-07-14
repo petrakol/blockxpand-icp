@@ -13,3 +13,5 @@ num-traits = { workspace = true }
 
 [lib]
 crate-type = ["cdylib"]
+test = false
+doctest = false
