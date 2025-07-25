@@ -496,6 +496,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn integration_user_settings_filter() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let cid = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nGOOD = \"{cid}\"\nBAD = \"aaaaa-aa\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+
+        let principal = Principal::anonymous();
+        blockxpand_icp::update_user_settings(
+            principal,
+            blockxpand_icp::user_settings::UserSettings {
+                ledgers: Some(vec![Principal::from_text(&cid).unwrap()]),
+                dexes: None,
+            },
+        );
+
+        let holdings = get_holdings(principal).await;
+        assert_eq!(holdings.len(), 4);
+    }
+
+    #[tokio::test]
     async fn pool_registry_graphql() {
         aggregator::pool_registry::refresh().await;
         let out = blockxpand_icp::pools_graphql("query { pools { id } }".into());

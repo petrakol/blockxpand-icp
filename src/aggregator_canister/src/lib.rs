@@ -20,21 +20,24 @@ fn pre_upgrade() {
     let log = aggregator::cycles::take_log();
     let meta = aggregator::ledger_fetcher::stable_save();
     let lp = aggregator::lp_cache::stable_save();
+    let settings = aggregator::user_settings::stable_save();
     let metrics = aggregator::metrics::stable_save();
-    ic_cdk::storage::stable_save((log, meta, lp, metrics)).unwrap();
+    ic_cdk::storage::stable_save((log, meta, lp, settings, metrics)).unwrap();
 }
 
 #[ic_cdk_macros::post_upgrade]
 fn post_upgrade() {
-    if let Ok((log, meta, lp, metrics)) = ic_cdk::storage::stable_restore::<(
+    if let Ok((log, meta, lp, settings, metrics)) = ic_cdk::storage::stable_restore::<(
         Vec<String>,
         Vec<aggregator::ledger_fetcher::StableMeta>,
         Vec<aggregator::lp_cache::StableEntry>,
+        Vec<aggregator::user_settings::StableEntry>,
         (u64, u64, u64, u64, u64, u64, u64),
     )>() {
         aggregator::cycles::set_log(log);
         aggregator::ledger_fetcher::stable_restore(meta);
         aggregator::lp_cache::stable_restore(lp);
+        aggregator::user_settings::stable_restore(settings);
         aggregator::metrics::stable_restore(metrics);
     }
 }
