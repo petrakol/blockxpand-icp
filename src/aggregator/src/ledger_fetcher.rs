@@ -298,9 +298,15 @@ async fn icrc1_balance_of(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
+pub async fn fetch_filtered(
+    principal: Principal,
+    list: Option<&[Principal]>,
+) -> Result<Vec<Holding>, FetchError> {
     let agent = get_agent().await;
-    let mut ids: Vec<Principal> = LEDGERS.iter().cloned().collect();
+    let mut ids: Vec<Principal> = match list {
+        Some(v) => v.to_vec(),
+        None => LEDGERS.iter().cloned().collect(),
+    };
     ids.sort();
     let futures = ids.into_iter().map(|cid| {
         let agent = agent.clone();
@@ -328,9 +334,22 @@ pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
     Ok(holdings)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
+    fetch_filtered(principal, None).await
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn fetch_filtered(
+    _principal: Principal,
+    _list: Option<&[Principal]>,
+) -> Result<Vec<Holding>, FetchError> {
+    Ok(Vec::new())
+}
+
 #[cfg(target_arch = "wasm32")]
 pub async fn fetch(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
-    Ok(Vec::new())
+    fetch_filtered(_principal, None).await
 }
 
 #[cfg(not(target_arch = "wasm32"))]
