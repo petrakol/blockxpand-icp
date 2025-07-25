@@ -3,7 +3,9 @@ use candid::Principal;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 
-pub type Cache = DashMap<Principal, (Vec<Holding>, u64)>;
+use crate::HoldingSummary;
+
+pub type Cache = DashMap<Principal, (Vec<Holding>, Vec<HoldingSummary>, u64)>;
 
 static CACHE: Lazy<Cache> = Lazy::new(DashMap::new);
 

@@ -10,6 +10,7 @@ pub mod lp_cache;
 pub mod metrics;
 pub mod neuron_fetcher;
 pub mod pool_registry;
+pub mod user_settings;
 pub mod utils;
 pub mod warm;
 
@@ -93,11 +94,15 @@ static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<u64> = Lazy::new(|| {
         .unwrap_or(10)
 });
 
-async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
+async fn calculate_holdings(principal: Principal) -> (Vec<Holding>, Vec<HoldingSummary>) {
+    let (ledger_filter, dex_filter) = match user_settings::get(&principal) {
+        Some(user_settings::UserSettings { ledgers, dexes }) => (ledgers, dexes),
+        None => (None, None),
+    };
     let (ledger, neuron, dex) = futures::join!(
-        ledger_fetcher::fetch(principal),
+        ledger_fetcher::fetch_filtered(principal, ledger_filter.as_ref()),
         neuron_fetcher::fetch(principal),
-        dex_fetchers::fetch(principal)
+        dex_fetchers::fetch_filtered(principal, dex_filter.as_ref())
     );
 
     let capacity =
@@ -109,7 +114,8 @@ async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
     if holdings.len() > *MAX_HOLDINGS {
         holdings.truncate(*MAX_HOLDINGS);
     }
-    holdings
+    let summary = summarise(&holdings);
+    (holdings, summary)
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -130,7 +136,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
     {
         let cache = cache::get();
         if let Some(v) = cache.get(&principal) {
-            let (cached, ts) = v.value().clone();
+            let (cached, _, ts) = v.value().clone();
             if now - ts < MINUTE_NS {
                 let used = instructions().saturating_sub(start);
                 tracing::info!(
@@ -142,21 +148,10 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         }
     }
 
-    let (ledger, neuron, dex) = futures::join!(
-        ledger_fetcher::fetch(principal),
-        neuron_fetcher::fetch(principal),
-        dex_fetchers::fetch(principal)
-    );
-
-    let capacity =
-        ledger.as_ref().map_or(0, |v| v.len()) + neuron.len() + dex.as_ref().map_or(0, |v| v.len());
-    let mut holdings = Vec::with_capacity(capacity);
-    holdings.extend(ledger.unwrap_or_default());
-    holdings.extend(neuron);
-    holdings.extend(dex.unwrap_or_default());
+    let (holdings, summary) = calculate_holdings(principal).await;
 
     {
-        cache::get().insert(principal, (holdings.clone(), now));
+        cache::get().insert(principal, (holdings.clone(), summary, now));
     }
     let used = instructions().saturating_sub(start);
     tracing::info!(
@@ -293,8 +288,8 @@ pub struct CertifiedHoldings {
 pub async fn refresh_holdings(principal: Principal) {
     metrics::inc_query();
     let now = now();
-    let holdings = calculate_holdings(principal).await;
-    cache::get().insert(principal, (holdings.clone(), now));
+    let (holdings, summary) = calculate_holdings(principal).await;
+    cache::get().insert(principal, (holdings.clone(), summary, now));
     cert::update(principal, &holdings);
 }
 
@@ -312,6 +307,45 @@ pub fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
         certificate,
         witness,
     }
+}
+
+#[derive(Clone, candid::CandidType, serde::Serialize)]
+pub struct HoldingSummary {
+    pub token: String,
+    pub total: f64,
+}
+
+pub(crate) fn summarise(holdings: &[Holding]) -> Vec<HoldingSummary> {
+    let mut map: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    for h in holdings {
+        if let Ok(v) = h.amount.parse::<f64>() {
+            *map.entry(h.token.clone()).or_insert(0.0) += v;
+        }
+    }
+    let mut out: Vec<_> = map
+        .into_iter()
+        .map(|(token, total)| HoldingSummary { token, total })
+        .collect();
+    out.sort_by(|a, b| a.token.cmp(&b.token));
+    out
+}
+
+#[ic_cdk_macros::query]
+pub async fn get_holdings_summary(principal: Principal) -> Vec<HoldingSummary> {
+    metrics::inc_query();
+    let now = now();
+    {
+        let cache = cache::get();
+        if let Some(v) = cache.get(&principal) {
+            let (_, summary, ts) = v.value().clone();
+            if now - ts < MINUTE_NS {
+                return summary;
+            }
+        }
+    }
+    let (holdings, summary) = calculate_holdings(principal).await;
+    cache::get().insert(principal, (holdings, summary.clone(), now));
+    summary
 }
 
 #[derive(candid::CandidType, serde::Serialize)]
@@ -333,6 +367,23 @@ pub fn get_version() -> Version {
 pub fn get_cycles_log() -> Vec<String> {
     metrics::inc_query();
     cycles::log()
+}
+
+#[ic_cdk_macros::query]
+pub fn get_user_settings(principal: Principal) -> user_settings::UserSettings {
+    metrics::inc_query();
+    user_settings::get(&principal).unwrap_or_default()
+}
+
+#[ic_cdk_macros::update]
+pub fn update_user_settings(principal: Principal, settings: user_settings::UserSettings) {
+    metrics::inc_query();
+    let caller = ic_cdk::caller();
+    if caller != principal {
+        ic_cdk::api::trap("unauthorized");
+    }
+    user_settings::update(principal, settings);
+    cache::get().remove(&principal);
 }
 
 #[cfg(feature = "claim")]

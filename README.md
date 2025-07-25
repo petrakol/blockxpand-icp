@@ -79,6 +79,8 @@ Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
 - Refills back off exponentially when the wallet lacks funds to avoid spam
 - Ledger metadata and LP caches persist across upgrades via stable memory,
   so deployments start warm
+- Per-user settings persist across upgrades, filtering favourite ledgers and DEXes
+  via `get_user_settings` and `update_user_settings`. Holdings summaries are cached.
 - Token decimals above 18 are clamped to 18 when formatting amounts
 - Structured `tracing` logs with a `LOG_LEVEL` variable make debugging easy
 - Operational metrics (cycle balance, query and heartbeat counts) are exposed via

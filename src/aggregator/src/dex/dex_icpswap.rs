@@ -209,7 +209,8 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     let holdings = fetch_positions_impl(principal)
         .await
         .map_err(|e| format!("{:?}", e))?;
-    cache::get().insert(principal, (holdings, now()));
+    let summary = crate::summarise(&holdings);
+    cache::get().insert(principal, (holdings, summary, crate::utils::now()));
     Ok(total)
 }
 
@@ -236,7 +237,8 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     let holdings = fetch_positions_impl(principal)
         .await
         .map_err(|e| format!("{:?}", e))?;
-    cache::get().insert(principal, (holdings, now()));
+    let summary = crate::summarise(&holdings);
+    cache::get().insert(principal, (holdings, summary, crate::utils::now()));
     Ok(total)
 }
 

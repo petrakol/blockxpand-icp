@@ -9,8 +9,21 @@ use candid::Principal;
 use futures::future::join_all;
 #[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
+use std::collections::HashSet;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
+
+pub const ICPSWAP: &str = "ICPSWAP_FACTORY";
+pub const SONIC: &str = "SONIC_ROUTER";
+pub const INFINITY: &str = "INFINITY_VAULT";
+pub const SNS: &str = "SNS_DISTRIBUTOR";
+
+static ADAPTERS: &[(&str, &dyn DexAdapter)] = &[
+    (ICPSWAP, &IcpswapAdapter),
+    (SONIC, &SonicAdapter),
+    (INFINITY, &InfinityAdapter),
+    (SNS, &SnsAdapter),
+];
 
 #[cfg(not(target_arch = "wasm32"))]
 static FETCH_ADAPTER_TIMEOUT_SECS: Lazy<u64> = Lazy::new(|| {
@@ -47,15 +60,22 @@ where
     fut.await
 }
 
-pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
+pub async fn fetch_filtered(
+    principal: Principal,
+    list: Option<&HashSet<String>>,
+) -> Result<Vec<Holding>, FetchError> {
     // allow other tasks to start before launching adapter queries
     pause().await;
-    let adapters: Vec<Box<dyn DexAdapter>> = vec![
-        Box::new(IcpswapAdapter),
-        Box::new(SonicAdapter),
-        Box::new(InfinityAdapter),
-        Box::new(SnsAdapter),
-    ];
+    let mut adapters: Vec<&dyn DexAdapter> = Vec::new();
+    let want = |name: &str| match list {
+        Some(l) => l.contains(name),
+        None => true,
+    };
+    for (name, adapter) in ADAPTERS.iter() {
+        if want(name) {
+            adapters.push(*adapter);
+        }
+    }
     let tasks = adapters
         .into_iter()
         .map(|a| async move { with_timeout(a.fetch_positions(principal)).await });
@@ -73,4 +93,8 @@ pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
         }
     }
     Ok(out)
+}
+
+pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
+    fetch_filtered(principal, None).await
 }
