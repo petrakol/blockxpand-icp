@@ -130,26 +130,33 @@ mod tests {
     #[tokio::test]
     async fn http_paths() {
         let p = candid::Principal::from_text("aaaaa-aa").unwrap();
-        cache::get().insert(
-            p,
-            (
-                vec![
-                    Holding {
-                        source: "test".into(),
-                        token: "AAA".into(),
-                        amount: "1".into(),
-                        status: "ok".into(),
-                    },
-                    Holding {
-                        source: "test".into(),
-                        token: "AAA".into(),
-                        amount: "2".into(),
-                        status: "ok".into(),
-                    },
-                ],
-                aggregator::utils::now(),
-            ),
-        );
+        let holdings = vec![
+            Holding {
+                source: "test".into(),
+                token: "AAA".into(),
+                amount: "1".into(),
+                status: "ok".into(),
+            },
+            Holding {
+                source: "test".into(),
+                token: "AAA".into(),
+                amount: "2".into(),
+                status: "ok".into(),
+            },
+        ];
+        let summary = {
+            use std::collections::BTreeMap;
+            let mut map: BTreeMap<String, f64> = BTreeMap::new();
+            for h in &holdings {
+                if let Ok(v) = h.amount.parse::<f64>() {
+                    *map.entry(h.token.clone()).or_insert(0.0) += v;
+                }
+            }
+            map.into_iter()
+                .map(|(token, total)| aggregator::HoldingSummary { token, total })
+                .collect::<Vec<_>>()
+        };
+        cache::get().insert(p, (holdings.clone(), summary, aggregator::utils::now()));
 
         let req = HttpRequest {
             method: HttpMethod::GET,
