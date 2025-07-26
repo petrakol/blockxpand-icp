@@ -56,10 +56,15 @@ name = "aggregator_canister"
 version = "0.1.0"
 dependencies = [
  "aggregator",
+ "bx_core",
  "candid",
  "chrono",
  "ic-cdk",
  "ic-cdk-macros",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
