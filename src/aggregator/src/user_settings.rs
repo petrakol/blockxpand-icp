@@ -23,11 +23,7 @@ pub struct StableEntry {
 }
 
 pub fn get(principal: &Principal) -> Option<UserSettings> {
-    SETTINGS
-        .lock()
-        .unwrap()
-        .get(principal)
-        .cloned()
+    SETTINGS.lock().unwrap().get(principal).cloned()
 }
 
 pub fn update(principal: Principal, settings: UserSettings) {
