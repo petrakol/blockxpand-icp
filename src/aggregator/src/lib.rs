@@ -113,17 +113,7 @@ async fn calculate_holdings(principal: Principal) -> (Vec<Holding>, Vec<HoldingS
     if holdings.len() > *MAX_HOLDINGS {
         holdings.truncate(*MAX_HOLDINGS);
     }
-    let mut map: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
-    for h in &holdings {
-        if let Ok(v) = h.amount.parse::<f64>() {
-            *map.entry(h.token.clone()).or_insert(0.0) += v;
-        }
-    }
-    let mut summary: Vec<HoldingSummary> = map
-        .into_iter()
-        .map(|(token, total)| HoldingSummary { token, total })
-        .collect();
-    summary.sort_by(|a, b| a.token.cmp(&b.token));
+    let summary = summarise(&holdings);
     (holdings, summary)
 }
 
@@ -339,6 +329,19 @@ pub async fn get_holdings_summary(principal: Principal) -> Vec<HoldingSummary> {
     let (holdings, summary) = calculate_holdings(principal).await;
     cache::get().insert(principal, (holdings, summary.clone(), now));
     summary
+}
+
+fn summarise(holdings: &[Holding]) -> Vec<HoldingSummary> {
+    use std::collections::BTreeMap;
+    let mut map: BTreeMap<String, f64> = BTreeMap::new();
+    for h in holdings {
+        if let Ok(v) = h.amount.parse::<f64>() {
+            *map.entry(h.token.clone()).or_insert(0.0) += v;
+        }
+    }
+    map.into_iter()
+        .map(|(token, total)| HoldingSummary { token, total })
+        .collect()
 }
 
 #[derive(candid::CandidType, serde::Serialize)]
