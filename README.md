@@ -1,3 +1,6 @@
+
+<img width="2000" height="424" alt="blockxpand copy_w" src="https://github.com/user-attachments/assets/246416b5-3ec4-4bb3-bade-56518e2284a6" />
+
 <h1 align="center">
   BlockXpand ICP Aggregator
 </h1>
