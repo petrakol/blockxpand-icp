@@ -230,6 +230,17 @@ and a summary of totals per token. Clicking **Claim Rewards** triggers
 `claim_all_rewards`, refreshes the holdings and displays success or error
 messages in the status area at the bottom of the page.
 
+## HTTP API
+
+The canister exposes a simple JSON interface via the `http_request` query
+method. The following endpoints are available:
+
+- `/holdings/<principal>` – returns an array of `Holding` records
+- `/summary/<principal>` – returns totals per token
+
+Requests return HTTP 200 on success with `Content-Type: application/json`
+or 404 if the path or principal is invalid.
+
 
 ## Further reading
 
