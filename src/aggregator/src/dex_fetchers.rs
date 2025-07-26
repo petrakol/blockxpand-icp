@@ -54,13 +54,13 @@ where
 
 pub async fn fetch_filtered(
     principal: Principal,
-    list: Option<&[String]>,
+    list: Option<&std::collections::HashSet<String>>,
 ) -> Result<Vec<Holding>, FetchError> {
     // allow other tasks to start before launching adapter queries
     pause().await;
     let mut adapters: Vec<Box<dyn DexAdapter>> = Vec::new();
     let want = |name: &str| match list {
-        Some(l) => l.iter().any(|s| s == name),
+        Some(s) => s.contains(name),
         None => true,
     };
     if want(ICPSWAP) {

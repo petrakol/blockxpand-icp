@@ -94,14 +94,14 @@ static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<u64> = Lazy::new(|| {
         .unwrap_or(10)
 });
 
-async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
+async fn calculate_holdings(principal: Principal) -> (Vec<Holding>, Vec<HoldingSummary>) {
     let settings = user_settings::get(&principal);
-    let ledger_filter = settings.as_ref().and_then(|s| s.ledgers.as_ref()).cloned();
-    let dex_filter = settings.as_ref().and_then(|s| s.dexes.as_ref()).cloned();
+    let ledger_filter = settings.as_ref().and_then(|s| s.ledgers.as_ref());
+    let dex_filter = settings.as_ref().and_then(|s| s.dexes.as_ref());
     let (ledger, neuron, dex) = futures::join!(
-        ledger_fetcher::fetch_filtered(principal, ledger_filter.as_deref()),
+        ledger_fetcher::fetch_filtered(principal, ledger_filter),
         neuron_fetcher::fetch(principal),
-        dex_fetchers::fetch_filtered(principal, dex_filter.as_deref())
+        dex_fetchers::fetch_filtered(principal, dex_filter)
     );
 
     let capacity =
@@ -113,7 +113,8 @@ async fn calculate_holdings(principal: Principal) -> Vec<Holding> {
     if holdings.len() > *MAX_HOLDINGS {
         holdings.truncate(*MAX_HOLDINGS);
     }
-    holdings
+    let summary = summarise(&holdings);
+    (holdings, summary)
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -134,7 +135,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
     {
         let cache = cache::get();
         if let Some(v) = cache.get(&principal) {
-            let (cached, ts) = v.value().clone();
+            let (cached, _, ts) = v.value().clone();
             if now - ts < MINUTE_NS {
                 let used = instructions().saturating_sub(start);
                 tracing::info!(
@@ -146,10 +147,10 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         }
     }
 
-    let holdings = calculate_holdings(principal).await;
+    let (holdings, summary) = calculate_holdings(principal).await;
 
     {
-        cache::get().insert(principal, (holdings.clone(), now));
+        cache::get().insert(principal, (holdings.clone(), summary, now));
     }
     let used = instructions().saturating_sub(start);
     tracing::info!(
@@ -286,8 +287,8 @@ pub struct CertifiedHoldings {
 pub async fn refresh_holdings(principal: Principal) {
     metrics::inc_query();
     let now = now();
-    let holdings = calculate_holdings(principal).await;
-    cache::get().insert(principal, (holdings.clone(), now));
+    let (holdings, summary) = calculate_holdings(principal).await;
+    cache::get().insert(principal, (holdings.clone(), summary, now));
     cert::update(principal, &holdings);
 }
 
@@ -307,7 +308,7 @@ pub fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
     }
 }
 
-#[derive(candid::CandidType, serde::Serialize)]
+#[derive(Clone, candid::CandidType, serde::Serialize)]
 pub struct HoldingSummary {
     pub token: String,
     pub total: f64,
@@ -316,19 +317,31 @@ pub struct HoldingSummary {
 #[ic_cdk_macros::query]
 pub async fn get_holdings_summary(principal: Principal) -> Vec<HoldingSummary> {
     metrics::inc_query();
-    let holdings = get_holdings(principal).await;
-    let mut map: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
-    for h in holdings {
-        if let Ok(v) = h.amount.parse::<f64>() {
-            *map.entry(h.token).or_insert(0.0) += v;
+    let now = now();
+    {
+        if let Some(v) = cache::get().get(&principal) {
+            let (_, summary, ts) = v.value().clone();
+            if now - ts < MINUTE_NS {
+                return summary;
+            }
         }
     }
-    let mut out: Vec<_> = map
-        .into_iter()
+    let (holdings, summary) = calculate_holdings(principal).await;
+    cache::get().insert(principal, (holdings, summary.clone(), now));
+    summary
+}
+
+fn summarise(holdings: &[Holding]) -> Vec<HoldingSummary> {
+    use std::collections::BTreeMap;
+    let mut map: BTreeMap<String, f64> = BTreeMap::new();
+    for h in holdings {
+        if let Ok(v) = h.amount.parse::<f64>() {
+            *map.entry(h.token.clone()).or_insert(0.0) += v;
+        }
+    }
+    map.into_iter()
         .map(|(token, total)| HoldingSummary { token, total })
-        .collect();
-    out.sort_by(|a, b| a.token.cmp(&b.token));
-    out
+        .collect()
 }
 
 #[derive(candid::CandidType, serde::Serialize)]

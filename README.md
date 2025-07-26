@@ -38,7 +38,9 @@ Many ICP users hold tokens, LP positions and neurons scattered across canisters 
 
 - **One‑click reward claims.** When compiled with the optional `claim` feature, the canister exposes `claim_all_rewards`.  It verifies the caller’s principal and forwards claims to each DEX/adapter on your behalf, batching calls to save cycles.  A deny‑list and rate limiter guard against abuse.
 
-- **Sub‑250 ms performance.** The aggregator library makes heavy use of concurrency (`join_all`), instruction‑count monitoring and warm caches to deliver responses in under 250 milliseconds and less than three billion cycles per query.  A heartbeat warms caches and tops up cycles automatically:contentReference.
+- **Sub‑250 ms performance.** The aggregator library makes heavy use of concurrency (`join_all`), instruction‑count monitoring and warm caches to deliver responses in under 250 milliseconds and less than three billion cycles per query.  A heartbeat warms caches and tops up cycles automatically.
+- **Persistent user settings.** Favourite ledgers and DEXes are stored in stable memory so preferences persist across upgrades.
+- **Cached summaries.** Token totals are cached alongside holdings for faster repeated queries.
 
 - **Extensible adapters.** New DEXes, ledgers or SNS reward sources can be added by implementing the `DexAdapter` trait and registering them in `config/ledgers.toml`.  A generic `SnsAdapter` serves as a template for upcoming community projects.
 
@@ -205,7 +207,6 @@ messages in the status area at the bottom of the page.
 
 - **Mainnet deployment.** Publish the canister on the ICP mainnet with stable IDs and cycle funding.
 - **Pay‑per‑call monetisation.** Charge a small fee per API call and share revenue with protocols that integrate BlockXpand.
-- **Persistent user settings.** Store favourite ledgers/DEXes in stable memory and expose APIs to manage them.
 - **Additional adapters.** Integrate upcoming SNS reward canisters and bridged ckBTC/ckETH ledgers.
 - **CLI client & SDK.** Provide a Rust and TypeScript SDK plus a CLI for power users and integrators.
 
