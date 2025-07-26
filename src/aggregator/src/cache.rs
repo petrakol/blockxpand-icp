@@ -1,5 +1,5 @@
-use bx_core::Holding;
 use crate::HoldingSummary;
+use bx_core::Holding;
 use candid::Principal;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
