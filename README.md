@@ -236,4 +236,5 @@ messages in the status area at the bottom of the page.
 - [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) summarises the latest security audit
 - [docs/DEX_API_matrix.md](docs/DEX_API_matrix.md) lists known DEX canister APIs
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) provides an overview of crate dependencies and runtime processes
+- [docs/DEPENDENCY_MAP.md](docs/DEPENDENCY_MAP.md) shows workspace dependency versions
 

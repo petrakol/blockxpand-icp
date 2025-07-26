@@ -11,7 +11,7 @@ ic-cdk-macros = { workspace = true }
 candid = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
-serde_bytes = "0.11"
+serde_bytes = { workspace = true }
 
 [features]
 export_candid = ["ic-cdk/wasi"]
