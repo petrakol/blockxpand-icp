@@ -2,7 +2,7 @@
   BlockXpand ICP Aggregator
 </h1>
 <p align="center">
-  <em>Never miss a crypto reward again — lightning-fast balance & airdrop discovery for the Internet Computer.</em>
+  <em>Never miss a crypto reward again — lightning-fast balance and airdrop discovery for the Internet Computer.</em>
 </p>
 
 <p align="center">
