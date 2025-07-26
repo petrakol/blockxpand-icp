@@ -35,11 +35,11 @@ Many ICP users hold tokens, LP positions and neurons scattered across canisters 
 
 - **One‑click reward claims.** When compiled with the optional `claim` feature, the canister exposes `claim_all_rewards`.  It verifies the caller’s principal and forwards claims to each DEX/adapter on your behalf, batching calls to save cycles.  A deny‑list and rate limiter guard against abuse.
 
-- **Sub‑250 ms performance.** The aggregator library makes heavy use of concurrency (`join_all`), instruction‑count monitoring and warm caches to deliver responses in under 250 milliseconds and less than three billion cycles per query:contentReference[oaicite:0]{index=0}.  A heartbeat warms caches and tops up cycles automatically:contentReference[oaicite:1]{index=1}.
+- **Sub‑250 ms performance.** The aggregator library makes heavy use of concurrency (`join_all`), instruction‑count monitoring and warm caches to deliver responses in under 250 milliseconds and less than three billion cycles per query.  A heartbeat warms caches and tops up cycles automatically:contentReference.
 
-- **Extensible adapters.** New DEXes, ledgers or SNS reward sources can be added by implementing the `DexAdapter` trait and registering them in `config/ledgers.toml`.  A generic `SnsAdapter` serves as a template for upcoming community projects:contentReference[oaicite:2]{index=2}.
+- **Extensible adapters.** New DEXes, ledgers or SNS reward sources can be added by implementing the `DexAdapter` trait and registering them in `config/ledgers.toml`.  A generic `SnsAdapter` serves as a template for upcoming community projects.
 
-- **Deterministic builds & security.** The repository is a Cargo workspace with pinned dependencies.  Integration tests spawn a local replica to exercise canisters end‑to‑end, and an external security audit found no critical issues:contentReference[oaicite:3]{index=3}.  Stable memory is used to persist caches and metrics across upgrades:contentReference[oaicite:4]{index=4}.
+- **Deterministic builds & security.** The repository is a Cargo workspace with pinned dependencies.  Integration tests spawn a local replica to exercise canisters end‑to‑end, and an external security audit found no critical issues.  Stable memory is used to persist caches and metrics across upgrades.
 
 ## Architecture Overview
 
@@ -50,13 +50,13 @@ The workspace is composed of several crates:
 - **`aggregator_canister`** – Thin wrapper around `aggregator` that exposes it as an Internet‑Computer canister.  It wires up init/heartbeat hooks, optional claim functionality and Candid/HTTP interfaces.
 - **`mock_*_canister`** – Deterministic mock canisters used in unit and integration tests.
 
-During initialisation the canister reads ledger and DEX IDs from configuration, warms their metadata in a bounded queue and starts a heartbeat.  Each heartbeat refreshes caches and, if cycle balance drops below a threshold, calls a wallet canister to top up cycles.  Before upgrades, ledger metadata, LP caches and metrics are persisted to stable memory and restored in `post_upgrade`, ensuring the service resumes without re‑warming:contentReference[oaicite:5]{index=5}.  The typical data flow is:
+During initialisation the canister reads ledger and DEX IDs from configuration, warms their metadata in a bounded queue and starts a heartbeat.  Each heartbeat refreshes caches and, if cycle balance drops below a threshold, calls a wallet canister to top up cycles.  Before upgrades, ledger metadata, LP caches and metrics are persisted to stable memory and restored in `post_upgrade`, ensuring the service resumes without re‑warming.  The typical data flow is:
 
 1. A caller invokes `get_holdings` or `get_holdings_summary` via Candid or HTTP.
 2. The aggregator fetches balances from the ICP ledger, neurons and all configured DEXes concurrently.
 3. Results are cached with a certificate and returned to the caller.  If compiled with the `claim` feature and the user calls `claim_all_rewards`, the aggregator serialises claim calls to each DEX.
 4. A heartbeat warms caches and monitors cycle balance.  Metrics are updated and can be queried via `get_metrics`.
-5. On upgrade, caches and metrics are saved to stable memory and restored afterwards:contentReference[oaicite:6]{index=6}.
+5. On upgrade, caches and metrics are saved to stable memory and restored afterwards.
 
 ### Diagram
 
