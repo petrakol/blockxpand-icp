@@ -418,3 +418,32 @@ pub fn health_check() -> &'static str {
     metrics::inc_query();
     "ok"
 }
+
+#[derive(candid::CandidType, serde::Serialize)]
+pub struct TokenTotal {
+    pub token: String,
+    pub total: f64,
+}
+
+fn summarize(holdings: &[Holding]) -> Vec<TokenTotal> {
+    use std::collections::HashMap;
+    let mut map: HashMap<String, f64> = HashMap::new();
+    for h in holdings {
+        if let Ok(v) = h.amount.parse::<f64>() {
+            *map.entry(h.token.clone()).or_default() += v;
+        }
+    }
+    let mut out: Vec<TokenTotal> = map
+        .into_iter()
+        .map(|(token, total)| TokenTotal { token, total })
+        .collect();
+    out.sort_by(|a, b| a.token.cmp(&b.token));
+    out
+}
+
+#[ic_cdk_macros::query]
+pub async fn get_summary(principal: Principal) -> Vec<TokenTotal> {
+    metrics::inc_query();
+    let holdings = get_holdings(principal).await;
+    summarize(&holdings)
+}

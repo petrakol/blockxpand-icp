@@ -53,5 +53,123 @@ async fn heartbeat() {
 fn get_metrics() -> aggregator::metrics::Metrics {
     aggregator::metrics::get()
 }
+
+use ic_cdk::api::management_canister::http_request::{HttpHeader, HttpMethod, HttpResponse};
+use serde::Deserialize;
+
+#[derive(candid::CandidType, Deserialize)]
+pub struct HttpRequest {
+    pub method: HttpMethod,
+    pub url: String,
+    pub headers: Vec<HttpHeader>,
+    #[serde(with = "serde_bytes")]
+    pub body: Vec<u8>,
+}
+
+#[ic_cdk_macros::query]
+pub async fn http_request(req: HttpRequest) -> HttpResponse {
+    use candid::Principal;
+
+    let path = req.url.split('?').next().unwrap_or("");
+    let parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();
+    let not_found = || HttpResponse {
+        status: 404u16.into(),
+        headers: vec![HttpHeader {
+            name: "Content-Type".into(),
+            value: "application/json".into(),
+        }],
+        body: b"{\"error\":\"not found\"}".to_vec(),
+    };
+
+    match parts.as_slice() {
+        ["holdings", pid] => {
+            let principal = match Principal::from_text(pid) {
+                Ok(p) => p,
+                Err(_) => return not_found(),
+            };
+            let holdings = aggregator::get_holdings(principal).await;
+            let body = serde_json::to_vec(&holdings).unwrap();
+            HttpResponse {
+                status: 200u16.into(),
+                headers: vec![HttpHeader {
+                    name: "Content-Type".into(),
+                    value: "application/json".into(),
+                }],
+                body,
+            }
+        }
+        ["summary", pid] => {
+            let principal = match Principal::from_text(pid) {
+                Ok(p) => p,
+                Err(_) => return not_found(),
+            };
+            let summary = aggregator::get_summary(principal).await;
+            let body = serde_json::to_vec(&summary).unwrap();
+            HttpResponse {
+                status: 200u16.into(),
+                headers: vec![HttpHeader {
+                    name: "Content-Type".into(),
+                    value: "application/json".into(),
+                }],
+                body,
+            }
+        }
+        _ => not_found(),
+    }
+}
 #[cfg(feature = "export_candid")]
 ic_cdk::export_candid!();
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aggregator::cache;
+    use bx_core::Holding;
+    use ic_cdk::api::management_canister::http_request::HttpMethod;
+
+    #[tokio::test]
+    async fn http_paths() {
+        let p = candid::Principal::from_text("aaaaa-aa").unwrap();
+        cache::get().insert(
+            p,
+            (
+                vec![
+                    Holding {
+                        source: "test".into(),
+                        token: "AAA".into(),
+                        amount: "1".into(),
+                        status: "ok".into(),
+                    },
+                    Holding {
+                        source: "test".into(),
+                        token: "AAA".into(),
+                        amount: "2".into(),
+                        status: "ok".into(),
+                    },
+                ],
+                aggregator::utils::now(),
+            ),
+        );
+
+        let req = HttpRequest {
+            method: HttpMethod::GET,
+            url: format!("/holdings/{p}"),
+            headers: vec![],
+            body: vec![],
+        };
+        let resp = http_request(req).await;
+        assert_eq!(resp.status, candid::Nat::from(200u16));
+
+        let req = HttpRequest {
+            method: HttpMethod::GET,
+            url: format!("/summary/{p}"),
+            headers: vec![],
+            body: vec![],
+        };
+        let resp = http_request(req).await;
+        assert_eq!(resp.status, candid::Nat::from(200u16));
+        let body = std::str::from_utf8(&resp.body).unwrap();
+        assert!(body.contains("AAA"));
+        assert!(body.contains("3"));
+    }
+}
