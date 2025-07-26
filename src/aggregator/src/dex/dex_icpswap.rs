@@ -209,7 +209,18 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     let holdings = fetch_positions_impl(principal)
         .await
         .map_err(|e| format!("{:?}", e))?;
-    cache::get().insert(principal, (holdings, now()));
+    let mut map = std::collections::HashMap::new();
+    for h in &holdings {
+        if let Ok(v) = h.amount.parse::<f64>() {
+            *map.entry(h.token.clone()).or_insert(0.0) += v;
+        }
+    }
+    let mut summary: Vec<crate::HoldingSummary> = map
+        .into_iter()
+        .map(|(token, total)| crate::HoldingSummary { token, total })
+        .collect();
+    summary.sort_by(|a, b| a.token.cmp(&b.token));
+    cache::get().insert(principal, (holdings, summary, now()));
     Ok(total)
 }
 
@@ -236,7 +247,18 @@ async fn claim_rewards_impl(principal: Principal) -> Result<u64, String> {
     let holdings = fetch_positions_impl(principal)
         .await
         .map_err(|e| format!("{:?}", e))?;
-    cache::get().insert(principal, (holdings, now()));
+    let mut map = std::collections::HashMap::new();
+    for h in &holdings {
+        if let Ok(v) = h.amount.parse::<f64>() {
+            *map.entry(h.token.clone()).or_insert(0.0) += v;
+        }
+    }
+    let mut summary: Vec<crate::HoldingSummary> = map
+        .into_iter()
+        .map(|(token, total)| crate::HoldingSummary { token, total })
+        .collect();
+    summary.sort_by(|a, b| a.token.cmp(&b.token));
+    cache::get().insert(principal, (holdings, summary, now()));
     Ok(total)
 }
 

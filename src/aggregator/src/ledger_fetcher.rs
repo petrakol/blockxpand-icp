@@ -300,11 +300,15 @@ async fn icrc1_balance_of(
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn fetch_filtered(
     principal: Principal,
-    list: Option<&[Principal]>,
+    list: Option<&std::collections::HashSet<Principal>>,
 ) -> Result<Vec<Holding>, FetchError> {
     let agent = get_agent().await;
     let mut ids: Vec<Principal> = match list {
-        Some(v) => v.to_vec(),
+        Some(set) => LEDGERS
+            .iter()
+            .cloned()
+            .filter(|id| set.contains(id))
+            .collect(),
         None => LEDGERS.iter().cloned().collect(),
     };
     ids.sort();
@@ -342,7 +346,7 @@ pub async fn fetch(principal: Principal) -> Result<Vec<Holding>, FetchError> {
 #[cfg(target_arch = "wasm32")]
 pub async fn fetch_filtered(
     _principal: Principal,
-    _list: Option<&[Principal]>,
+    _list: Option<&std::collections::HashSet<Principal>>,
 ) -> Result<Vec<Holding>, FetchError> {
     Ok(Vec::new())
 }

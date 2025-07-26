@@ -525,10 +525,12 @@ mod tests {
         std::env::set_var("LEDGERS_FILE", file.path());
 
         let principal = Principal::anonymous();
+        let mut set = std::collections::HashSet::new();
+        set.insert(Principal::from_text(&cid).unwrap());
         blockxpand_icp::update_user_settings(
             principal,
             blockxpand_icp::user_settings::UserSettings {
-                ledgers: Some(vec![Principal::from_text(&cid).unwrap()]),
+                ledgers: Some(set),
                 dexes: None,
             },
         );
