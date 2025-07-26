@@ -18,7 +18,8 @@ This repository is a Cargo workspace composed of several crates that work togeth
 1. **Warm queue** – On init the queue loads ledger and DEX IDs and gradually warms their metadata. The queue is bounded and deduplicates entries to avoid unbounded growth.
 2. **Cycle monitor** – Every heartbeat checks the cycle balance and calls a wallet canister to top up when needed. Failures trigger exponential backoff and each event is logged in stable memory.
 3. **Metrics** – Query and heartbeat counts plus cycle balance are tracked and can be queried via the `get_metrics` endpoint. Metrics state is preserved across upgrades.
-4. **Upgrade flow** – Before upgrades the cycle log, ledger metadata and LP caches and metrics are saved to stable memory. They are restored in `post_upgrade` so the canister resumes operation without warming up again.
+4. **User settings** – Preferred ledgers and DEX adapters per user are stored in a mutex‑protected map and persisted across upgrades.
+5. **Upgrade flow** – Before upgrades the cycle log, ledger metadata, LP caches, user settings and metrics are saved to stable memory. They are restored in `post_upgrade` so the canister resumes operation without warming up again.
 
 The [README](../README.md) explains how to configure environment variables and run the deployment script. The integration tests under `tests/` launch a local replica to exercise these processes end‑to‑end.
 
@@ -47,7 +48,6 @@ Each crate depends on only the libraries it needs. For example the `aggregator` 
 The current architecture is functional but several enhancements would improve usability:
 
 1. **Front-end integration** – Build a lightweight Web UI that calls the canister via Candid or HTTP, letting users connect their wallet and trigger `claim_all_rewards`.
-2. **Persistent settings** – Store user preferences (e.g., favourite ledgers) in stable memory for a personalised experience.
-3. **Expanded metrics** – Export cycle usage per query and reward-claim statistics to aid monitoring.
-4. **Additional adapters** – Support upcoming DEXes or SNS token distributions so users can claim rewards from more sources. The generic `SnsAdapter` illustrates how new reward sources plug into the fetcher pipeline.
+2. **Expanded metrics** – Export cycle usage per query and reward-claim statistics to aid monitoring.
+3. **Additional adapters** – Support upcoming DEXes or SNS token distributions so users can claim rewards from more sources. The generic `SnsAdapter` illustrates how new reward sources plug into the fetcher pipeline.
 

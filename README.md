@@ -1,8 +1,11 @@
+
+<img width="2000" height="424" alt="blockxpand copy_w" src="https://github.com/user-attachments/assets/246416b5-3ec4-4bb3-bade-56518e2284a6" />
+
 <h1 align="center">
   BlockXpand ICP Aggregator
 </h1>
 <p align="center">
-  <em>Never miss a crypto reward again — lightning-fast balance & airdrop discovery for the Internet Computer.</em>
+  <em>Never miss a crypto reward again — lightning-fast balance and airdrop discovery for the Internet Computer.</em>
 </p>
 
 <p align="center">
@@ -25,121 +28,91 @@
 - **Sub-250 ms** responses, < 3 B cycles/query keeps infra costs trivial.  
 - Built with **Rust + IC-CDK**, ready for multi-chain adapters (ckBTC/ETH).  
 
-This repository is organised as a Cargo workspace with four crates:
+## Why BlockXpand?
 
-- `bx_core` – shared models such as the `Holding` struct
-- `aggregator` – balance‑fetching logic used by the canister
-- `aggregator_canister` – exposes the aggregator as a canister
-- `mock_ledger_canister` – deterministic ledger used in tests
+Many ICP users hold tokens, LP positions and neurons scattered across canisters and decentralised exchanges.  Claiming staking yield or SNS distributions requires monitoring multiple front‑ends, keeping track of claim windows and paying transaction fees separately.  As a result, a significant portion of rewards never reaches its rightful owners.  BlockXpand aggregates all those sources and surfaces them in a single dashboard.  With one call you see your entire ICP portfolio—including locked LP tokens and bridged ckBTC/ckETH—and with one click you claim everything you’re owed.  No more spreadsheets, no more missed airdrops.
 
-Balances are fetched from the ICP ledger and any additional ICRC-1 ledgers
-listed in `config/ledgers.toml`. Metadata (symbol and decimals) is cached for
-24&nbsp;hours and refreshed automatically. Results are cached in-canister for
-60&nbsp;s.
+## Key Features
 
-Adapters for **ICPSwap**, **Sonic** and **InfinitySwap** live under
-`src/aggregator/src/dex`. Reward claiming APIs are gated by the optional
-`claim` feature flag.
+- **Unified balance discovery.** The `get_holdings` and `get_holdings_summary` APIs concurrently query the ICP ledger, governance neurons and every configured DEX adapter.  Results are cached and certified for 60 seconds so repeat queries are lightning fast.
 
-### Key features
+- **One‑click reward claims.** When compiled with the optional `claim` feature, the canister exposes `claim_all_rewards`.  It verifies the caller’s principal and forwards claims to each DEX/adapter on your behalf, batching calls to save cycles.  A deny‑list and rate limiter guard against abuse.
 
-- **Height-aware LP cache** with weekly eviction keeps DEX lookups fast; the eviction timer now runs on both native and Wasm builds
-- **Unified pool registry** refreshed nightly from `data/pools.toml` using
-  asynchronous file I/O on native builds (embedded on Wasm builds via the correct
-  relative path) and exported via the `pools_graphql` endpoint. A timer schedules
-  a nightly refresh on both targets; override the path on native builds via
-  `POOLS_FILE`. A file watcher automatically reloads changes, logging the path
-  and warning if a watcher is already active; for Wasm builds the
-  file is embedded using a compile-time absolute path
-- Optional **reward claiming** via `claim_all_rewards` behind the `claim`
-  feature flag
-- Calls to `claim_all_rewards` verify the caller matches the principal and can
-  optionally allow trusted wallets via the `CLAIM_WALLETS` environment variable.
-  Anonymous principals are rejected and claims are serialized per user with
-  an expiring mutex. Claim calls time out after 10 seconds per adapter and
-  principals listed in `CLAIM_DENYLIST` are rejected outright
-- All DEX adapters now fetch **concurrently** via `join_all` for minimal latency
-- The `get_holdings` query runs ledger, neuron, and DEX fetchers concurrently
-  for the quickest possible response
-- Cross-platform utilities provide a shared `now`, `format_amount` and `get_agent`
-  helper used across adapters and the ledger fetcher, plus utilities for querying
-  DEX block height and an `env_principal` helper for configuration. Invalid values
-  now print a helpful error. Parsed principals are cached so lookups only happen
-  once. The shared agent logs any root key error and is cloned after the first
-  successful initialisation to avoid repeated network handshakes
-- Includes built-in adapters for ICPSwap, Sonic and InfinitySwap
-- Common constants like `MINUTE_NS`, `DAY_NS`, `WEEK_NS`, `DAY_SECS` and `WEEK_SECS` centralise refresh durations
-- Adapter fetchers yield to the scheduler before starting requests, eliminating
-  the previous fixed delay
-- A heartbeat-driven queue deterministically warms ledger and DEX metadata
-  caches across ticks so refreshes never exceed the 5 s execution limit
-  - The warm queue is bounded (size configurable via `WARM_QUEUE_SIZE`) and deduplicates IDs to prevent unbounded growth
-- A top-up heartbeat pulls cycles from a pre-authorised wallet when balance
-  falls below 0.5 T, logging each refill in stable memory
-- Refills back off exponentially when the wallet lacks funds to avoid spam
-- Ledger metadata and LP caches persist across upgrades via stable memory,
-  so deployments start warm
-- Token decimals above 18 are clamped to 18 when formatting amounts
-- Structured `tracing` logs with a `LOG_LEVEL` variable make debugging easy
-- Operational metrics (cycle balance, query and heartbeat counts) are exposed via
-  the `get_metrics` endpoint, including claim attempts and successes
-- The `get_cycles_log` query exposes the cycle refill history
-- A simple `health_check` query returns `ok` so load balancers can verify the
-  canister is running
-- `get_claim_status` reports a caller's remaining claim attempts and lock state
-- Wasm builds compile cleanly with no warnings
-- `deploy.sh` spins up a replica using a temporary identity so local tests never
-  leak a mnemonic
-- CI uses the same approach to keep secrets out of the logs
-- Integration tests spawn a lightweight dfx emulator to verify canister
-  deployment end-to-end
-- `get_holdings_cert` returns a data certificate and Merkle witness for
-  tamper-proof balances
+- **Sub‑250 ms performance.** The aggregator library makes heavy use of concurrency (`join_all`), instruction‑count monitoring and warm caches to deliver responses in under 250 milliseconds and less than three billion cycles per query.  A heartbeat warms caches and tops up cycles automatically.
+- **Persistent user settings.** Favourite ledgers and DEXes are stored in stable memory so preferences persist across upgrades.
+- **Cached summaries.** Token totals are cached alongside holdings for faster repeated queries.
 
-## Building
+- **Extensible adapters.** New DEXes, ledgers or SNS reward sources can be added by implementing the `DexAdapter` trait and registering them in `config/ledgers.toml`.  A generic `SnsAdapter` serves as a template for upcoming community projects.
 
-```bash
-cargo build --quiet
-# When the public API changes regenerate candid/aggregator.did with
-cargo build --target wasm32-unknown-unknown --features export_candid -p aggregator_canister
-# Build with reward claiming enabled
-cargo build --features claim -p aggregator_canister
-```
+- **Deterministic builds & security.** The repository is a Cargo workspace with pinned dependencies.  Integration tests spawn a local replica to exercise canisters end‑to‑end, and an external security audit found no critical issues.  Stable memory is used to persist caches and metrics across upgrades.
 
-## Testing
+## Architecture Overview
 
-```bash
-cargo test --quiet --all
-# run reward-claim tests with
-# cargo test --quiet --all --features claim
-```
+The workspace is composed of several crates:
 
-## Performance instrumentation
+- **`bx_core`** – Defines shared types such as `Holding` and `TokenInfo`.
+- **`aggregator`** – Contains all runtime logic: ledger and neuron fetchers, DEX adapters, LP/metadata caches, a bounded warm queue, a cycle monitor and metrics exporters.
+- **`aggregator_canister`** – Thin wrapper around `aggregator` that exposes it as an Internet‑Computer canister.  It wires up init/heartbeat hooks, optional claim functionality and Candid/HTTP interfaces.
+- **`mock_*_canister`** – Deterministic mock canisters used in unit and integration tests.
 
-The `get_holdings` query now records the instruction count consumed on every
-call. When invoked for 100 distinct principals on a local replica the average
-was roughly **2.6&nbsp;B** instructions (≈ cycles), comfortably under the 3 B
-budget. The instruction count is printed using `ic_cdk::println!` for each
-request so you can verify the cost yourself.
+During initialisation the canister reads ledger and DEX IDs from configuration, warms their metadata in a bounded queue and starts a heartbeat.  Each heartbeat refreshes caches and, if cycle balance drops below a threshold, calls a wallet canister to top up cycles.  Before upgrades, ledger metadata, LP caches and metrics are persisted to stable memory and restored in `post_upgrade`, ensuring the service resumes without re‑warming.  The typical data flow is:
 
-## Ledger configuration
+1. A caller invokes `get_holdings` or `get_holdings_summary` via Candid or HTTP.
+2. The aggregator fetches balances from the ICP ledger, neurons and all configured DEXes concurrently.
+3. Results are cached with a certificate and returned to the caller.  If compiled with the `claim` feature and the user calls `claim_all_rewards`, the aggregator serialises claim calls to each DEX.
+4. A heartbeat warms caches and monitors cycle balance.  Metrics are updated and can be queried via `get_metrics`.
+5. On upgrade, caches and metrics are saved to stable memory and restored afterwards.
 
-The file `config/ledgers.toml` lists all ICRC-1 ledger canisters that should be
-queried. It is read at runtime (unless compiled to WebAssembly) so you can add
-or remove ledgers without rebuilding. Set `LEDGERS_FILE` to override the path.
-Each entry under `[ledgers]` maps a human name to its canister ID:
+### Diagram
 
-```toml
-[ledgers]
-ICP = "rwlgt-iiaaa-aaaaa-aaaaa-cai"
-ckBTC = "abcd2-saaaa-aaaaa-aaaaq-cai"
-```
+Below is a high‑level visualisation of the architecture.  It shows how callers interact with the canister API, how the wrapper delegates to the library and how the library orchestrates fetchers, adapters, caches and cycle management.  Stable memory stores caches and metrics across upgrades.
 
-Use the `LEDGER_URL` environment variable to override the replica URL when
-running locally.
-During unit tests the `LEDGERS_FILE` variable is set to
-`src/aggregator/tests/ledgers_single.toml`, which references the mock ledger
-canister.
+ <img width="1919" height="1446" alt="blockxpand_architecture_diagram" src="https://github.com/user-attachments/assets/7da8bb98-31a3-4fdf-8190-89cccc09c36f" />
+
+
+## Getting Started
+
+### Prerequisites
+
+- **Rust & Cargo.** Install Rust 1.70+ from rustup.rs.
+- **dfx.** Install the Internet‑Computer SDK by following the instructions at the [official docs](https://internetcomputer.org/docs/current/developer-docs/clients/dfx-quickstart).
+- **Node & npm (optional).** Required if you want to build and run the example front‑end.
+
+### Building the canister
+
+    git clone https://github.com/petrakol/blockxpand-icp.git
+    cd blockxpand-icp
+
+    # Build the canister Wasm in release mode
+    cargo build --release --package aggregator_canister --target wasm32-unknown-unknown
+
+    # Deploy locally with dfx
+    dfx start --background
+    dfx deploy aggregator_canister --no-wallet
+
+    # Call the canister
+    dfx canister call aggregator_canister get_holdings '("<your-principal>")'
+
+### Example: Web UI
+
+The `frontend` directory contains a minimal HTML/JS interface that calls the canister over Candid.  To run it:
+
+    npm install -g http-server
+    http-server frontend
+    # Then open http://localhost:8080 in a browser that supports Internet‑Identity.
+
+### Environment Variables
+
+| Variable | Purpose |
+|---|---|
+| `LEDGERS_CONFIG` | Path to a TOML file listing ICRC‑1 ledgers and DEX canisters to query.  See `config/ledgers.toml` for an example. |
+| `CYCLE_TOPUP_PRINCIPAL` | Principal of the wallet canister used for automatic cycle top‑ups. |
+| `CALLER_DENY_LIST` | Principals denied access to `claim_all_rewards`. |
+| `ENABLE_CLAIM` | Set to `1` to include the reward‑claiming API; omit to disable claims by default. |
+
+## Project Status & Roadmap
+
+BlockXpand is a working prototype with a deployed test canister and a minimal front‑end.  The current release includes concurrent balance discovery across the ICP ledger, neurons and DEX adapters; caching with certificate validation; and an optional one‑click reward claiming API.  Unit tests cover key modules and integration tests run against a local replica.  An external audit has been completed with no critical findings.
 
 ## DEX configuration
 
@@ -241,11 +214,24 @@ method. The following endpoints are available:
 Requests return HTTP 200 on success with `Content-Type: application/json`
 or 404 if the path or principal is invalid.
 
+## Planned enhancements include:
+
+- **Mainnet deployment.** Publish the canister on the ICP mainnet with stable IDs and cycle funding.
+- **Pay‑per‑call monetisation.** Charge a small fee per API call and share revenue with protocols that integrate BlockXpand.
+- **Additional adapters.** Integrate upcoming SNS reward canisters and bridged ckBTC/ckETH ledgers.
+- **CLI client & SDK.** Provide a Rust and TypeScript SDK plus a CLI for power users and integrators.
+
+## Contributing
+
+Contributions are welcome!  If you’d like to add a new DEX adapter, improve the front‑end or extend the CLI, please open an issue or pull request.  All code should pass existing tests (`cargo test`), adhere to `rustfmt`, and include documentation/comments where appropriate.  Please ensure that any new canister code remains deterministic and compiles to a reproducible Wasm.
 
 ## Further reading
 
-- [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) summarises the latest security audit
-- [docs/DEX_API_matrix.md](docs/DEX_API_matrix.md) lists known DEX canister APIs
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) provides an overview of crate dependencies and runtime processes
-- [docs/DEPENDENCY_MAP.md](docs/DEPENDENCY_MAP.md) shows workspace dependency versions
+- [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) summarises the latest security audit.
+- [docs/DEX_API_matrix.md](docs/DEX_API_matrix.md) lists known DEX canister APIs.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) provides an overview of crate dependencies and runtime processes.
+
+## License
+
+This project is licensed under the MIT License.  See `LICENSE` for details.
 
