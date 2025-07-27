@@ -134,7 +134,9 @@ mod tests {
             .call()
             .await
             .unwrap();
-        let res: Vec<Holding> = candid::Decode!(&bytes, Vec<Holding>).unwrap();
+        let res: Result<Vec<Holding>, String> =
+            candid::Decode!(&bytes, Result<Vec<Holding>, String>).unwrap();
+        let res = res.expect("get_holdings err");
         assert_eq!(res.len(), 3);
     }
 

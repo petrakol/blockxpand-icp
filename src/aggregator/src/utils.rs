@@ -130,6 +130,7 @@ pub fn ledgers_path() -> String {
         .unwrap_or_else(|_| "config/ledgers.toml".to_string())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn load_dex_config() {
     use std::path::Path;
     use tracing::{info, warn};
