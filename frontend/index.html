@@ -11,6 +11,7 @@
     />
     <script>
       window.CANISTER_ID = "<CANISTER_ID>";
+      window.DFX_NETWORK = "<DFX_NETWORK>";
     </script>
   </head>
   <body>
@@ -57,6 +58,8 @@
 
       <div id="error-message" class="error hidden" role="alert"></div>
     </div>
+    <script type="module" src="https://unpkg.com/@dfinity/agent@0.18.0/dist/agent.min.js"></script>
+    <script type="module" src="https://unpkg.com/@dfinity/auth-client@0.18.0/dist/auth-client.min.js"></script>
     <script type="module" src="main.js"></script>
     <script>
       const logo = document.getElementById('main-logo');
