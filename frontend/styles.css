@@ -45,6 +45,52 @@ body {
   transform: scale(0.97);
 }
 
+.logo-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 2rem 0;
+}
+
+.logo-animation {
+  transform-origin: 50% 50%;
+  animation:
+    rotate 2.4s linear infinite,
+    pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  from { opacity: 0.6; transform: scale(0.9); }
+  to   { opacity: 1.0; transform: scale(1.05); }
+}
+
+.summary-skeleton {
+  width: 100%;
+  max-width: 320px;
+  height: 1.2rem;
+  margin: 1rem auto;
+  border-radius: 8px;
+  background: #1e1e2d;
+  animation: pulse 1.2s ease-in-out infinite alternate;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* summary list for old mobile layout -- replaced by progressive drawer */
 .summary {
   margin-top: 1rem;

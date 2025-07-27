@@ -18,6 +18,18 @@ let authClient;
 const summaryBar = document.getElementById("summary-bar");
 const summaryDrawer = document.getElementById("summary-drawer");
 const summaryTotal = document.getElementById("summary-total");
+const spinner = document.getElementById("logo-spinner");
+const skeleton = document.getElementById("summary-skeleton");
+
+function showLoading() {
+  spinner.classList.remove("hidden");
+  skeleton.classList.remove("hidden");
+}
+
+function hideLoading() {
+  spinner.classList.add("hidden");
+  skeleton.classList.add("hidden");
+}
 
 async function init() {
   authClient = await AuthClient.create();
@@ -29,11 +41,14 @@ async function init() {
     summaryBar.classList.toggle("expanded", expanded);
   });
   if (await authClient.isAuthenticated()) {
+    showLoading();
     await onConnect();
+    hideLoading();
   }
 }
 
 async function connect() {
+  showLoading();
   if (window.ic && window.ic.plug) {
     try {
       await window.ic.plug.requestConnect({ whitelist: [window.CANISTER_ID] });
@@ -45,16 +60,25 @@ async function connect() {
       document.getElementById("connectBtn").classList.add("hidden");
       summaryBar.classList.remove("hidden");
       fetchSummary();
+      hideLoading();
       return;
     } catch (e) {
       console.error("Plug connect failed", e);
+      hideLoading();
     }
   }
-
-  await authClient.login({
-    identityProvider: "https://identity.ic0.app/#authorize",
-    onSuccess: onConnect,
-  });
+  try {
+    await authClient.login({
+      identityProvider: "https://identity.ic0.app/#authorize",
+      onSuccess: async () => {
+        await onConnect();
+        hideLoading();
+      },
+    });
+  } catch (e) {
+    console.error("II connect failed", e);
+    hideLoading();
+  }
 }
 
 async function onConnect() {
@@ -69,11 +93,18 @@ async function onConnect() {
 
 async function fetchSummary() {
   const principal = actor.agent && actor.agent.identity ? actor.agent.identity.getPrincipal() : null;
-  const res = await actor.get_holdings_summary(principal || window.ic.plug.principalId);
-  if ("Ok" in res) {
-    const details = res.Ok.map((item) => [item.token, item.total]);
-    const total = details.reduce((acc, [, amt]) => acc + amt, 0);
-    populateSummary(total, details);
+  showLoading();
+  try {
+    const res = await actor.get_holdings_summary(
+      principal || window.ic.plug.principalId
+    );
+    if ("Ok" in res) {
+      const details = res.Ok.map((item) => [item.token, item.total]);
+      const total = details.reduce((acc, [, amt]) => acc + amt, 0);
+      populateSummary(total, details);
+    }
+  } finally {
+    hideLoading();
   }
 }
 

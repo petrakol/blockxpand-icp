@@ -17,6 +17,42 @@
       <button id="connectBtn" class="btn">Connect Wallet</button>
 
       <div
+        id="logo-spinner"
+        class="logo-spinner hidden"
+        role="status"
+        aria-live="polite"
+      >
+        <svg viewBox="0 0 64 64" width="80" height="80" aria-hidden="true">
+          <g class="logo-animation" fill="#8355e2">
+            <!-- Bottom squares -->
+            <rect x="8" y="48" width="8" height="8" />
+            <rect x="48" y="48" width="8" height="8" />
+            <!-- Middle squares -->
+            <rect x="24" y="40" width="8" height="8" />
+            <rect x="32" y="40" width="8" height="8" />
+            <!-- Center cross -->
+            <rect x="24" y="32" width="8" height="8" />
+            <rect x="32" y="32" width="8" height="8" />
+            <rect x="16" y="32" width="8" height="8" />
+            <rect x="40" y="32" width="8" height="8" />
+            <!-- Upper squares -->
+            <rect x="16" y="24" width="8" height="8" />
+            <rect x="40" y="24" width="8" height="8" />
+            <rect x="8" y="16" width="8" height="8" />
+            <rect x="48" y="16" width="8" height="8" />
+            <!-- Dispersed top squares -->
+            <rect x="20" y="8" width="4" height="4" />
+            <rect x="30" y="10" width="4" height="4" />
+            <rect x="38" y="6" width="4" height="4" />
+            <rect x="46" y="10" width="4" height="4" />
+          </g>
+        </svg>
+        <span class="sr-only">Loading…</span>
+      </div>
+
+      <div id="summary-skeleton" class="summary-skeleton hidden" aria-hidden="true"></div>
+
+      <div
         id="summary-bar"
         class="summary-bar hidden"
         tabindex="0"
