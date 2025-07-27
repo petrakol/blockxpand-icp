@@ -162,11 +162,13 @@ pub fn stable_restore(data: Vec<StableMeta>) {
     evict_excess();
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn evict_expired() {
     let now = now();
     META_CACHE.retain(|_, v| v.expires > now);
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn evict_excess() {
     while META_CACHE.len() > *MAX_META_ENTRIES {
         if let Some(old_key) = META_CACHE
@@ -181,8 +183,14 @@ fn evict_excess() {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn len() -> usize {
     META_CACHE.len()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn len() -> usize {
+    0
 }
 
 #[cfg(target_arch = "wasm32")]
