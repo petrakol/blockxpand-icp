@@ -225,12 +225,13 @@ mod tests {
             },
         ];
         let summary = {
+            use rust_decimal::prelude::{FromStr, ToPrimitive};
             use std::collections::BTreeMap;
-            use rust_decimal::prelude::{FromStr, ToPrimitive, Zero};
             let mut map: BTreeMap<String, rust_decimal::Decimal> = BTreeMap::new();
             for h in &holdings {
                 if let Ok(v) = rust_decimal::Decimal::from_str(&h.amount) {
-                    *map.entry(h.token.clone()).or_insert(rust_decimal::Decimal::ZERO) += v;
+                    *map.entry(h.token.clone())
+                        .or_insert(rust_decimal::Decimal::ZERO) += v;
                 }
             }
             map.into_iter()

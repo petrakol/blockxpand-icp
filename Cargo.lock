@@ -432,6 +432,7 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "serde",
+ "serde_bytes",
  "serde_json",
  "tempfile",
  "tokio",

@@ -110,10 +110,13 @@ static CLAIM_COOLDOWN: Lazy<Mutex<HashMap<Principal, u64>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(feature = "claim")]
-static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<u64> = Lazy::new(|| {
-    option_env!("CLAIM_ADAPTER_TIMEOUT_SECS")
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(10)
+static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<std::sync::atomic::AtomicU64> = Lazy::new(|| {
+    use std::sync::atomic::AtomicU64;
+    AtomicU64::new(
+        option_env!("CLAIM_ADAPTER_TIMEOUT_SECS")
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(10),
+    )
 });
 
 async fn calculate_holdings(principal: Principal) -> (Vec<Holding>, Vec<HoldingSummary>) {
@@ -286,8 +289,10 @@ where
 {
     #[cfg(not(target_arch = "wasm32"))]
     {
+        use std::sync::atomic::Ordering;
         use tokio::time::{timeout, Duration};
-        match timeout(Duration::from_secs(*CLAIM_ADAPTER_TIMEOUT_SECS), fut).await {
+        let secs = CLAIM_ADAPTER_TIMEOUT_SECS.load(Ordering::Relaxed);
+        match timeout(Duration::from_secs(secs), fut).await {
             Ok(Ok(v)) => Some(v),
             Ok(Err(e)) => {
                 tracing::error!("claim failed: {e}");
@@ -379,7 +384,7 @@ pub async fn get_holdings_summary(principal: Principal) -> Vec<HoldingSummary> {
 }
 
 fn summarise(holdings: &[Holding]) -> Vec<HoldingSummary> {
-    use rust_decimal::prelude::{FromStr, ToPrimitive, Zero};
+    use rust_decimal::prelude::{FromStr, ToPrimitive};
     use std::collections::BTreeMap;
     let mut map: BTreeMap<String, rust_decimal::Decimal> = BTreeMap::new();
     for h in holdings {
@@ -484,7 +489,7 @@ pub struct TokenTotal {
 }
 
 fn summarize(holdings: &[Holding]) -> Vec<TokenTotal> {
-    use rust_decimal::prelude::{FromStr, ToPrimitive, Zero};
+    use rust_decimal::prelude::{FromStr, ToPrimitive};
     use std::collections::HashMap;
     let mut map: HashMap<String, rust_decimal::Decimal> = HashMap::new();
     for h in holdings {
@@ -518,9 +523,8 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn claim_with_timeout_times_out() {
-        std::env::set_var("CLAIM_ADAPTER_TIMEOUT_SECS", "1");
-        // ensure the static uses the new env var
-        once_cell::sync::Lazy::force(&CLAIM_ADAPTER_TIMEOUT_SECS);
+        use std::sync::atomic::Ordering;
+        CLAIM_ADAPTER_TIMEOUT_SECS.store(1, Ordering::Relaxed);
         let fut = async {
             tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
             Ok(1u64)
