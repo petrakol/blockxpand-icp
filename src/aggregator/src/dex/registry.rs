@@ -19,7 +19,7 @@ pub async fn load_adapters() {
     use std::fs;
     use std::path::Path;
 
-    let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    let path = crate::utils::ledgers_path();
     if !Path::new(&path).exists() {
         return;
     }

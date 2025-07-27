@@ -180,7 +180,7 @@ environment.
 ### Example environment
 
 ```
-export LEDGERS_FILE=config/ledgers.toml
+export LEDGERS_CONFIG=config/ledgers.toml
 export CYCLES_WALLET=aaaaa-aa
 export ICPSWAP_FACTORY=bbbbbb-bb
 export SONIC_ROUTER=cccccc-cc

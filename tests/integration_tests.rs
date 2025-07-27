@@ -89,7 +89,7 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
 
         aggregator::utils::load_dex_config().await;
 
@@ -165,7 +165,7 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
 
         aggregator::utils::load_dex_config().await;
 
@@ -259,7 +259,7 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("ICPSWAP_FACTORY", &dex_id);
 
         aggregator::utils::load_dex_config().await;
@@ -303,7 +303,7 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("SONIC_ROUTER", &dex_id);
 
         aggregator::utils::load_dex_config().await;
@@ -347,7 +347,7 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("INFINITY_VAULT", &dex_id);
 
         aggregator::utils::load_dex_config().await;
@@ -399,7 +399,7 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("ICPSWAP_FACTORY", &icpswap_id);
         std::env::set_var("SONIC_ROUTER", &sonic_id);
 
@@ -484,7 +484,7 @@ mod tests {
         writeln!(file, "[ledgers]\nGOOD = \"{cid}\"\nBAD = \"aaaaa-aa\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
 
         let principal = Principal::anonymous();
         let holdings = get_holdings(principal).await.unwrap();
@@ -522,7 +522,7 @@ mod tests {
         writeln!(file, "[ledgers]\nGOOD = \"{cid}\"\nBAD = \"aaaaa-aa\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
 
         let principal = Principal::anonymous();
         let mut set = std::collections::HashSet::new();
@@ -572,7 +572,7 @@ mod tests {
         let mut file = NamedTempFile::new().unwrap();
         writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
 
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
 
         aggregator::utils::load_dex_config().await;
@@ -652,7 +652,7 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
 
         aggregator::utils::load_dex_config().await;
 

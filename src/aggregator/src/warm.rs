@@ -129,7 +129,7 @@ mod tests {
         for i in 0..150u8 {
             writeln!(f, "D{i} = \"{}\"", gen_principal(i).to_text()).unwrap();
         }
-        std::env::set_var("LEDGERS_FILE", f.path());
+        std::env::set_var("LEDGERS_CONFIG", f.path());
         crate::utils::load_dex_config().await;
         let ledgers: Vec<Principal> = (0..150u8).map(gen_principal).collect();
         let dexes: Vec<Principal> = (0..150u8).map(gen_principal).collect();
@@ -143,7 +143,7 @@ mod tests {
         let mut f = NamedTempFile::new().unwrap();
         writeln!(f, "[ledgers]\nA = \"aaaaa-aa\"\nB = \"aaaaa-aa\"").unwrap();
         writeln!(f, "[dex]\nX = \"aaaaa-aa\"\nY = \"aaaaa-aa\"").unwrap();
-        std::env::set_var("LEDGERS_FILE", f.path());
+        std::env::set_var("LEDGERS_CONFIG", f.path());
         crate::utils::load_dex_config().await;
         let ledgers = vec![
             Principal::from_text("aaaaa-aa").unwrap(),
@@ -163,7 +163,7 @@ mod tests {
         let mut f = NamedTempFile::new().unwrap();
         writeln!(f, "[ledgers]\nMOCK = \"aaaaa-aa\"").unwrap();
         writeln!(f, "[dex]\nX = \"aaaaa-aa\"").unwrap();
-        std::env::set_var("LEDGERS_FILE", f.path());
+        std::env::set_var("LEDGERS_CONFIG", f.path());
         crate::utils::load_dex_config().await;
         let ledgers = vec![gen_principal(1)];
         let dexes = vec![gen_principal(2)];

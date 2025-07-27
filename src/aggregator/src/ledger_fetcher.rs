@@ -50,33 +50,55 @@ struct LedgersConfig {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
+fn load_ledgers() -> Vec<Principal> {
+    use tracing::warn;
     let cfg: LedgersConfig =
         toml::from_str(include_str!("../../../config/ledgers.toml")).expect("invalid config");
-    let mut ids: Vec<Principal> = cfg
-        .ledgers
-        .values()
-        .map(|id| Principal::from_text(id).expect("invalid principal"))
-        .collect();
-    ids.sort();
-    ids.dedup();
+    let mut ids = Vec::with_capacity(cfg.ledgers.len());
+    let mut seen = std::collections::HashSet::with_capacity(cfg.ledgers.len());
+    for id_str in cfg.ledgers.values() {
+        match Principal::from_text(id_str) {
+            Ok(p) => {
+                if !seen.insert(p) {
+                    warn!("duplicate ledger id {}", p);
+                    continue;
+                }
+                ids.push(p);
+            }
+            Err(e) => warn!("invalid ledger id {id_str}: {e}"),
+        }
+    }
     ids
-});
+}
 
 #[cfg(not(target_arch = "wasm32"))]
-pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
-    let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+fn load_ledgers() -> Vec<Principal> {
+    use tracing::warn;
+    let path = crate::utils::ledgers_path();
     let text = std::fs::read_to_string(path).expect("cannot read ledgers.toml");
     let cfg: LedgersConfig = toml::from_str(&text).expect("invalid config");
-    let mut ids: Vec<Principal> = cfg
-        .ledgers
-        .values()
-        .map(|id| Principal::from_text(id).expect("invalid principal"))
-        .collect();
-    ids.sort();
-    ids.dedup();
+    let mut ids = Vec::with_capacity(cfg.ledgers.len());
+    let mut seen = std::collections::HashSet::with_capacity(cfg.ledgers.len());
+    for id_str in cfg.ledgers.values() {
+        match Principal::from_text(id_str) {
+            Ok(p) => {
+                if !seen.insert(p) {
+                    warn!("duplicate ledger id {}", p);
+                    continue;
+                }
+                ids.push(p);
+            }
+            Err(e) => warn!("invalid ledger id {id_str}: {e}"),
+        }
+    }
     ids
-});
+}
+
+#[cfg(target_arch = "wasm32")]
+pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(load_ledgers);
+
+#[cfg(not(target_arch = "wasm32"))]
+pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(load_ledgers);
 
 /// Duration that cached metadata remains valid (default 24h)
 #[cfg(not(target_arch = "wasm32"))]
@@ -566,7 +588,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     #[serial_test::serial]
     async fn fetch_happy_path() {
-        std::env::set_var("LEDGERS_FILE", "tests/ledgers_single.toml");
+        std::env::set_var("LEDGERS_CONFIG", "tests/ledgers_single.toml");
         once_cell::sync::Lazy::force(&LEDGERS);
         set_mock_metadata(Ok(vec![
             ("icrc1:symbol".into(), IDLValue::Text("AAA".into())),
@@ -585,7 +607,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     #[serial_test::serial]
     async fn fetch_balance_error() {
-        std::env::set_var("LEDGERS_FILE", "tests/ledgers_single.toml");
+        std::env::set_var("LEDGERS_CONFIG", "tests/ledgers_single.toml");
         once_cell::sync::Lazy::force(&LEDGERS);
         set_mock_metadata(Ok(vec![
             ("icrc1:symbol".into(), IDLValue::Text("AAA".into())),
@@ -601,7 +623,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     #[serial_test::serial]
     async fn fetch_metadata_error() {
-        std::env::set_var("LEDGERS_FILE", "tests/ledgers_single.toml");
+        std::env::set_var("LEDGERS_CONFIG", "tests/ledgers_single.toml");
         once_cell::sync::Lazy::force(&LEDGERS);
         set_mock_metadata(Err("bad".into()));
         set_mock_balance(Ok(Nat::from(10u64)));
