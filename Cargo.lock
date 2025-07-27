@@ -41,6 +41,7 @@ dependencies = [
  "ic-cdk-macros",
  "ic-cdk-timers",
  "ic-certified-map",
+ "lazy_static",
  "notify",
  "num-bigint",
  "num-integer",
