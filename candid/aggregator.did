@@ -6,9 +6,9 @@ type Holding = record {
 };
 
 service: {
-  "get_holdings": (principal) -> (variant { ok: vec Holding; err: text }) query;
+  "get_holdings": (principal) -> (variant { Ok: vec Holding; Err: text }) query;
   "claim_all_rewards": (principal) -> (vec nat64);
-  "refresh_holdings": (principal) -> (variant { ok: null; err: text });
+  "refresh_holdings": (principal) -> (variant { Ok: null; Err: text });
   "get_holdings_cert": (principal) -> (record {
     holdings: vec Holding;
     certificate: blob;
@@ -20,5 +20,5 @@ service: {
     build_time: text;
   }) query;
   "get_metrics": () -> (text) query;
-  "get_summary": (principal) -> (variant { ok: vec record { token: text; total: float64 }; err: text }) query;
+  "get_summary": (principal) -> (variant { Ok: vec record { token: text; total: float64 }; Err: text }) query;
 };
