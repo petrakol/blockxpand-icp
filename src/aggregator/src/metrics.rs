@@ -10,6 +10,7 @@ static CLAIM_SUCCESSES: AtomicU64 = AtomicU64::new(0);
 static CYCLE_REFILL_ATTEMPTS: AtomicU64 = AtomicU64::new(0);
 static CYCLE_REFILL_SUCCESSES: AtomicU64 = AtomicU64::new(0);
 static CYCLES_COLLECTED: AtomicU64 = AtomicU64::new(0);
+static LAST_QUERY_CYCLES: AtomicU64 = AtomicU64::new(0);
 
 #[derive(CandidType, Serialize)]
 pub struct Metrics {
@@ -33,6 +34,7 @@ pub struct Counters {
 pub struct CycleUsage {
     pub current: u128,
     pub collected: u64,
+    pub last_query: u64,
 }
 
 #[derive(CandidType, Serialize)]
@@ -66,6 +68,10 @@ pub fn add_cycles_collected(amount: u128) {
     CYCLES_COLLECTED.fetch_add(amount as u64, Ordering::Relaxed);
 }
 
+pub fn record_query_cycles(amount: u64) {
+    LAST_QUERY_CYCLES.store(amount, Ordering::Relaxed);
+}
+
 pub fn inc_heartbeat(now: u64) {
     HEARTBEAT_COUNT.fetch_add(1, Ordering::Relaxed);
     LAST_HEARTBEAT.store(now, Ordering::Relaxed);
@@ -81,6 +87,7 @@ pub fn get() -> Metrics {
         cycles: CycleUsage {
             current: cycles,
             collected: CYCLES_COLLECTED.load(Ordering::Relaxed),
+            last_query: LAST_QUERY_CYCLES.load(Ordering::Relaxed),
         },
         counters: Counters {
             query_count: QUERY_COUNT.load(Ordering::Relaxed),
