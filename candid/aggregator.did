@@ -5,8 +5,16 @@ type Holding = record {
   status: text;
 };
 
+type UserSettings = record {
+  preferred_ledgers: vec text;
+  preferred_dexes: vec text;
+  dark_mode: bool;
+};
+
 service: {
-  "get_holdings": (principal) -> (variant { Ok: vec Holding; Err: text }) query;
+  "get_holdings": (principal) -> (variant { Ok: vec Holding; Err: text });
+  "get_holdings_filtered": (principal, vec text, vec text) -> (variant { Ok: vec Holding; Err: text });
+  "get_holdings_summary": (principal) -> (variant { Ok: vec record { token: text; total: float64 }; Err: text });
   "claim_all_rewards": (principal) -> (vec nat64);
   "refresh_holdings": (principal) -> (variant { Ok: null; Err: text });
   "get_holdings_cert": (principal) -> (record {
@@ -21,4 +29,8 @@ service: {
   }) query;
   "get_metrics": () -> (text) query;
   "get_summary": (principal) -> (variant { Ok: vec record { token: text; total: float64 }; Err: text }) query;
+  "get_user_settings": (principal) -> (UserSettings) query;
+  "update_user_settings": (principal, UserSettings) -> ();
+  "get_cycles_log": () -> (vec text) query;
+  "health_check": () -> (text) query;
 };
