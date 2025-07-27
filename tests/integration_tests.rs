@@ -603,6 +603,7 @@ mod tests {
         #[derive(candid::CandidType, serde::Deserialize)]
         struct Metrics {
             cycles: u64,
+            cycles_collected: u64,
             query_count: u64,
             heartbeat_count: u64,
             last_heartbeat: u64,

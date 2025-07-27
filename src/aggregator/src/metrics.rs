@@ -9,10 +9,12 @@ static CLAIM_ATTEMPTS: AtomicU64 = AtomicU64::new(0);
 static CLAIM_SUCCESSES: AtomicU64 = AtomicU64::new(0);
 static CYCLE_REFILL_ATTEMPTS: AtomicU64 = AtomicU64::new(0);
 static CYCLE_REFILL_SUCCESSES: AtomicU64 = AtomicU64::new(0);
+static CYCLES_COLLECTED: AtomicU64 = AtomicU64::new(0);
 
 #[derive(CandidType, Serialize)]
 pub struct Metrics {
     pub cycles: u128,
+    pub cycles_collected: u64,
     pub query_count: u64,
     pub heartbeat_count: u64,
     pub last_heartbeat: u64,
@@ -42,6 +44,10 @@ pub fn inc_cycle_refill_success() {
     CYCLE_REFILL_SUCCESSES.fetch_add(1, Ordering::Relaxed);
 }
 
+pub fn add_cycles_collected(amount: u128) {
+    CYCLES_COLLECTED.fetch_add(amount as u64, Ordering::Relaxed);
+}
+
 pub fn inc_heartbeat(now: u64) {
     HEARTBEAT_COUNT.fetch_add(1, Ordering::Relaxed);
     LAST_HEARTBEAT.store(now, Ordering::Relaxed);
@@ -55,6 +61,7 @@ pub fn get() -> Metrics {
     };
     Metrics {
         cycles,
+        cycles_collected: CYCLES_COLLECTED.load(Ordering::Relaxed),
         query_count: QUERY_COUNT.load(Ordering::Relaxed),
         heartbeat_count: HEARTBEAT_COUNT.load(Ordering::Relaxed),
         last_heartbeat: LAST_HEARTBEAT.load(Ordering::Relaxed),
@@ -66,7 +73,7 @@ pub fn get() -> Metrics {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn stable_save() -> (u64, u64, u64, u64, u64, u64, u64) {
+pub fn stable_save() -> (u64, u64, u64, u64, u64, u64, u64, u64) {
     (
         QUERY_COUNT.load(Ordering::Relaxed),
         HEARTBEAT_COUNT.load(Ordering::Relaxed),
@@ -75,11 +82,12 @@ pub fn stable_save() -> (u64, u64, u64, u64, u64, u64, u64) {
         CLAIM_SUCCESSES.load(Ordering::Relaxed),
         CYCLE_REFILL_ATTEMPTS.load(Ordering::Relaxed),
         CYCLE_REFILL_SUCCESSES.load(Ordering::Relaxed),
+        CYCLES_COLLECTED.load(Ordering::Relaxed),
     )
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn stable_restore(data: (u64, u64, u64, u64, u64, u64, u64)) {
+pub fn stable_restore(data: (u64, u64, u64, u64, u64, u64, u64, u64)) {
     QUERY_COUNT.store(data.0, Ordering::Relaxed);
     HEARTBEAT_COUNT.store(data.1, Ordering::Relaxed);
     LAST_HEARTBEAT.store(data.2, Ordering::Relaxed);
@@ -87,12 +95,13 @@ pub fn stable_restore(data: (u64, u64, u64, u64, u64, u64, u64)) {
     CLAIM_SUCCESSES.store(data.4, Ordering::Relaxed);
     CYCLE_REFILL_ATTEMPTS.store(data.5, Ordering::Relaxed);
     CYCLE_REFILL_SUCCESSES.store(data.6, Ordering::Relaxed);
+    CYCLES_COLLECTED.store(data.7, Ordering::Relaxed);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn stable_save() -> (u64, u64, u64, u64, u64, u64, u64) {
-    (0, 0, 0, 0, 0, 0, 0)
+pub fn stable_save() -> (u64, u64, u64, u64, u64, u64, u64, u64) {
+    (0, 0, 0, 0, 0, 0, 0, 0)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn stable_restore(_: (u64, u64, u64, u64, u64, u64, u64)) {}
+pub fn stable_restore(_: (u64, u64, u64, u64, u64, u64, u64, u64)) {}

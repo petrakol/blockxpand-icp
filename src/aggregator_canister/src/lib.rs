@@ -33,7 +33,7 @@ fn post_upgrade() {
         Vec<aggregator::ledger_fetcher::StableMeta>,
         Vec<aggregator::lp_cache::StableEntry>,
         Vec<aggregator::user_settings::StableEntry>,
-        (u64, u64, u64, u64, u64, u64, u64),
+        (u64, u64, u64, u64, u64, u64, u64, u64),
     )>() {
         aggregator::cycles::set_log(log);
         aggregator::ledger_fetcher::stable_restore(meta);
@@ -52,15 +52,19 @@ async fn heartbeat() {
 
 #[ic_cdk_macros::query]
 fn get_metrics() -> aggregator::metrics::Metrics {
+    pay_cycles(*CALL_PRICE_CYCLES);
     aggregator::metrics::get()
 }
 
 use crate::ic_http::{Request as HttpRequest, Response as HttpResponse};
+use aggregator::{pay_cycles, CALL_PRICE_CYCLES};
 use serde_bytes::ByteBuf;
 
 #[ic_cdk_macros::query]
 pub async fn http_request(req: HttpRequest) -> HttpResponse {
     use candid::Principal;
+
+    pay_cycles(*CALL_PRICE_CYCLES);
 
     let path = req.url.split('?').next().unwrap_or("");
     let parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();

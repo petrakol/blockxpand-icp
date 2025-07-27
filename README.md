@@ -138,6 +138,8 @@ canister controller:
 - `CLAIM_MAX_TOTAL` – maximum total reward units claimable per call (default unlimited)
 - `FETCH_ADAPTER_TIMEOUT_SECS` – per-adapter fetch timeout (default 5)
 - `CYCLE_BACKOFF_MAX` – max minutes between failed cycle refills (default 60)
+- `CALL_PRICE_CYCLES` – cycles required for most Candid calls (default 0)
+- `CLAIM_PRICE_CYCLES` – cycles required for `claim_all_rewards` (default 0)
 - `WARM_QUEUE_SIZE` – maximum metadata warm queue size (default 128)
 - `META_TTL_SECS` – seconds ledger metadata stays cached (default 86400)
 - `LEDGER_RETRY_LIMIT` – attempts for ledger calls before giving up (default 3)
