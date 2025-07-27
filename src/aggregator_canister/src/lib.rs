@@ -1,5 +1,7 @@
 pub use aggregator::*;
 pub mod ic_http;
+use async_graphql::{EmptyMutation, EmptySubscription, Object, Request as GqlRequest, Schema};
+use once_cell::sync::Lazy;
 
 #[ic_cdk_macros::init]
 fn init() {
@@ -61,8 +63,68 @@ fn get_metrics() -> aggregator::metrics::Metrics {
 
 use crate::ic_http::{Request as HttpRequest, Response as HttpResponse};
 use aggregator::{pay_cycles, CALL_PRICE_CYCLES};
+
+#[derive(async_graphql::SimpleObject)]
+struct GHolding {
+    source: String,
+    token: String,
+    amount: String,
+    status: String,
+}
+
+impl From<bx_core::Holding> for GHolding {
+    fn from(h: bx_core::Holding) -> Self {
+        GHolding {
+            source: h.source,
+            token: h.token,
+            amount: h.amount,
+            status: h.status,
+        }
+    }
+}
+
+#[derive(async_graphql::SimpleObject)]
+struct GTokenTotal {
+    token: String,
+    total: f64,
+}
+
+impl From<aggregator::TokenTotal> for GTokenTotal {
+    fn from(t: aggregator::TokenTotal) -> Self {
+        GTokenTotal {
+            token: t.token,
+            total: t.total,
+        }
+    }
+}
 use serde_bytes::ByteBuf;
 
+#[derive(Default)]
+struct QueryRoot;
+
+#[Object]
+impl QueryRoot {
+    async fn holdings(&self, principal: String) -> async_graphql::Result<Vec<GHolding>> {
+        let p = candid::Principal::from_text(&principal)?;
+        Ok(aggregator::get_holdings(p)
+            .await
+            .into_iter()
+            .map(GHolding::from)
+            .collect())
+    }
+
+    async fn summary(&self, principal: String) -> async_graphql::Result<Vec<GTokenTotal>> {
+        let p = candid::Principal::from_text(&principal)?;
+        Ok(aggregator::get_summary(p)
+            .await
+            .into_iter()
+            .map(GTokenTotal::from)
+            .collect())
+    }
+}
+
+static SCHEMA: Lazy<Schema<QueryRoot, EmptyMutation, EmptySubscription>> =
+    Lazy::new(|| Schema::build(QueryRoot::default(), EmptyMutation, EmptySubscription).finish());
 #[ic_cdk_macros::query]
 pub async fn http_request(req: HttpRequest) -> HttpResponse {
     use candid::Principal;
@@ -104,6 +166,22 @@ pub async fn http_request(req: HttpRequest) -> HttpResponse {
                 body: ByteBuf::from(body),
             }
         }
+        ["graphql"] => {
+            let gql_req: GqlRequest = match serde_json::from_slice(req.body.as_ref()) {
+                Ok(r) => r,
+                Err(_) => {
+                    let query = std::str::from_utf8(req.body.as_ref()).unwrap_or("");
+                    GqlRequest::new(query)
+                }
+            };
+            let resp = SCHEMA.execute(gql_req).await;
+            let body = serde_json::to_vec(&resp).unwrap();
+            HttpResponse {
+                status_code: 200,
+                headers: vec![("Content-Type".into(), "application/json".into())],
+                body: ByteBuf::from(body),
+            }
+        }
         _ => not_found(),
     }
 }
@@ -115,10 +193,14 @@ mod tests {
     use super::*;
     use aggregator::cache;
     use bx_core::Holding;
+    use serde_json;
+    use serial_test::serial;
 
     #[tokio::test]
+    #[serial_test::serial]
     async fn http_paths() {
         let p = candid::Principal::from_text("aaaaa-aa").unwrap();
+        cache::get().clear();
         let holdings = vec![
             Holding {
                 source: "test".into(),
@@ -165,7 +247,42 @@ mod tests {
         let resp = http_request(req).await;
         assert_eq!(resp.status_code, 200u16);
         let body = std::str::from_utf8(resp.body.as_ref()).unwrap();
+        println!("body http: {}", body);
         assert!(body.contains("AAA"));
         assert!(body.contains("3"));
+    }
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn graphql_query() {
+        let p = candid::Principal::from_text("aaaaa-aa").unwrap();
+        cache::get().clear();
+        cache::get().insert(
+            p,
+            (
+                vec![Holding {
+                    source: "test".into(),
+                    token: "BBB".into(),
+                    amount: "5".into(),
+                    status: "ok".into(),
+                }],
+                vec![aggregator::HoldingSummary {
+                    token: "BBB".into(),
+                    total: 5.0,
+                }],
+                aggregator::utils::now(),
+            ),
+        );
+        let query = format!("{{ summary(principal: \"{p}\") {{ token total }} }}");
+        let req = HttpRequest {
+            method: "POST".into(),
+            url: "/graphql".into(),
+            headers: vec![],
+            body: ByteBuf::from(serde_json::to_vec(&serde_json::json!({"query": query})).unwrap()),
+        };
+        let resp = http_request(req).await;
+        assert_eq!(resp.status_code, 200u16);
+        let body = std::str::from_utf8(resp.body.as_ref()).unwrap();
+        assert!(body.contains("BBB"));
     }
 }

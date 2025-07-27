@@ -141,11 +141,12 @@ fn instructions() -> u64 {
 pub fn pay_cycles(price: u128) {
     use ic_cdk::api::call::{msg_cycles_accept, msg_cycles_available};
     if price > 0 {
-        if msg_cycles_available() < price {
+        let price_u64: u64 = price.try_into().unwrap_or(u64::MAX);
+        if msg_cycles_available() < price_u64 {
             ic_cdk::api::trap("insufficient cycles");
         }
-        let accepted = msg_cycles_accept(price);
-        metrics::add_cycles_collected(accepted);
+        let accepted = msg_cycles_accept(price_u64);
+        metrics::add_cycles_collected(accepted as u128);
     }
 }
 
@@ -330,7 +331,7 @@ pub fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
     }
 }
 
-#[derive(Clone, candid::CandidType, serde::Serialize)]
+#[derive(Clone, candid::CandidType, serde::Serialize, serde::Deserialize)]
 pub struct HoldingSummary {
     pub token: String,
     pub total: f64,
@@ -448,7 +449,7 @@ pub fn health_check() -> &'static str {
     "ok"
 }
 
-#[derive(candid::CandidType, serde::Serialize)]
+#[derive(candid::CandidType, serde::Serialize, serde::Deserialize)]
 pub struct TokenTotal {
     pub token: String,
     pub total: f64,

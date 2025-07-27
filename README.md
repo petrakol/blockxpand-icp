@@ -101,6 +101,22 @@ The `frontend` directory contains a minimal HTML/JS interface that calls the can
     http-server frontend
     # Then open http://localhost:8080 in a browser that supports Internet‑Identity.
 
+### Example: CLI
+
+The `cli` crate provides a minimal command line interface.
+
+    cargo run -p cli -- --canister <canister-id> holdings <principal>
+    cargo run -p cli -- --canister <canister-id> summary <principal>
+
+### Example: GraphQL
+
+The HTTP API also exposes a `/graphql` endpoint.
+Using `dfx` you can issue a request like:
+
+    dfx canister call aggregator_canister http_request \
+      '(record {method="POST"; url="/graphql"; body=vec {}})' \
+      --query '("{ holdings(principal: \"<principal>\") { token amount } }")'
+
 ### Environment Variables
 
 | Variable | Purpose |
