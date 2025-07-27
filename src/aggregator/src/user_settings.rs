@@ -1,7 +1,7 @@
 use candid::Principal;
+use dashmap::DashMap;
 use once_cell::sync::Lazy;
-use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
+use std::collections::HashSet;
 
 #[derive(
     Default, Clone, candid::CandidType, serde::Serialize, serde::Deserialize, PartialEq, Debug,
@@ -13,8 +13,7 @@ pub struct UserSettings {
     pub dexes: Option<HashSet<String>>,
 }
 
-static SETTINGS: Lazy<Mutex<HashMap<Principal, UserSettings>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static SETTINGS: Lazy<DashMap<Principal, UserSettings>> = Lazy::new(DashMap::new);
 
 #[derive(candid::CandidType, serde::Serialize, serde::Deserialize)]
 pub struct StableEntry {
@@ -23,34 +22,31 @@ pub struct StableEntry {
 }
 
 pub fn get(principal: &Principal) -> Option<UserSettings> {
-    SETTINGS.lock().unwrap().get(principal).cloned()
+    SETTINGS.get(principal).map(|e| e.value().clone())
 }
 
 pub fn update(principal: Principal, settings: UserSettings) {
-    SETTINGS.lock().unwrap().insert(principal, settings);
+    SETTINGS.insert(principal, settings);
 }
 
 pub fn remove(principal: Principal) {
-    SETTINGS.lock().unwrap().remove(&principal);
+    SETTINGS.remove(&principal);
 }
 
 pub fn stable_save() -> Vec<StableEntry> {
     SETTINGS
-        .lock()
-        .unwrap()
         .iter()
-        .map(|(p, s)| StableEntry {
-            principal: *p,
-            settings: s.clone(),
+        .map(|e| StableEntry {
+            principal: *e.key(),
+            settings: e.value().clone(),
         })
         .collect()
 }
 
 pub fn stable_restore(entries: Vec<StableEntry>) {
-    let mut map = SETTINGS.lock().unwrap();
-    map.clear();
+    SETTINGS.clear();
     for e in entries {
-        map.insert(e.principal, e.settings);
+        SETTINGS.insert(e.principal, e.settings);
     }
 }
 

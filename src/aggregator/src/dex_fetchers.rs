@@ -1,8 +1,4 @@
-use crate::dex::dex_icpswap::IcpswapAdapter;
-use crate::dex::dex_infinity::InfinityAdapter;
-use crate::dex::dex_sonic::SonicAdapter;
-use crate::dex::sns_adapter::SnsAdapter;
-use crate::dex::DexAdapter;
+use crate::dex::registry::{self, AdapterEntry};
 use crate::error::FetchError;
 use bx_core::Holding;
 use candid::Principal;
@@ -11,11 +7,6 @@ use futures::future::join_all;
 use once_cell::sync::Lazy;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
-
-pub const ICPSWAP: &str = "ICPSWAP_FACTORY";
-pub const SONIC: &str = "SONIC_ROUTER";
-pub const INFINITY: &str = "INFINITY_VAULT";
-pub const SNS: &str = "SNS_DISTRIBUTOR";
 
 #[cfg(not(target_arch = "wasm32"))]
 static FETCH_ADAPTER_TIMEOUT_SECS: Lazy<u64> = Lazy::new(|| {
@@ -58,26 +49,17 @@ pub async fn fetch_filtered(
 ) -> Result<Vec<Holding>, FetchError> {
     // allow other tasks to start before launching adapter queries
     pause().await;
-    let mut adapters: Vec<Box<dyn DexAdapter>> = Vec::new();
-    let want = |name: &str| match list {
-        Some(s) => s.contains(name),
-        None => true,
-    };
-    if want(ICPSWAP) {
-        adapters.push(Box::new(IcpswapAdapter));
-    }
-    if want(SONIC) {
-        adapters.push(Box::new(SonicAdapter));
-    }
-    if want(INFINITY) {
-        adapters.push(Box::new(InfinityAdapter));
-    }
-    if want(SNS) {
-        adapters.push(Box::new(SnsAdapter));
-    }
+    let adapters: Vec<AdapterEntry> = registry::get();
     let tasks = adapters
         .into_iter()
-        .map(|a| async move { with_timeout(a.fetch_positions(principal)).await });
+        .filter(|e| match list {
+            Some(s) => s.contains(&e.name),
+            None => true,
+        })
+        .map(|e| {
+            let adapter = e.adapter.clone();
+            async move { with_timeout(adapter.fetch_positions(principal)).await }
+        });
     let results = join_all(tasks).await;
     let capacity: usize = results
         .iter()

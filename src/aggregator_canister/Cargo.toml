@@ -12,6 +12,9 @@ candid = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
+async-graphql = { workspace = true }
+once_cell = { workspace = true }
+bx_core = { path = "../bx_core" }
 
 [features]
 export_candid = ["ic-cdk/wasi"]
@@ -28,3 +31,4 @@ chrono = { workspace = true }
 [dev-dependencies]
 bx_core = { path = "../bx_core" }
 tokio = { workspace = true }
+serial_test = "2"

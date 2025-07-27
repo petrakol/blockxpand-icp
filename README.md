@@ -101,6 +101,22 @@ The `frontend` directory contains a minimal HTML/JS interface that calls the can
     http-server frontend
     # Then open http://localhost:8080 in a browser that supports Internet‑Identity.
 
+### Example: CLI
+
+The `cli` crate provides a minimal command line interface.
+
+    cargo run -p cli -- --canister <canister-id> holdings <principal>
+    cargo run -p cli -- --canister <canister-id> summary <principal>
+
+### Example: GraphQL
+
+The HTTP API also exposes a `/graphql` endpoint.
+Using `dfx` you can issue a request like:
+
+    dfx canister call aggregator_canister http_request \
+      '(record {method="POST"; url="/graphql"; body=vec {}})' \
+      --query '("{ holdings(principal: \"<principal>\") { token amount } }")'
+
 ### Environment Variables
 
 | Variable | Purpose |
@@ -128,6 +144,7 @@ canister controller:
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
 - `SNS_DISTRIBUTOR` – SNS airdrop distributor canister ID
+- `SNS_*` – additional SNS distributor IDs loaded as `SnsAdapter`
 - `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
 - `CLAIM_DENYLIST` – principals forbidden from calling `claim_all_rewards`
 - `CLAIM_LOCK_TIMEOUT_SECS` – how long claim locks persist after errors (default 300)
@@ -138,6 +155,8 @@ canister controller:
 - `CLAIM_MAX_TOTAL` – maximum total reward units claimable per call (default unlimited)
 - `FETCH_ADAPTER_TIMEOUT_SECS` – per-adapter fetch timeout (default 5)
 - `CYCLE_BACKOFF_MAX` – max minutes between failed cycle refills (default 60)
+- `CALL_PRICE_CYCLES` – cycles required for most Candid calls (default 0)
+- `CLAIM_PRICE_CYCLES` – cycles required for `claim_all_rewards` (default 0)
 - `WARM_QUEUE_SIZE` – maximum metadata warm queue size (default 128)
 - `META_TTL_SECS` – seconds ledger metadata stays cached (default 86400)
 - `LEDGER_RETRY_LIMIT` – attempts for ledger calls before giving up (default 3)
@@ -166,6 +185,7 @@ export ICPSWAP_FACTORY=bbbbbb-bb
 export SONIC_ROUTER=cccccc-cc
 export INFINITY_VAULT=dddddd-dd
 export SNS_DISTRIBUTOR=eeeeee-ee
+export SNS_TEST=fffff-fd
 ```
 
 ### Production deployment
@@ -210,6 +230,7 @@ method. The following endpoints are available:
 
 - `/holdings/<principal>` – returns an array of `Holding` records
 - `/summary/<principal>` – returns totals per token
+- `/metrics` – returns service metrics
 
 Requests return HTTP 200 on success with `Content-Type: application/json`
 or 404 if the path or principal is invalid.

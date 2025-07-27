@@ -66,6 +66,8 @@
         import { AuthClient } from "https://unpkg.com/@dfinity/auth-client@1.1.1?module";
 
         const canisterId = "<CANISTER_ID>"; // replace with aggregator canister ID
+        const callPrice = Number("<CALL_PRICE>");
+        const claimPrice = Number("<CLAIM_PRICE>");
         const idlFactory = ({IDL}) => IDL.Service({
             get_holdings: IDL.Func([IDL.Principal], [IDL.Vec(
                 IDL.Record({
@@ -105,6 +107,8 @@
             actor = Actor.createActor(idlFactory, { agent, canisterId });
             document.getElementById("principal").textContent = identity.getPrincipal().toText();
             document.getElementById("claimBtn").disabled = false;
+            document.getElementById("callCost").textContent = callPrice;
+            document.getElementById("claimCost").textContent = claimPrice;
             await fetchHoldings();
         }
 
@@ -112,7 +116,7 @@
             setStatus("");
             try {
                 const principal = actor.agent.identity.getPrincipal();
-                const spent = await actor.claim_all_rewards(principal);
+                const spent = await actor.claim_all_rewards(principal, { amount: BigInt(claimPrice) });
                 setStatus("Spent: " + spent.join(", "));
                 await fetchHoldings();
             } catch (err) {
@@ -164,6 +168,7 @@
         <p>Principal: <span id="principal">not connected</span></p>
         <button onclick="connect()">Connect Wallet</button>
         <button id="claimBtn" onclick="claim()" disabled>Claim Rewards</button>
+        <p>Query cost: <span id="callCost"></span> cycles. Claim cost: <span id="claimCost"></span> cycles.</p>
         <table id="holdings">
             <thead>
                 <tr><th>Source</th><th>Token</th><th>Amount</th></tr>
