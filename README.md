@@ -91,7 +91,6 @@ Below is a high‑level visualisation of the architecture.  It shows how callers
     dfx deploy aggregator_canister --no-wallet
 
     # Call the canister
-    # `get_holdings` now returns a Result; the Ok variant contains the list
     dfx canister call aggregator_canister get_holdings '("<your-principal>")'
 
 ### Example: Web UI
