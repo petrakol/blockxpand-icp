@@ -3,14 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BlockXpand Rewards</title>
+    <title>BlockXpand – Discover and claim your ICP rewards</title>
+    <meta name="description" content="Never miss another ICP airdrop or staking reward. BlockXpand scans your wallets, neurons and DEX positions to find hidden rewards and lets you claim them instantly." />
     <link rel="stylesheet" href="styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "BlockXpand",
+        "operatingSystem": "Web",
+        "applicationCategory": "FinanceApplication",
+        "description": "Never miss another ICP airdrop or staking reward. BlockXpand scans your wallets, neurons and DEX positions to find hidden rewards and lets you claim them instantly.",
+        "url": "https://blockxpand.app"
+      }
+    </script>
     <script>
       window.CANISTER_ID = "<CANISTER_ID>";
     </script>
   </head>
   <body>
-    <div class="container">
+    <main class="container">
       <img src="blockxpand_logo.svg" alt="BlockXpand" class="logo" />
       <h1 class="tagline">Never miss a crypto reward again</h1>
       <p id="principal">Not connected</p>
@@ -71,7 +83,31 @@
       ></div>
 
       <div id="error-message" class="error hidden" role="alert"></div>
-    </div>
+    </main>
+
+    <section id="features" class="features">
+      <h2>Key Features</h2>
+      <ul class="feature-list">
+        <li>
+          <article class="feature-card">
+            <h3>Unified balance discovery</h3>
+            <p>
+              BlockXpand aggregates your wallets, neurons and DEX positions so no
+              reward goes unnoticed.
+            </p>
+          </article>
+        </li>
+        <li>
+          <article class="feature-card">
+            <h3>One‑click claims</h3>
+            <p>
+              Collect airdrops and staking rewards instantly, saving cycles and
+              time.
+            </p>
+          </article>
+        </li>
+      </ul>
+    </section>
     <script type="module" src="main.js"></script>
   </body>
 </html>

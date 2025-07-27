@@ -177,3 +177,30 @@ body {
   color: var(--error-text);
   border-radius: 8px;
 }
+
+.features {
+  margin: 2rem auto;
+  max-width: 720px;
+  padding: 0 1rem;
+}
+
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 600px) {
+  .feature-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.feature-card {
+  background: var(--surface-color);
+  padding: 1rem;
+  border-radius: 12px;
+  color: var(--text-color);
+}
