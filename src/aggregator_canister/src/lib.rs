@@ -1,4 +1,5 @@
 pub use aggregator::*;
+pub mod ic_http;
 
 #[ic_cdk_macros::init]
 fn init() {
@@ -54,17 +55,8 @@ fn get_metrics() -> aggregator::metrics::Metrics {
     aggregator::metrics::get()
 }
 
-use ic_cdk::api::management_canister::http_request::{HttpHeader, HttpMethod, HttpResponse};
-use serde::Deserialize;
-
-#[derive(candid::CandidType, Deserialize)]
-pub struct HttpRequest {
-    pub method: HttpMethod,
-    pub url: String,
-    pub headers: Vec<HttpHeader>,
-    #[serde(with = "serde_bytes")]
-    pub body: Vec<u8>,
-}
+use crate::ic_http::{Request as HttpRequest, Response as HttpResponse};
+use serde_bytes::ByteBuf;
 
 #[ic_cdk_macros::query]
 pub async fn http_request(req: HttpRequest) -> HttpResponse {
@@ -73,12 +65,9 @@ pub async fn http_request(req: HttpRequest) -> HttpResponse {
     let path = req.url.split('?').next().unwrap_or("");
     let parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();
     let not_found = || HttpResponse {
-        status: 404u16.into(),
-        headers: vec![HttpHeader {
-            name: "Content-Type".into(),
-            value: "application/json".into(),
-        }],
-        body: b"{\"error\":\"not found\"}".to_vec(),
+        status_code: 404,
+        headers: vec![("Content-Type".into(), "application/json".into())],
+        body: ByteBuf::from(r#"{"error":"not found"}"#),
     };
 
     match parts.as_slice() {
@@ -90,12 +79,9 @@ pub async fn http_request(req: HttpRequest) -> HttpResponse {
             let holdings = aggregator::get_holdings(principal).await;
             let body = serde_json::to_vec(&holdings).unwrap();
             HttpResponse {
-                status: 200u16.into(),
-                headers: vec![HttpHeader {
-                    name: "Content-Type".into(),
-                    value: "application/json".into(),
-                }],
-                body,
+                status_code: 200,
+                headers: vec![("Content-Type".into(), "application/json".into())],
+                body: ByteBuf::from(body),
             }
         }
         ["summary", pid] => {
@@ -106,12 +92,9 @@ pub async fn http_request(req: HttpRequest) -> HttpResponse {
             let summary = aggregator::get_summary(principal).await;
             let body = serde_json::to_vec(&summary).unwrap();
             HttpResponse {
-                status: 200u16.into(),
-                headers: vec![HttpHeader {
-                    name: "Content-Type".into(),
-                    value: "application/json".into(),
-                }],
-                body,
+                status_code: 200,
+                headers: vec![("Content-Type".into(), "application/json".into())],
+                body: ByteBuf::from(body),
             }
         }
         _ => not_found(),
@@ -125,7 +108,6 @@ mod tests {
     use super::*;
     use aggregator::cache;
     use bx_core::Holding;
-    use ic_cdk::api::management_canister::http_request::HttpMethod;
 
     #[tokio::test]
     async fn http_paths() {
@@ -159,23 +141,23 @@ mod tests {
         cache::get().insert(p, (holdings.clone(), summary, aggregator::utils::now()));
 
         let req = HttpRequest {
-            method: HttpMethod::GET,
+            method: "GET".into(),
             url: format!("/holdings/{p}"),
             headers: vec![],
-            body: vec![],
+            body: ByteBuf::default(),
         };
         let resp = http_request(req).await;
-        assert_eq!(resp.status, candid::Nat::from(200u16));
+        assert_eq!(resp.status_code, 200u16);
 
         let req = HttpRequest {
-            method: HttpMethod::GET,
+            method: "GET".into(),
             url: format!("/summary/{p}"),
             headers: vec![],
-            body: vec![],
+            body: ByteBuf::default(),
         };
         let resp = http_request(req).await;
-        assert_eq!(resp.status, candid::Nat::from(200u16));
-        let body = std::str::from_utf8(&resp.body).unwrap();
+        assert_eq!(resp.status_code, 200u16);
+        let body = std::str::from_utf8(resp.body.as_ref()).unwrap();
         assert!(body.contains("AAA"));
         assert!(body.contains("3"));
     }
