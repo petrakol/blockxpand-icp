@@ -151,6 +151,7 @@ canister controller:
 - `CLAIM_ADAPTER_TIMEOUT_SECS` – per-adapter claim timeout (default 10)
 - `CLAIM_DAILY_LIMIT` – max `claim_all_rewards` attempts per user per day (default 5)
 - `CLAIM_LIMIT_WINDOW_SECS` – seconds before the claim counter resets (default 86400)
+- `CLAIM_COOLDOWN_SECS` – seconds a user must wait between claims (default 60)
 - `MAX_CLAIM_PER_CALL` – limit how many adapters are used per claim call (default unlimited)
 - `CLAIM_MAX_TOTAL` – maximum total reward units claimable per call (default unlimited)
 - `FETCH_ADAPTER_TIMEOUT_SECS` – per-adapter fetch timeout (default 5)
