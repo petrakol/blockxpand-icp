@@ -31,7 +31,9 @@ jobs:
         dfx start --background --clean
         trap 'dfx stop' EXIT
         dfx deploy
-        dfx canister call aggregator get_holdings '(principal "aaaaa-aa")'
+        # Explicitly use the Candid file and query the read-only method
+        dfx canister query aggregator get_holdings \
+          --candid candid/aggregator.did '(principal "aaaaa-aa")'
     - name: Deploy to test net
       run: ./deploy.sh
 
