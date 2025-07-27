@@ -35,19 +35,13 @@ fn pre_upgrade() {
     let lp = aggregator::lp_cache::stable_save();
     let settings = aggregator::user_settings::stable_save();
     let metrics = aggregator::metrics::stable_save();
-    let snapshot = (
-        STABLE_VERSION,
-        &log,
-        &meta,
-        &lp,
-        &settings,
-        &metrics,
-    );
+    let snapshot = (STABLE_VERSION, &log, &meta, &lp, &settings, &metrics);
     let bytes = candid::encode_one(snapshot).expect("encode state");
     if bytes.len() as u64 > *MAX_STATE_BYTES {
         ic_cdk::trap(&format!(
             "stable state {} bytes exceeds limit {}",
-            bytes.len(), *MAX_STATE_BYTES
+            bytes.len(),
+            *MAX_STATE_BYTES
         ));
     }
     ic_cdk::storage::stable_save((STABLE_VERSION, log, meta, lp, settings, metrics)).unwrap();
@@ -86,7 +80,7 @@ async fn heartbeat() {
 
 #[ic_cdk_macros::query]
 fn get_metrics() -> String {
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     serde_json::to_string(&aggregator::metrics::get()).unwrap()
 }
 
@@ -134,13 +128,17 @@ struct QueryRoot;
 impl QueryRoot {
     async fn holdings(&self, principal: String) -> async_graphql::Result<Vec<GHolding>> {
         let p = candid::Principal::from_text(&principal)?;
-        let holdings = aggregator::get_holdings(p).await.map_err(async_graphql::Error::new)?;
+        let holdings = aggregator::get_holdings(p)
+            .await
+            .map_err(async_graphql::Error::new)?;
         Ok(holdings.into_iter().map(GHolding::from).collect())
     }
 
     async fn summary(&self, principal: String) -> async_graphql::Result<Vec<GTokenTotal>> {
         let p = candid::Principal::from_text(&principal)?;
-        let summary = aggregator::get_summary(p).await.map_err(async_graphql::Error::new)?;
+        let summary = aggregator::get_summary(p)
+            .await
+            .map_err(async_graphql::Error::new)?;
         Ok(summary.into_iter().map(GTokenTotal::from).collect())
     }
 }
@@ -151,7 +149,7 @@ static SCHEMA: Lazy<Schema<QueryRoot, EmptyMutation, EmptySubscription>> =
 pub async fn http_request(req: HttpRequest) -> HttpResponse {
     use candid::Principal;
 
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
 
     let path = req.url.split('?').next().unwrap_or("");
     let parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();

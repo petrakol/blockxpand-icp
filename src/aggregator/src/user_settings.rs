@@ -1,16 +1,14 @@
 use candid::Principal;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
-use std::collections::HashSet;
 
-#[derive(
-    Default, Clone, candid::CandidType, serde::Serialize, serde::Deserialize, PartialEq, Debug,
-)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Default, Clone, candid::CandidType, Serialize, Deserialize, PartialEq, Debug)]
 pub struct UserSettings {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ledgers: Option<HashSet<Principal>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dexes: Option<HashSet<String>>,
+    pub preferred_ledgers: Vec<String>,
+    pub preferred_dexes: Vec<String>,
+    pub dark_mode: bool,
 }
 
 static SETTINGS: Lazy<DashMap<Principal, UserSettings>> = Lazy::new(DashMap::new);
@@ -59,19 +57,17 @@ mod tests {
     fn crud() {
         let p = Principal::from_text("aaaaa-aa").unwrap();
         assert!(get(&p).is_none());
-        let mut ledgers = HashSet::new();
-        ledgers.insert(p);
         let s1 = UserSettings {
-            ledgers: Some(ledgers),
-            dexes: None,
+            preferred_ledgers: vec![p.to_text()],
+            preferred_dexes: Vec::new(),
+            dark_mode: false,
         };
         update(p, s1.clone());
         assert_eq!(get(&p), Some(s1.clone()));
-        let mut dexes = HashSet::new();
-        dexes.insert("ICPSWAP_FACTORY".to_string());
         let s2 = UserSettings {
-            ledgers: None,
-            dexes: Some(dexes),
+            preferred_ledgers: Vec::new(),
+            preferred_dexes: vec!["ICPSWAP_FACTORY".to_string()],
+            dark_mode: true,
         };
         update(p, s2.clone());
         assert_eq!(get(&p), Some(s2.clone()));

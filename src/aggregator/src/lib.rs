@@ -17,6 +17,7 @@ pub mod warm;
 use crate::utils::{now, MINUTE_NS};
 use bx_core::Holding;
 use candid::Principal;
+use lazy_static::lazy_static;
 use once_cell::sync::Lazy;
 #[cfg(feature = "claim")]
 use std::collections::{HashMap, HashSet};
@@ -28,16 +29,16 @@ static MAX_HOLDINGS: Lazy<usize> = Lazy::new(|| {
         .and_then(|v| v.parse::<usize>().ok())
         .unwrap_or(500)
 });
-pub static CALL_PRICE_CYCLES: Lazy<u128> = Lazy::new(|| {
-    option_env!("CALL_PRICE_CYCLES")
+lazy_static! {
+    pub static ref CALL_PRICE: u128 = std::env::var("CALL_PRICE_CYCLES")
+        .ok()
         .and_then(|v| v.parse::<u128>().ok())
-        .unwrap_or(0)
-});
-pub static CLAIM_PRICE_CYCLES: Lazy<u128> = Lazy::new(|| {
-    option_env!("CLAIM_PRICE_CYCLES")
+        .unwrap_or(0);
+    pub static ref CLAIM_PRICE: u128 = std::env::var("CLAIM_PRICE_CYCLES")
+        .ok()
         .and_then(|v| v.parse::<u128>().ok())
-        .unwrap_or(0)
-});
+        .unwrap_or(0);
+}
 #[cfg(feature = "claim")]
 static CLAIM_WALLETS: Lazy<HashSet<Principal>> = Lazy::new(|| {
     option_env!("CLAIM_WALLETS")
@@ -122,9 +123,20 @@ static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<std::sync::atomic::AtomicU64> = Lazy::ne
 async fn calculate_holdings(
     principal: Principal,
 ) -> Result<(Vec<Holding>, Vec<HoldingSummary>), rust_decimal::Error> {
-    let settings = user_settings::get(&principal);
-    let ledger_filter = settings.as_ref().and_then(|s| s.ledgers.as_ref());
-    let dex_filter = settings.as_ref().and_then(|s| s.dexes.as_ref());
+    let settings = user_settings::get(&principal).unwrap_or_default();
+    use std::collections::HashSet;
+    let ledger_set: HashSet<Principal> = settings
+        .preferred_ledgers
+        .iter()
+        .filter_map(|s| Principal::from_text(s).ok())
+        .collect();
+    let dex_set: HashSet<String> = settings.preferred_dexes.iter().cloned().collect();
+    let ledger_filter = if ledger_set.is_empty() {
+        None
+    } else {
+        Some(&ledger_set)
+    };
+    let dex_filter = if dex_set.is_empty() { None } else { Some(&dex_set) };
     let (ledger, neuron, dex) = futures::join!(
         ledger_fetcher::fetch_filtered(principal, ledger_filter),
         neuron_fetcher::fetch(principal),
@@ -156,24 +168,40 @@ fn instructions() -> u64 {
 
 #[cfg(target_arch = "wasm32")]
 pub fn pay_cycles(price: u128) {
-    use ic_cdk::api::call::{msg_cycles_accept, msg_cycles_available};
     if price > 0 {
-        let price_u64: u64 = price.try_into().unwrap_or(u64::MAX);
-        if msg_cycles_available() < price_u64 {
+        let accepted = ic_cdk::api::call::msg_cycles_accept128(price);
+        metrics::add_cycles_collected(accepted);
+        if accepted < price {
             ic_cdk::api::trap("insufficient cycles");
         }
-        let accepted = msg_cycles_accept(price_u64);
-        metrics::add_cycles_collected(accepted as u128);
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn pay_cycles(_price: u128) {}
 
-#[ic_cdk_macros::query]
+#[cfg(target_arch = "wasm32")]
+fn accept_cycles(price: u128) -> u128 {
+    let accepted = ic_cdk::api::call::msg_cycles_accept128(price);
+    metrics::add_cycles_collected(accepted);
+    accepted
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn accept_cycles(price: u128) -> u128 {
+    price
+}
+
+#[ic_cdk_macros::update]
 pub async fn get_holdings(principal: Principal) -> Result<Vec<Holding>, String> {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    let accepted = accept_cycles(*CALL_PRICE);
+    if accepted < *CALL_PRICE {
+        return Err(format!(
+            "Insufficient cycles: sent {}, required {}",
+            accepted, *CALL_PRICE
+        ));
+    }
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let start = instructions();
@@ -210,11 +238,66 @@ pub async fn get_holdings(principal: Principal) -> Result<Vec<Holding>, String> 
     Ok(holdings)
 }
 
+#[ic_cdk_macros::update]
+pub async fn get_holdings_filtered(
+    principal: Principal,
+    ledgers: Vec<String>,
+    dexes: Vec<String>,
+) -> Result<Vec<Holding>, String> {
+    metrics::inc_query();
+    let accepted = accept_cycles(*CALL_PRICE);
+    if accepted < *CALL_PRICE {
+        return Err(format!(
+            "Insufficient cycles: sent {}, required {}",
+            accepted, *CALL_PRICE
+        ));
+    }
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
+    let start = instructions();
+    use std::collections::HashSet;
+    let ledger_set: HashSet<Principal> = ledgers
+        .iter()
+        .filter_map(|s| Principal::from_text(s).ok())
+        .collect();
+    let dex_set: HashSet<String> = dexes.into_iter().collect();
+    let ledger_filter = if ledger_set.is_empty() { None } else { Some(&ledger_set) };
+    let dex_filter = if dex_set.is_empty() { None } else { Some(&dex_set) };
+    let (ledger, neuron, dex) = futures::join!(
+        ledger_fetcher::fetch_filtered(principal, ledger_filter),
+        neuron_fetcher::fetch(principal),
+        dex_fetchers::fetch_filtered(principal, dex_filter)
+    );
+    let capacity =
+        ledger.as_ref().map_or(0, |v| v.len()) + neuron.len() + dex.as_ref().map_or(0, |v| v.len());
+    let mut holdings = Vec::with_capacity(capacity);
+    holdings.extend(ledger.unwrap_or_default());
+    holdings.extend(neuron);
+    holdings.extend(dex.unwrap_or_default());
+    if holdings.len() > *MAX_HOLDINGS {
+        holdings.truncate(*MAX_HOLDINGS);
+    }
+    let used = instructions().saturating_sub(start);
+    tracing::info!(
+        "get_holdings_filtered took {used} instructions ({:.2} B)",
+        used as f64 / 1_000_000_000f64
+    );
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    Ok(holdings)
+}
+
 #[cfg(feature = "claim")]
 #[ic_cdk_macros::update]
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     metrics::inc_query();
-    pay_cycles(*CLAIM_PRICE_CYCLES);
+    let accepted = accept_cycles(*CLAIM_PRICE);
+    if accepted < *CLAIM_PRICE {
+        ic_cdk::api::trap(&format!(
+            "Insufficient cycles: sent {}, required {}",
+            accepted, *CLAIM_PRICE
+        ));
+    }
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     metrics::inc_claim_attempt();
@@ -331,7 +414,7 @@ where
 #[ic_cdk_macros::query]
 pub fn pools_graphql(query: String) -> String {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let res = pool_registry::graphql(query);
@@ -352,7 +435,7 @@ pub struct CertifiedHoldings {
 #[ic_cdk_macros::update]
 pub async fn refresh_holdings(principal: Principal) -> Result<(), String> {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let now = now();
@@ -369,7 +452,7 @@ pub async fn refresh_holdings(principal: Principal) -> Result<(), String> {
 #[ic_cdk_macros::query]
 pub fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let holdings = cache::get()
@@ -394,10 +477,16 @@ pub struct HoldingSummary {
     pub total: f64,
 }
 
-#[ic_cdk_macros::query]
+#[ic_cdk_macros::update]
 pub async fn get_holdings_summary(principal: Principal) -> Result<Vec<HoldingSummary>, String> {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    let accepted = accept_cycles(*CALL_PRICE);
+    if accepted < *CALL_PRICE {
+        return Err(format!(
+            "Insufficient cycles: sent {}, required {}",
+            accepted, *CALL_PRICE
+        ));
+    }
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let now = now();
@@ -445,7 +534,7 @@ pub struct Version {
 #[ic_cdk_macros::query]
 pub fn get_version() -> Version {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let out = Version {
@@ -460,7 +549,7 @@ pub fn get_version() -> Version {
 #[ic_cdk_macros::query]
 pub fn get_cycles_log() -> Vec<String> {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let log = cycles::log();
@@ -472,7 +561,7 @@ pub fn get_cycles_log() -> Vec<String> {
 #[ic_cdk_macros::query]
 pub fn get_user_settings(principal: Principal) -> user_settings::UserSettings {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let out = user_settings::get(&principal).unwrap_or_default();
@@ -484,7 +573,7 @@ pub fn get_user_settings(principal: Principal) -> user_settings::UserSettings {
 #[ic_cdk_macros::update]
 pub fn update_user_settings(principal: Principal, settings: user_settings::UserSettings) {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let caller = ic_cdk::caller();
@@ -509,7 +598,7 @@ pub struct ClaimStatus {
 #[ic_cdk_macros::query]
 pub fn get_claim_status(principal: Principal) -> ClaimStatus {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let now = now();
@@ -537,7 +626,7 @@ pub fn get_claim_status(principal: Principal) -> ClaimStatus {
 #[ic_cdk_macros::query]
 pub fn health_check() -> &'static str {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let out = "ok";
@@ -575,7 +664,7 @@ fn summarize(holdings: &[Holding]) -> Result<Vec<TokenTotal>, rust_decimal::Erro
 #[ic_cdk_macros::query]
 pub async fn get_summary(principal: Principal) -> Result<Vec<TokenTotal>, String> {
     metrics::inc_query();
-    pay_cycles(*CALL_PRICE_CYCLES);
+    pay_cycles(*CALL_PRICE);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let holdings = get_holdings(principal).await?;
