@@ -92,6 +92,7 @@ Below is a high‑level visualisation of the architecture.  It shows how callers
 
     # Call the canister
     dfx canister call aggregator_canister get_holdings '("<your-principal>")'
+    # Returns `record { ok = vec <Holding>; }` on success
 
 ### Example: Web UI
 

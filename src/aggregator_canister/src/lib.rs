@@ -91,7 +91,6 @@ fn get_metrics() -> String {
 }
 
 use crate::ic_http::{Request as HttpRequest, Response as HttpResponse};
-use aggregator::{pay_cycles, CALL_PRICE_CYCLES};
 
 #[derive(async_graphql::SimpleObject)]
 struct GHolding {

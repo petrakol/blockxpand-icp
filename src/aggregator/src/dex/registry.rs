@@ -1,6 +1,8 @@
+use super::DexAdapter;
+#[cfg(not(target_arch = "wasm32"))]
 use super::{
     dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
-    sns_adapter::SnsAdapter, DexAdapter,
+    sns_adapter::SnsAdapter,
 };
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};

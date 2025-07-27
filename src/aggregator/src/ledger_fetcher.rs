@@ -132,6 +132,7 @@ struct Meta {
 #[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
 
+#[cfg(not(target_arch = "wasm32"))]
 static MAX_META_ENTRIES: Lazy<usize> = Lazy::new(|| {
     option_env!("META_CACHE_SIZE")
         .and_then(|v| v.parse::<usize>().ok())
