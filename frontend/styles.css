@@ -146,3 +146,12 @@ body {
 .summary-bar.expanded .arrow {
   transform: rotate(90deg);
 }
+
+.error {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-left: 4px solid #e84a5f;
+  background: #33151b;
+  color: #f2c4c4;
+  border-radius: 8px;
+}

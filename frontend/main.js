@@ -20,6 +20,13 @@ const summaryDrawer = document.getElementById("summary-drawer");
 const summaryTotal = document.getElementById("summary-total");
 const spinner = document.getElementById("logo-spinner");
 const skeleton = document.getElementById("summary-skeleton");
+const errorDiv = document.getElementById("error-message");
+
+function showError(msg) {
+  errorDiv.textContent = msg;
+  errorDiv.classList.remove("hidden");
+  setTimeout(() => errorDiv.classList.add("hidden"), 5000);
+}
 
 function showLoading() {
   spinner.classList.remove("hidden");
@@ -64,6 +71,7 @@ async function connect() {
       return;
     } catch (e) {
       console.error("Plug connect failed", e);
+      showError("Connection failed. Please check your Internet Identity and try again.");
       hideLoading();
     }
   }
@@ -77,6 +85,7 @@ async function connect() {
     });
   } catch (e) {
     console.error("II connect failed", e);
+    showError("Connection failed. Please check your Internet Identity and try again.");
     hideLoading();
   }
 }
@@ -102,6 +111,18 @@ async function fetchSummary() {
       const details = res.Ok.map((item) => [item.token, item.total]);
       const total = details.reduce((acc, [, amt]) => acc + amt, 0);
       populateSummary(total, details);
+    } else if ("Err" in res) {
+      if (/cycles/i.test(res.Err)) {
+        showError("Insufficient cycles attached. Please top up your wallet and retry.");
+      } else {
+        showError("Unable to load your balances. Please try again later.");
+      }
+    }
+  } catch (e) {
+    if (/cycles/i.test(e.message || "")) {
+      showError("Insufficient cycles attached. Please top up your wallet and retry.");
+    } else {
+      showError("Unable to load your balances. Please try again later.");
     }
   } finally {
     hideLoading();
