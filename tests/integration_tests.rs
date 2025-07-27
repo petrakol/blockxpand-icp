@@ -624,4 +624,116 @@ mod tests {
         let m2 = v2["counters"]["heartbeat_count"].as_u64().unwrap();
         assert!(m2 >= m1);
     }
+
+    #[tokio::test]
+    async fn integration_http_json_and_graphql() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let cid = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_FILE", file.path());
+
+        aggregator::utils::load_dex_config().await;
+
+        let cfg_path = std::path::Path::new("config/ledgers.toml");
+        let original = std::fs::read_to_string(cfg_path).unwrap();
+        std::fs::write(cfg_path, format!("[ledgers]\nICP = \"{cid}\"\n")).unwrap();
+        struct Restore(String);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                let _ = std::fs::write("config/ledgers.toml", &self.0);
+            }
+        }
+        let _restore = Restore(original);
+
+        let aggr_id = match deploy(replica.dir.path(), "aggregator") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy aggregator; skipping test");
+                return;
+            }
+        };
+
+        let agent = Agent::builder()
+            .with_url("http://127.0.0.1:4943")
+            .with_identity(AnonymousIdentity {})
+            .build()
+            .unwrap();
+        let _ = agent.fetch_root_key().await;
+
+        let principal = Principal::anonymous();
+
+        use serde_bytes::ByteBuf;
+        #[derive(candid::CandidType, serde::Deserialize)]
+        struct Request {
+            method: String,
+            url: String,
+            headers: Vec<(String, String)>,
+            body: ByteBuf,
+        }
+        #[derive(candid::CandidType, serde::Deserialize)]
+        struct Response {
+            status_code: u16,
+            headers: Vec<(String, String)>,
+            body: ByteBuf,
+        }
+
+        let req = Request {
+            method: "GET".into(),
+            url: format!("/summary/{principal}").into(),
+            headers: vec![],
+            body: ByteBuf::default(),
+        };
+        let arg = candid::Encode!(&req).unwrap();
+        let bytes = agent
+            .query(&Principal::from_text(&aggr_id).unwrap(), "http_request")
+            .with_arg(arg)
+            .call()
+            .await
+            .unwrap();
+        let resp: Response = candid::Decode!(&bytes, Response).unwrap();
+        assert_eq!(resp.status_code, 200);
+        let body = std::str::from_utf8(resp.body.as_ref()).unwrap();
+        assert!(body.contains("MOCK"));
+
+        let query = format!("{{ summary(principal: \"{principal}\") {{ token total }} }}");
+        let req = Request {
+            method: "POST".into(),
+            url: "/graphql".into(),
+            headers: vec![],
+            body: ByteBuf::from(serde_json::to_vec(&serde_json::json!({"query": query})).unwrap()),
+        };
+        let arg = candid::Encode!(&req).unwrap();
+        let bytes = agent
+            .query(&Principal::from_text(&aggr_id).unwrap(), "http_request")
+            .with_arg(arg)
+            .call()
+            .await
+            .unwrap();
+        let resp: Response = candid::Decode!(&bytes, Response).unwrap();
+        assert_eq!(resp.status_code, 200);
+        let body = std::str::from_utf8(resp.body.as_ref()).unwrap();
+        assert!(body.contains("MOCK"));
+    }
 }

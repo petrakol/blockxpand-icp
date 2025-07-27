@@ -280,7 +280,7 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
 }
 
 #[cfg(feature = "claim")]
-async fn claim_with_timeout<F>(fut: F) -> Option<u64>
+pub(crate) async fn claim_with_timeout<F>(fut: F) -> Option<u64>
 where
     F: std::future::Future<Output = Result<u64, String>>,
 {
@@ -379,12 +379,13 @@ pub async fn get_holdings_summary(principal: Principal) -> Vec<HoldingSummary> {
 }
 
 fn summarise(holdings: &[Holding]) -> Vec<HoldingSummary> {
-    use std::collections::BTreeMap;
     use rust_decimal::prelude::{FromStr, ToPrimitive, Zero};
+    use std::collections::BTreeMap;
     let mut map: BTreeMap<String, rust_decimal::Decimal> = BTreeMap::new();
     for h in holdings {
         if let Ok(v) = rust_decimal::Decimal::from_str(&h.amount) {
-            *map.entry(h.token.clone()).or_insert(rust_decimal::Decimal::ZERO) += v;
+            *map.entry(h.token.clone())
+                .or_insert(rust_decimal::Decimal::ZERO) += v;
         }
     }
     map.into_iter()
@@ -483,12 +484,13 @@ pub struct TokenTotal {
 }
 
 fn summarize(holdings: &[Holding]) -> Vec<TokenTotal> {
-    use std::collections::HashMap;
     use rust_decimal::prelude::{FromStr, ToPrimitive, Zero};
+    use std::collections::HashMap;
     let mut map: HashMap<String, rust_decimal::Decimal> = HashMap::new();
     for h in holdings {
         if let Ok(v) = rust_decimal::Decimal::from_str(&h.amount) {
-            *map.entry(h.token.clone()).or_insert(rust_decimal::Decimal::ZERO) += v;
+            *map.entry(h.token.clone())
+                .or_insert(rust_decimal::Decimal::ZERO) += v;
         }
     }
     let mut out: Vec<TokenTotal> = map
@@ -508,4 +510,30 @@ pub async fn get_summary(principal: Principal) -> Vec<TokenTotal> {
     pay_cycles(*CALL_PRICE_CYCLES);
     let holdings = get_holdings(principal).await;
     summarize(&holdings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn claim_with_timeout_times_out() {
+        std::env::set_var("CLAIM_ADAPTER_TIMEOUT_SECS", "1");
+        // ensure the static uses the new env var
+        once_cell::sync::Lazy::force(&CLAIM_ADAPTER_TIMEOUT_SECS);
+        let fut = async {
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+            Ok(1u64)
+        };
+        let res = claim_with_timeout(fut).await;
+        assert!(res.is_none());
+    }
+
+    #[test]
+    fn pay_cycles_noop_host() {
+        let before = metrics::get().cycles.collected;
+        pay_cycles(10);
+        let after = metrics::get().cycles.collected;
+        assert_eq!(before, after);
+    }
 }
