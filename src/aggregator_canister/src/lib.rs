@@ -243,7 +243,6 @@ mod tests {
     use aggregator::cache;
     use bx_core::Holding;
     use serde_json;
-    use serial_test::serial;
 
     #[tokio::test]
     #[serial_test::serial]
