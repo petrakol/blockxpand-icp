@@ -119,7 +119,7 @@ static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<std::sync::atomic::AtomicU64> = Lazy::ne
     )
 });
 
-async fn calculate_holdings(principal: Principal) -> (Vec<Holding>, Vec<HoldingSummary>) {
+async fn calculate_holdings(principal: Principal) -> Result<(Vec<Holding>, Vec<HoldingSummary>), rust_decimal::Error> {
     let settings = user_settings::get(&principal);
     let ledger_filter = settings.as_ref().and_then(|s| s.ledgers.as_ref());
     let dex_filter = settings.as_ref().and_then(|s| s.dexes.as_ref());
@@ -138,8 +138,8 @@ async fn calculate_holdings(principal: Principal) -> (Vec<Holding>, Vec<HoldingS
     if holdings.len() > *MAX_HOLDINGS {
         holdings.truncate(*MAX_HOLDINGS);
     }
-    let summary = summarise(&holdings);
-    (holdings, summary)
+    let summary = summarise(&holdings)?;
+    Ok((holdings, summary))
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -169,7 +169,7 @@ pub fn pay_cycles(price: u128) {
 pub fn pay_cycles(_price: u128) {}
 
 #[ic_cdk_macros::query]
-pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
+pub async fn get_holdings(principal: Principal) -> Result<Vec<Holding>, String> {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
     let start = instructions();
@@ -184,12 +184,14 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
                     "get_holdings took {used} instructions ({:.2} B)",
                     used as f64 / 1_000_000_000f64
                 );
-                return cached;
+                return Ok(cached);
             }
         }
     }
 
-    let (holdings, summary) = calculate_holdings(principal).await;
+    let (holdings, summary) = calculate_holdings(principal)
+        .await
+        .map_err(|e| e.to_string())?;
 
     {
         cache::get().insert(principal, (holdings.clone(), summary, now));
@@ -199,7 +201,7 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         "get_holdings took {used} instructions ({:.2} B)",
         used as f64 / 1_000_000_000f64
     );
-    holdings
+    Ok(holdings)
 }
 
 #[cfg(feature = "claim")]
@@ -333,13 +335,16 @@ pub struct CertifiedHoldings {
 }
 
 #[ic_cdk_macros::update]
-pub async fn refresh_holdings(principal: Principal) {
+pub async fn refresh_holdings(principal: Principal) -> Result<(), String> {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
     let now = now();
-    let (holdings, summary) = calculate_holdings(principal).await;
+    let (holdings, summary) = calculate_holdings(principal)
+        .await
+        .map_err(|e| e.to_string())?;
     cache::get().insert(principal, (holdings.clone(), summary, now));
     cert::update(principal, &holdings);
+    Ok(())
 }
 
 #[ic_cdk_macros::query]
@@ -366,7 +371,7 @@ pub struct HoldingSummary {
 }
 
 #[ic_cdk_macros::query]
-pub async fn get_holdings_summary(principal: Principal) -> Vec<HoldingSummary> {
+pub async fn get_holdings_summary(principal: Principal) -> Result<Vec<HoldingSummary>, String> {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
     let now = now();
@@ -374,31 +379,33 @@ pub async fn get_holdings_summary(principal: Principal) -> Vec<HoldingSummary> {
         if let Some(v) = cache::get().get(&principal) {
             let (_, summary, ts) = v.value().clone();
             if now - ts < MINUTE_NS {
-                return summary;
+                return Ok(summary);
             }
         }
     }
-    let (holdings, summary) = calculate_holdings(principal).await;
+    let (holdings, summary) = calculate_holdings(principal)
+        .await
+        .map_err(|e| e.to_string())?;
     cache::get().insert(principal, (holdings, summary.clone(), now));
-    summary
+    Ok(summary)
 }
 
-fn summarise(holdings: &[Holding]) -> Vec<HoldingSummary> {
+fn summarise(holdings: &[Holding]) -> Result<Vec<HoldingSummary>, rust_decimal::Error> {
     use rust_decimal::prelude::{FromStr, ToPrimitive};
     use std::collections::BTreeMap;
     let mut map: BTreeMap<String, rust_decimal::Decimal> = BTreeMap::new();
     for h in holdings {
-        if let Ok(v) = rust_decimal::Decimal::from_str(&h.amount) {
-            *map.entry(h.token.clone())
-                .or_insert(rust_decimal::Decimal::ZERO) += v;
-        }
+        let v = rust_decimal::Decimal::from_str(&h.amount)?;
+        *map.entry(h.token.clone())
+            .or_insert(rust_decimal::Decimal::ZERO) += v;
     }
-    map.into_iter()
+    Ok(map
+        .into_iter()
         .map(|(token, total)| HoldingSummary {
             token,
             total: total.to_f64().unwrap_or(0.0),
         })
-        .collect()
+        .collect())
 }
 
 #[derive(candid::CandidType, serde::Serialize)]
@@ -488,15 +495,14 @@ pub struct TokenTotal {
     pub total: f64,
 }
 
-fn summarize(holdings: &[Holding]) -> Vec<TokenTotal> {
+fn summarize(holdings: &[Holding]) -> Result<Vec<TokenTotal>, rust_decimal::Error> {
     use rust_decimal::prelude::{FromStr, ToPrimitive};
     use std::collections::HashMap;
     let mut map: HashMap<String, rust_decimal::Decimal> = HashMap::new();
     for h in holdings {
-        if let Ok(v) = rust_decimal::Decimal::from_str(&h.amount) {
-            *map.entry(h.token.clone())
-                .or_insert(rust_decimal::Decimal::ZERO) += v;
-        }
+        let v = rust_decimal::Decimal::from_str(&h.amount)?;
+        *map.entry(h.token.clone())
+            .or_insert(rust_decimal::Decimal::ZERO) += v;
     }
     let mut out: Vec<TokenTotal> = map
         .into_iter()
@@ -506,15 +512,15 @@ fn summarize(holdings: &[Holding]) -> Vec<TokenTotal> {
         })
         .collect();
     out.sort_by(|a, b| a.token.cmp(&b.token));
-    out
+    Ok(out)
 }
 
 #[ic_cdk_macros::query]
-pub async fn get_summary(principal: Principal) -> Vec<TokenTotal> {
+pub async fn get_summary(principal: Principal) -> Result<Vec<TokenTotal>, String> {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
-    let holdings = get_holdings(principal).await;
-    summarize(&holdings)
+    let holdings = get_holdings(principal).await?;
+    summarize(&holdings).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

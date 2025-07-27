@@ -106,20 +106,14 @@ struct QueryRoot;
 impl QueryRoot {
     async fn holdings(&self, principal: String) -> async_graphql::Result<Vec<GHolding>> {
         let p = candid::Principal::from_text(&principal)?;
-        Ok(aggregator::get_holdings(p)
-            .await
-            .into_iter()
-            .map(GHolding::from)
-            .collect())
+        let holdings = aggregator::get_holdings(p).await.map_err(async_graphql::Error::new)?;
+        Ok(holdings.into_iter().map(GHolding::from).collect())
     }
 
     async fn summary(&self, principal: String) -> async_graphql::Result<Vec<GTokenTotal>> {
         let p = candid::Principal::from_text(&principal)?;
-        Ok(aggregator::get_summary(p)
-            .await
-            .into_iter()
-            .map(GTokenTotal::from)
-            .collect())
+        let summary = aggregator::get_summary(p).await.map_err(async_graphql::Error::new)?;
+        Ok(summary.into_iter().map(GTokenTotal::from).collect())
     }
 }
 
@@ -145,7 +139,16 @@ pub async fn http_request(req: HttpRequest) -> HttpResponse {
                 Ok(p) => p,
                 Err(_) => return not_found(),
             };
-            let holdings = aggregator::get_holdings(principal).await;
+            let holdings = match aggregator::get_holdings(principal).await {
+                Ok(v) => v,
+                Err(e) => {
+                    return HttpResponse {
+                        status_code: 500,
+                        headers: vec![("Content-Type".into(), "application/json".into())],
+                        body: ByteBuf::from(format!("{{\"error\":\"{}\"}}", e)),
+                    };
+                }
+            };
             let body = serde_json::to_vec(&holdings).unwrap();
             HttpResponse {
                 status_code: 200,
@@ -167,7 +170,16 @@ pub async fn http_request(req: HttpRequest) -> HttpResponse {
                 Ok(p) => p,
                 Err(_) => return not_found(),
             };
-            let summary = aggregator::get_summary(principal).await;
+            let summary = match aggregator::get_summary(principal).await {
+                Ok(v) => v,
+                Err(e) => {
+                    return HttpResponse {
+                        status_code: 500,
+                        headers: vec![("Content-Type".into(), "application/json".into())],
+                        body: ByteBuf::from(format!("{{\"error\":\"{}\"}}", e)),
+                    };
+                }
+            };
             let body = serde_json::to_vec(&summary).unwrap();
             HttpResponse {
                 status_code: 200,

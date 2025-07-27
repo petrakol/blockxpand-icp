@@ -96,7 +96,7 @@ mod tests {
         aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert_eq!(holdings.len(), 4);
         assert_eq!(holdings[0].token, "MOCK");
         assert_eq!(holdings[0].status, "liquid");
@@ -265,7 +265,7 @@ mod tests {
         aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert!(holdings.iter().any(|h| h.source == "ICPSwap"));
     }
 
@@ -309,7 +309,7 @@ mod tests {
         aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert!(holdings.iter().any(|h| h.source == "Sonic"));
     }
 
@@ -353,7 +353,7 @@ mod tests {
         aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert!(holdings.iter().any(|h| h.source == "InfinitySwap"));
     }
 
@@ -487,7 +487,7 @@ mod tests {
         std::env::set_var("LEDGERS_FILE", file.path());
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert_eq!(holdings.len(), 5);
         assert_eq!(holdings[0].token, "MOCK");
         assert_eq!(holdings[0].status, "liquid");
@@ -535,7 +535,7 @@ mod tests {
             },
         );
 
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert_eq!(holdings.len(), 4);
     }
 
