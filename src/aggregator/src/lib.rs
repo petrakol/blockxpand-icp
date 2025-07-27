@@ -168,30 +168,40 @@ fn instructions() -> u64 {
 
 #[cfg(target_arch = "wasm32")]
 pub fn pay_cycles(price: u128) {
-    use ic_cdk::api::call::{msg_cycles_accept128, msg_cycles_available128};
     if price > 0 {
-        if msg_cycles_available128() < price {
+        let accepted = ic_cdk::api::call::msg_cycles_accept128(price);
+        metrics::add_cycles_collected(accepted);
+        if accepted < price {
             ic_cdk::api::trap("insufficient cycles");
         }
-        let accepted = msg_cycles_accept128(price);
-        metrics::add_cycles_collected(accepted);
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn pay_cycles(_price: u128) {}
 
+#[cfg(target_arch = "wasm32")]
+fn accept_cycles(price: u128) -> u128 {
+    let accepted = ic_cdk::api::call::msg_cycles_accept128(price);
+    metrics::add_cycles_collected(accepted);
+    accepted
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn accept_cycles(price: u128) -> u128 {
+    price
+}
+
 #[ic_cdk_macros::update]
 pub async fn get_holdings(principal: Principal) -> Result<Vec<Holding>, String> {
     metrics::inc_query();
-    let accepted = ic_cdk::api::call::msg_cycles_accept128(*CALL_PRICE);
+    let accepted = accept_cycles(*CALL_PRICE);
     if accepted < *CALL_PRICE {
         return Err(format!(
             "Insufficient cycles: sent {}, required {}",
             accepted, *CALL_PRICE
         ));
     }
-    metrics::add_cycles_collected(accepted);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let start = instructions();
@@ -235,14 +245,13 @@ pub async fn get_holdings_filtered(
     dexes: Vec<String>,
 ) -> Result<Vec<Holding>, String> {
     metrics::inc_query();
-    let accepted = ic_cdk::api::call::msg_cycles_accept128(*CALL_PRICE);
+    let accepted = accept_cycles(*CALL_PRICE);
     if accepted < *CALL_PRICE {
         return Err(format!(
             "Insufficient cycles: sent {}, required {}",
             accepted, *CALL_PRICE
         ));
     }
-    metrics::add_cycles_collected(accepted);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let start = instructions();
@@ -282,14 +291,13 @@ pub async fn get_holdings_filtered(
 #[ic_cdk_macros::update]
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     metrics::inc_query();
-    let accepted = ic_cdk::api::call::msg_cycles_accept128(*CLAIM_PRICE);
+    let accepted = accept_cycles(*CLAIM_PRICE);
     if accepted < *CLAIM_PRICE {
         ic_cdk::api::trap(&format!(
             "Insufficient cycles: sent {}, required {}",
             accepted, *CLAIM_PRICE
         ));
     }
-    metrics::add_cycles_collected(accepted);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     metrics::inc_claim_attempt();
@@ -472,14 +480,13 @@ pub struct HoldingSummary {
 #[ic_cdk_macros::update]
 pub async fn get_holdings_summary(principal: Principal) -> Result<Vec<HoldingSummary>, String> {
     metrics::inc_query();
-    let accepted = ic_cdk::api::call::msg_cycles_accept128(*CALL_PRICE);
+    let accepted = accept_cycles(*CALL_PRICE);
     if accepted < *CALL_PRICE {
         return Err(format!(
             "Insufficient cycles: sent {}, required {}",
             accepted, *CALL_PRICE
         ));
     }
-    metrics::add_cycles_collected(accepted);
     cycles::ensure_margin();
     let start_cycles = cycles::available();
     let now = now();
