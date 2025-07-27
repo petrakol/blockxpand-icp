@@ -532,8 +532,9 @@ mod tests {
         blockxpand_icp::update_user_settings(
             principal,
             blockxpand_icp::user_settings::UserSettings {
-                ledgers: Some(set),
-                dexes: None,
+                preferred_ledgers: vec![cid.clone()],
+                preferred_dexes: Vec::new(),
+                dark_mode: false,
             },
         );
 

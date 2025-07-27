@@ -123,9 +123,20 @@ static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<std::sync::atomic::AtomicU64> = Lazy::ne
 async fn calculate_holdings(
     principal: Principal,
 ) -> Result<(Vec<Holding>, Vec<HoldingSummary>), rust_decimal::Error> {
-    let settings = user_settings::get(&principal);
-    let ledger_filter = settings.as_ref().and_then(|s| s.ledgers.as_ref());
-    let dex_filter = settings.as_ref().and_then(|s| s.dexes.as_ref());
+    let settings = user_settings::get(&principal).unwrap_or_default();
+    use std::collections::HashSet;
+    let ledger_set: HashSet<Principal> = settings
+        .preferred_ledgers
+        .iter()
+        .filter_map(|s| Principal::from_text(s).ok())
+        .collect();
+    let dex_set: HashSet<String> = settings.preferred_dexes.iter().cloned().collect();
+    let ledger_filter = if ledger_set.is_empty() {
+        None
+    } else {
+        Some(&ledger_set)
+    };
+    let dex_filter = if dex_set.is_empty() { None } else { Some(&dex_set) };
     let (ledger, neuron, dex) = futures::join!(
         ledger_fetcher::fetch_filtered(principal, ledger_filter),
         neuron_fetcher::fetch(principal),
@@ -210,6 +221,56 @@ pub async fn get_holdings(principal: Principal) -> Result<Vec<Holding>, String> 
     let used = instructions().saturating_sub(start);
     tracing::info!(
         "get_holdings took {used} instructions ({:.2} B)",
+        used as f64 / 1_000_000_000f64
+    );
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    Ok(holdings)
+}
+
+#[ic_cdk_macros::update]
+pub async fn get_holdings_filtered(
+    principal: Principal,
+    ledgers: Vec<String>,
+    dexes: Vec<String>,
+) -> Result<Vec<Holding>, String> {
+    metrics::inc_query();
+    let accepted = ic_cdk::api::call::msg_cycles_accept128(*CALL_PRICE);
+    if accepted < *CALL_PRICE {
+        return Err(format!(
+            "Insufficient cycles: sent {}, required {}",
+            accepted, *CALL_PRICE
+        ));
+    }
+    metrics::add_cycles_collected(accepted);
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
+    let start = instructions();
+    use std::collections::HashSet;
+    let ledger_set: HashSet<Principal> = ledgers
+        .iter()
+        .filter_map(|s| Principal::from_text(s).ok())
+        .collect();
+    let dex_set: HashSet<String> = dexes.into_iter().collect();
+    let ledger_filter = if ledger_set.is_empty() { None } else { Some(&ledger_set) };
+    let dex_filter = if dex_set.is_empty() { None } else { Some(&dex_set) };
+    let (ledger, neuron, dex) = futures::join!(
+        ledger_fetcher::fetch_filtered(principal, ledger_filter),
+        neuron_fetcher::fetch(principal),
+        dex_fetchers::fetch_filtered(principal, dex_filter)
+    );
+    let capacity =
+        ledger.as_ref().map_or(0, |v| v.len()) + neuron.len() + dex.as_ref().map_or(0, |v| v.len());
+    let mut holdings = Vec::with_capacity(capacity);
+    holdings.extend(ledger.unwrap_or_default());
+    holdings.extend(neuron);
+    holdings.extend(dex.unwrap_or_default());
+    if holdings.len() > *MAX_HOLDINGS {
+        holdings.truncate(*MAX_HOLDINGS);
+    }
+    let used = instructions().saturating_sub(start);
+    tracing::info!(
+        "get_holdings_filtered took {used} instructions ({:.2} B)",
         used as f64 / 1_000_000_000f64
     );
     let used_cycles = start_cycles.saturating_sub(cycles::available());
