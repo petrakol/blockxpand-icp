@@ -2,7 +2,7 @@ import { HttpAgent, Actor } from "https://unpkg.com/@dfinity/agent@0.18.0/dist/a
 import { AuthClient } from "https://unpkg.com/@dfinity/auth-client@0.18.0/dist/auth-client.min.js";
 import { idlFactory, canisterId } from "../src/declarations/aggregator_canister/aggregator_canister.did.js";
 
-const connectBtn = document.getElementById('connectBtn');
+const connectBtn = document.getElementById('connect-btn');
 const summaryBar = document.getElementById('summary-bar');
 const summaryDrawer = document.getElementById('summary-drawer');
 const summaryTotal = document.getElementById('summary-total');
@@ -43,7 +43,6 @@ async function createActor() {
 }
 
 async function loadSummary() {
-  summaryBar.textContent = 'Loading...';
   try {
     const principal = (await authClient.getIdentity()).getPrincipal().toText();
     const res = await actor.get_holdings_summary(principal);
@@ -51,6 +50,7 @@ async function loadSummary() {
       const total = res.Ok.reduce((acc, t) => acc + t.total, 0);
       summaryTotal.textContent = `Total Rewards: ${total.toFixed(4)} ICP`;
       summaryDrawer.innerHTML = res.Ok.map(t => `<div>${t.token}: ${t.total.toFixed(4)}</div>`).join('');
+      summaryBar.classList.remove('hidden');
     } else {
       showError(res.Err);
     }
@@ -82,6 +82,8 @@ async function init() {
   if (await authClient.isAuthenticated()) {
     await createActor();
     await loadSummary();
+  } else {
+    hideLoading();
   }
 }
 

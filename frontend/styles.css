@@ -28,6 +28,24 @@ body {
   min-height: 100vh;
 }
 
+/* Top bar */
+.top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  z-index: 100;
+}
+
+.header-icon {
+  width: 32px;
+  height: 32px;
+}
+
 .container {
   width: 90%;
   max-width: 480px;
@@ -41,30 +59,44 @@ body {
   display: block;
 }
 
+.large-logo {
+  width: 200px;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 1025px) {
+  .large-logo {
+    width: 260px;
+  }
+}
+
 .tagline {
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 1rem;
 }
 
-.btn {
-  display: block;
-  width: 100%;
-  padding: 1rem;
-  margin: 1rem 0;
-  border: none;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  color: var(--text-color);
-  cursor: pointer;
-}
 
 .theme-toggle {
-  width: auto;
-  padding: 0.5rem 1rem;
-  margin-top: 0.5rem;
-  background: var(--surface-color);
+  width: 40px;
+  height: 40px;
+  border: none;
   border-radius: 20px;
+  background: linear-gradient(90deg, #8355e2, #5140b4);
+  box-shadow: 0 4px 8px rgba(90, 48, 162, 0.4);
+  cursor: pointer;
+  position: relative;
+}
+
+.theme-toggle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  background: url('images/moon.svg') no-repeat center / contain;
+  transform: translate(-50%, -50%);
 }
 
 .connect-btn {
@@ -95,9 +127,6 @@ body {
   box-shadow: 0 6px 12px rgba(90, 48, 162, 0.3);
 }
 
-.btn:active {
-  transform: scale(0.97);
-}
 
 .logo-spinner {
   display: flex;

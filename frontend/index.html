@@ -15,12 +15,18 @@
     </script>
   </head>
   <body>
+    <header class="top-bar">
+      <img src="images/blockxpand copy logo only_v2.png" alt="" class="header-icon" />
+      <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme"></button>
+    </header>
+
     <div class="container">
-      <img id="main-logo" src="blockxpand copy_w.png" alt="BlockXpand logo" class="logo" />
-      <h1 class="tagline">Never miss a crypto reward again</h1>
-      <p id="principal">Not connected</p>
-      <button id="connectBtn" class="btn connect-btn">Connect Wallet</button>
-      <button id="theme-toggle" class="btn theme-toggle" aria-label="Toggle light or dark mode">Toggle Theme</button>
+      <img id="main-logo" src="images/blockxpand copy_w.png" alt="BlockXpand logo" class="logo large-logo" />
+      <h1 class="tagline">Unlock hidden value<br />across your tokens</h1>
+      <p class="description">
+        Unify your balances and claim rewards from all your wallets, neurons and pools with 1 click.
+      </p>
+      <button id="connect-btn" class="connect-btn">Connect Wallet</button>
 
       <div
         id="logo-spinner"
@@ -29,7 +35,7 @@
         aria-live="polite"
       >
         <img
-          src="blockxpand copy logo only_v2.png"
+          src="images/blockxpand copy logo only_v2.png"
           alt=""
           class="spinner-img"
           aria-hidden="true"
@@ -66,9 +72,9 @@
       const toggleBtn = document.getElementById('theme-toggle');
       function setLogo() {
         if (document.body.classList.contains('light')) {
-          logo.src = 'blockxpand copy.png';
+          logo.src = 'images/blockxpand copy.png';
         } else {
-          logo.src = 'blockxpand copy_w.png';
+          logo.src = 'images/blockxpand copy_w.png';
         }
       }
       toggleBtn.addEventListener('click', () => {
