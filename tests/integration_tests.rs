@@ -600,16 +600,9 @@ mod tests {
             .call()
             .await
             .unwrap();
-        #[derive(serde::Deserialize)]
-        struct Metrics {
-            cycles: u64,
-            cycles_collected: u64,
-            query_count: u64,
-            heartbeat_count: u64,
-            last_heartbeat: u64,
-        }
         let json: String = candid::Decode!(&bytes, String).unwrap();
-        let m1: Metrics = serde_json::from_str(&json).unwrap();
+        let v1: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let m1 = v1["counters"]["heartbeat_count"].as_u64().unwrap();
 
         Command::new("dfx")
             .args(["deploy", "aggregator", "--network", "emulator"])
@@ -627,7 +620,8 @@ mod tests {
             .await
             .unwrap();
         let json2: String = candid::Decode!(&bytes2, String).unwrap();
-        let m2: Metrics = serde_json::from_str(&json2).unwrap();
-        assert!(m2.heartbeat_count >= m1.heartbeat_count);
+        let v2: serde_json::Value = serde_json::from_str(&json2).unwrap();
+        let m2 = v2["counters"]["heartbeat_count"].as_u64().unwrap();
+        assert!(m2 >= m1);
     }
 }

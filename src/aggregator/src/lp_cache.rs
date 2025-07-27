@@ -56,6 +56,7 @@ pub fn stable_restore(entries: Vec<StableEntry>) {
             },
         );
     }
+    evict_excess();
 }
 
 fn evict_excess() {
@@ -84,8 +85,9 @@ where
     F: FnOnce() -> Fut,
     Fut: Future<Output = Vec<Holding>>,
 {
-    if let Some(e) = CACHE.get(&(principal, pool.to_string())) {
+    if let Some(mut e) = CACHE.get_mut(&(principal, pool.to_string())) {
         if e.height == height && now() - e.ts < STALE_NS {
+            e.ts = now();
             return e.data.clone();
         }
     }

@@ -105,6 +105,7 @@ struct Meta {
     fee: u64,
     hash: [u8; 32],
     expires: u64,
+    last_used: u64,
 }
 #[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
@@ -123,6 +124,7 @@ pub struct StableMeta {
     fee: u64,
     hash: Vec<u8>,
     expires: u64,
+    last_used: u64,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -136,6 +138,7 @@ pub fn stable_save() -> Vec<StableMeta> {
             fee: e.value().fee,
             hash: e.value().hash.to_vec(),
             expires: e.value().expires,
+            last_used: e.value().last_used,
         })
         .collect()
 }
@@ -156,6 +159,7 @@ pub fn stable_restore(data: Vec<StableMeta>) {
                 fee: m.fee,
                 hash,
                 expires: m.expires,
+                last_used: m.last_used,
             },
         );
     }
@@ -173,7 +177,7 @@ fn evict_excess() {
     while META_CACHE.len() > *MAX_META_ENTRIES {
         if let Some(old_key) = META_CACHE
             .iter()
-            .min_by_key(|e| e.value().expires)
+            .min_by_key(|e| e.value().last_used)
             .map(|e| *e.key())
         {
             META_CACHE.remove(&old_key);
@@ -397,8 +401,9 @@ pub async fn fetch(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u64), FetchError> {
     evict_expired();
-    if let Some(meta) = META_CACHE.get(&cid) {
+    if let Some(mut meta) = META_CACHE.get_mut(&cid) {
         if meta.expires > now() {
+            meta.last_used = now();
             return Ok((meta.symbol.clone(), meta.decimals, meta.fee));
         }
     }
@@ -409,14 +414,11 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u6
     let hash: [u8; 32] = Sha256::digest(&encoded).into();
     if let Some(meta) = META_CACHE.get(&cid) {
         if meta.hash == hash {
-            META_CACHE.insert(
-                cid,
-                Meta {
-                    hash,
-                    expires: now() + *META_TTL_NS,
-                    ..meta.clone()
-                },
-            );
+            let mut updated = meta.clone();
+            updated.hash = hash;
+            updated.expires = now() + *META_TTL_NS;
+            updated.last_used = now();
+            META_CACHE.insert(cid, updated);
             return Ok((meta.symbol.clone(), meta.decimals, meta.fee));
         }
     }
@@ -452,6 +454,7 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u6
             fee,
             hash,
             expires: now() + *META_TTL_NS,
+            last_used: now(),
         },
     );
     evict_excess();
