@@ -114,6 +114,9 @@
 
         async function claim() {
             setStatus("");
+            if (!confirm(`This call will cost ${claimPrice.toLocaleString()} cycles (~${(claimPrice/1e12).toFixed(2)} ICP). Proceed?`)) {
+                return;
+            }
             try {
                 const principal = actor.agent.identity.getPrincipal();
                 const spent = await actor.claim_all_rewards(principal, { amount: BigInt(claimPrice) });
