@@ -136,7 +136,11 @@ async fn calculate_holdings(
     } else {
         Some(&ledger_set)
     };
-    let dex_filter = if dex_set.is_empty() { None } else { Some(&dex_set) };
+    let dex_filter = if dex_set.is_empty() {
+        None
+    } else {
+        Some(&dex_set)
+    };
     let (ledger, neuron, dex) = futures::join!(
         ledger_fetcher::fetch_filtered(principal, ledger_filter),
         neuron_fetcher::fetch(principal),
@@ -261,8 +265,16 @@ pub async fn get_holdings_filtered(
         .filter_map(|s| Principal::from_text(s).ok())
         .collect();
     let dex_set: HashSet<String> = dexes.into_iter().collect();
-    let ledger_filter = if ledger_set.is_empty() { None } else { Some(&ledger_set) };
-    let dex_filter = if dex_set.is_empty() { None } else { Some(&dex_set) };
+    let ledger_filter = if ledger_set.is_empty() {
+        None
+    } else {
+        Some(&ledger_set)
+    };
+    let dex_filter = if dex_set.is_empty() {
+        None
+    } else {
+        Some(&dex_set)
+    };
     let (ledger, neuron, dex) = futures::join!(
         ledger_fetcher::fetch_filtered(principal, ledger_filter),
         neuron_fetcher::fetch(principal),

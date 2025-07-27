@@ -97,7 +97,10 @@ async fn fetch_positions_impl(
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn fetch_positions_impl(_distro_id: Principal, _principal: Principal) -> Result<Vec<Holding>, FetchError> {
+async fn fetch_positions_impl(
+    _distro_id: Principal,
+    _principal: Principal,
+) -> Result<Vec<Holding>, FetchError> {
     Ok(Vec::new())
 }
 

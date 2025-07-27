@@ -45,6 +45,7 @@ body {
   transform: scale(0.97);
 }
 
+/* summary list for old mobile layout -- replaced by progressive drawer */
 .summary {
   margin-top: 1rem;
   text-align: left;
@@ -57,4 +58,45 @@ body {
 
 .hidden {
   display: none;
+}
+
+.summary-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 320px;
+  padding: 0.8rem 1.2rem;
+  background: #14141e;
+  color: #ffffff;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.summary-bar .arrow {
+  transition: transform 0.2s ease;
+}
+
+.summary-drawer {
+  position: fixed;
+  bottom: -100%;
+  left: 0;
+  right: 0;
+  height: 60%;
+  background: #14141e;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  padding: 1.5rem;
+  overflow-y: auto;
+  transition: bottom 0.3s ease;
+  z-index: 200;
+}
+
+.summary-drawer.open {
+  bottom: 0;
+}
+
+.summary-bar.expanded .arrow {
+  transform: rotate(90deg);
 }

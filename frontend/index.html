@@ -15,7 +15,24 @@
       <h1 class="tagline">Never miss a crypto reward again</h1>
       <p id="principal">Not connected</p>
       <button id="connectBtn" class="btn">Connect Wallet</button>
-      <div id="summary" class="summary hidden"></div>
+
+      <div
+        id="summary-bar"
+        class="summary-bar hidden"
+        tabindex="0"
+        aria-expanded="false"
+        aria-controls="summary-drawer"
+      >
+        <span id="summary-total"></span>
+        <span class="arrow">&#x25B6;</span>
+      </div>
+
+      <div
+        id="summary-drawer"
+        class="summary-drawer hidden"
+        role="dialog"
+        aria-labelledby="summary-bar"
+      ></div>
     </div>
     <script type="module" src="main.js"></script>
   </body>

@@ -15,10 +15,19 @@ const idlFactory = ({ IDL }) =>
 
 let actor;
 let authClient;
+const summaryBar = document.getElementById("summary-bar");
+const summaryDrawer = document.getElementById("summary-drawer");
+const summaryTotal = document.getElementById("summary-total");
 
 async function init() {
   authClient = await AuthClient.create();
   document.getElementById("connectBtn").addEventListener("click", connect);
+  summaryBar.addEventListener("click", () => {
+    const expanded = summaryDrawer.classList.toggle("open");
+    summaryDrawer.classList.remove("hidden");
+    summaryBar.setAttribute("aria-expanded", expanded);
+    summaryBar.classList.toggle("expanded", expanded);
+  });
   if (await authClient.isAuthenticated()) {
     await onConnect();
   }
@@ -34,6 +43,7 @@ async function connect() {
       });
       document.getElementById("principal").textContent = window.ic.plug.principalId;
       document.getElementById("connectBtn").classList.add("hidden");
+      summaryBar.classList.remove("hidden");
       fetchSummary();
       return;
     } catch (e) {
@@ -53,6 +63,7 @@ async function onConnect() {
   actor = Actor.createActor(idlFactory, { agent, canisterId: window.CANISTER_ID });
   document.getElementById("principal").textContent = identity.getPrincipal().toText();
   document.getElementById("connectBtn").classList.add("hidden");
+  summaryBar.classList.remove("hidden");
   fetchSummary();
 }
 
@@ -60,16 +71,21 @@ async function fetchSummary() {
   const principal = actor.agent && actor.agent.identity ? actor.agent.identity.getPrincipal() : null;
   const res = await actor.get_holdings_summary(principal || window.ic.plug.principalId);
   if ("Ok" in res) {
-    const list = document.getElementById("summary");
-    list.innerHTML = "";
-    res.Ok.forEach((item) => {
-      const div = document.createElement("div");
-      div.className = "summary-item";
-      div.textContent = `${item.token}: ${item.total.toFixed(4)}`;
-      list.appendChild(div);
-    });
-    list.classList.remove("hidden");
+    const details = res.Ok.map((item) => [item.token, item.total]);
+    const total = details.reduce((acc, [, amt]) => acc + amt, 0);
+    populateSummary(total, details);
   }
+}
+
+function populateSummary(totalAmount, details) {
+  summaryTotal.textContent = `Total Rewards: ${totalAmount.toFixed(4)} ICP`;
+  let html = "<h2>Your balances</h2><ul>";
+  details.forEach(([token, amount]) => {
+    html += `<li>${token}: ${amount.toFixed(4)}</li>`;
+  });
+  html += "</ul>";
+  summaryDrawer.innerHTML = html;
+  summaryBar.classList.remove("hidden");
 }
 
 init();
