@@ -232,26 +232,18 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
         }
     }
     let _guard = Guard(principal);
-    use dex::{
-        dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
-        sns_adapter::SnsAdapter, DexAdapter,
-    };
-    let mut adapters: Vec<Box<dyn DexAdapter>> = vec![
-        Box::new(IcpswapAdapter),
-        Box::new(SonicAdapter),
-        Box::new(InfinityAdapter),
-        Box::new(SnsAdapter),
-    ];
+    use dex::registry;
+    let mut adapters: Vec<registry::AdapterEntry> = registry::get();
     if *MAX_CLAIM_PER_CALL < adapters.len() {
         adapters.truncate(*MAX_CLAIM_PER_CALL);
     }
     let mut spent = Vec::with_capacity(adapters.len());
     let mut total: u64 = 0;
-    for a in adapters {
+    for entry in adapters {
         if total >= *CLAIM_MAX_TOTAL {
             break;
         }
-        if let Some(c) = claim_with_timeout(a.claim_rewards(principal)).await {
+        if let Some(c) = claim_with_timeout(entry.adapter.claim_rewards(principal)).await {
             total = total.saturating_add(c);
             if total > *CLAIM_MAX_TOTAL {
                 ic_cdk::api::trap("claim total exceeded");

@@ -351,6 +351,7 @@ pub fn watch_dex_config() {
     tokio::spawn(async move {
         while rx.recv().await.is_some() {
             load_dex_config().await;
+            crate::dex::registry::load_adapters().await;
             crate::dex::clear_all_caches();
             crate::warm::init();
         }

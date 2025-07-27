@@ -27,6 +27,7 @@ pub trait DexAdapter: Send + Sync {
 pub mod dex_icpswap;
 pub mod dex_infinity;
 pub mod dex_sonic;
+pub mod registry;
 pub mod sns_adapter;
 
 /// Clear cached metadata for all adapters

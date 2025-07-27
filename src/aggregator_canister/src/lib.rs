@@ -5,7 +5,10 @@ pub mod ic_http;
 fn init() {
     aggregator::logging::init();
     #[cfg(not(target_arch = "wasm32"))]
-    ic_cdk::spawn(async { aggregator::utils::load_dex_config().await });
+    ic_cdk::spawn(async {
+        aggregator::utils::load_dex_config().await;
+        aggregator::dex::registry::load_adapters().await;
+    });
     #[cfg(not(target_arch = "wasm32"))]
     aggregator::utils::watch_dex_config();
     #[cfg(not(target_arch = "wasm32"))]

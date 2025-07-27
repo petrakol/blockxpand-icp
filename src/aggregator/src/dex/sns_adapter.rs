@@ -13,7 +13,15 @@ use serde::Deserialize;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Mutex;
 
-pub struct SnsAdapter;
+pub struct SnsAdapter {
+    distributor: Principal,
+}
+
+impl SnsAdapter {
+    pub fn new(distributor: Principal) -> Self {
+        Self { distributor }
+    }
+}
 
 pub fn clear_cache() {}
 
@@ -35,11 +43,11 @@ pub struct Claimable {
 #[async_trait]
 impl DexAdapter for SnsAdapter {
     async fn fetch_positions(&self, principal: Principal) -> Result<Vec<Holding>, FetchError> {
-        fetch_positions_impl(principal).await
+        fetch_positions_impl(self.distributor, principal).await
     }
 
     async fn claimable_rewards(&self, principal: Principal) -> Result<Vec<RewardInfo>, FetchError> {
-        let holdings = fetch_positions_impl(principal).await?;
+        let holdings = fetch_positions_impl(self.distributor, principal).await?;
         Ok(holdings
             .into_iter()
             .map(|h| RewardInfo {
@@ -51,16 +59,15 @@ impl DexAdapter for SnsAdapter {
 
     #[cfg(feature = "claim")]
     async fn claim_rewards(&self, principal: Principal) -> Result<u64, String> {
-        claim_impl(principal).await
+        claim_impl(self.distributor, principal).await
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn fetch_positions_impl(principal: Principal) -> Result<Vec<Holding>, FetchError> {
-    let distro_id = match crate::utils::env_principal("SNS_DISTRIBUTOR") {
-        Some(p) => p,
-        None => return Err(FetchError::InvalidConfig("distributor".into())),
-    };
+async fn fetch_positions_impl(
+    distro_id: Principal,
+    principal: Principal,
+) -> Result<Vec<Holding>, FetchError> {
     if let Some(resp) = MOCK_CLAIMABLE.lock().unwrap().clone() {
         let claims = resp.map_err(FetchError::Network)?;
         return Ok(claims
@@ -95,11 +102,7 @@ async fn fetch_positions_impl(_principal: Principal) -> Result<Vec<Holding>, Fet
 }
 
 #[cfg(all(feature = "claim", not(target_arch = "wasm32")))]
-async fn claim_impl(principal: Principal) -> Result<u64, String> {
-    let distro_id = match crate::utils::env_principal("SNS_DISTRIBUTOR") {
-        Some(p) => p,
-        None => return Err("distributor".into()),
-    };
+async fn claim_impl(distro_id: Principal, principal: Principal) -> Result<u64, String> {
     if let Some(resp) = MOCK_CLAIM.lock().unwrap().clone() {
         return resp;
     }
@@ -111,9 +114,8 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
 }
 
 #[cfg(all(feature = "claim", target_arch = "wasm32"))]
-async fn claim_impl(principal: Principal) -> Result<u64, String> {
+async fn claim_impl(distro_id: Principal, principal: Principal) -> Result<u64, String> {
     use ic_cdk::api::call::call;
-    let distro_id = crate::utils::env_principal("SNS_DISTRIBUTOR").ok_or("distributor")?;
     let (spent,): (u64,) = call(distro_id, "claim", (principal,))
         .await
         .map_err(|(_, e)| e)?;

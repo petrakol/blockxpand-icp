@@ -128,6 +128,7 @@ canister controller:
 - `SONIC_ROUTER` – Sonic router canister ID
 - `INFINITY_VAULT` – InfinitySwap vault canister ID
 - `SNS_DISTRIBUTOR` – SNS airdrop distributor canister ID
+- `SNS_*` – additional SNS distributor IDs loaded as `SnsAdapter`
 - `CLAIM_WALLETS` – comma-separated principals allowed to call `claim_all_rewards` for others
 - `CLAIM_DENYLIST` – principals forbidden from calling `claim_all_rewards`
 - `CLAIM_LOCK_TIMEOUT_SECS` – how long claim locks persist after errors (default 300)
@@ -168,6 +169,7 @@ export ICPSWAP_FACTORY=bbbbbb-bb
 export SONIC_ROUTER=cccccc-cc
 export INFINITY_VAULT=dddddd-dd
 export SNS_DISTRIBUTOR=eeeeee-ee
+export SNS_TEST=fffff-fd
 ```
 
 ### Production deployment
