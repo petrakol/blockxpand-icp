@@ -380,14 +380,18 @@ pub async fn get_holdings_summary(principal: Principal) -> Vec<HoldingSummary> {
 
 fn summarise(holdings: &[Holding]) -> Vec<HoldingSummary> {
     use std::collections::BTreeMap;
-    let mut map: BTreeMap<String, f64> = BTreeMap::new();
+    use rust_decimal::prelude::{FromStr, ToPrimitive, Zero};
+    let mut map: BTreeMap<String, rust_decimal::Decimal> = BTreeMap::new();
     for h in holdings {
-        if let Ok(v) = h.amount.parse::<f64>() {
-            *map.entry(h.token.clone()).or_insert(0.0) += v;
+        if let Ok(v) = rust_decimal::Decimal::from_str(&h.amount) {
+            *map.entry(h.token.clone()).or_insert(rust_decimal::Decimal::ZERO) += v;
         }
     }
     map.into_iter()
-        .map(|(token, total)| HoldingSummary { token, total })
+        .map(|(token, total)| HoldingSummary {
+            token,
+            total: total.to_f64().unwrap_or(0.0),
+        })
         .collect()
 }
 
@@ -480,15 +484,19 @@ pub struct TokenTotal {
 
 fn summarize(holdings: &[Holding]) -> Vec<TokenTotal> {
     use std::collections::HashMap;
-    let mut map: HashMap<String, f64> = HashMap::new();
+    use rust_decimal::prelude::{FromStr, ToPrimitive, Zero};
+    let mut map: HashMap<String, rust_decimal::Decimal> = HashMap::new();
     for h in holdings {
-        if let Ok(v) = h.amount.parse::<f64>() {
-            *map.entry(h.token.clone()).or_default() += v;
+        if let Ok(v) = rust_decimal::Decimal::from_str(&h.amount) {
+            *map.entry(h.token.clone()).or_insert(rust_decimal::Decimal::ZERO) += v;
         }
     }
     let mut out: Vec<TokenTotal> = map
         .into_iter()
-        .map(|(token, total)| TokenTotal { token, total })
+        .map(|(token, total)| TokenTotal {
+            token,
+            total: total.to_f64().unwrap_or(0.0),
+        })
         .collect();
     out.sort_by(|a, b| a.token.cmp(&b.token));
     out

@@ -226,14 +226,18 @@ mod tests {
         ];
         let summary = {
             use std::collections::BTreeMap;
-            let mut map: BTreeMap<String, f64> = BTreeMap::new();
+            use rust_decimal::prelude::{FromStr, ToPrimitive, Zero};
+            let mut map: BTreeMap<String, rust_decimal::Decimal> = BTreeMap::new();
             for h in &holdings {
-                if let Ok(v) = h.amount.parse::<f64>() {
-                    *map.entry(h.token.clone()).or_insert(0.0) += v;
+                if let Ok(v) = rust_decimal::Decimal::from_str(&h.amount) {
+                    *map.entry(h.token.clone()).or_insert(rust_decimal::Decimal::ZERO) += v;
                 }
             }
             map.into_iter()
-                .map(|(token, total)| aggregator::HoldingSummary { token, total })
+                .map(|(token, total)| aggregator::HoldingSummary {
+                    token,
+                    total: total.to_f64().unwrap_or(0.0),
+                })
                 .collect::<Vec<_>>()
         };
         cache::get().insert(p, (holdings.clone(), summary, aggregator::utils::now()));
