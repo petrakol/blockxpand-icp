@@ -1,7 +1,26 @@
+:root {
+  --bg-color: #0a0a0f;
+  --text-color: #ffffff;
+  --accent-start: #8355e2;
+  --accent-end: #5140b4;
+  --surface-color: #14141e;
+  --error-border: #e84a5f;
+  --error-bg: #33151b;
+  --error-text: #f2c4c4;
+}
+
+.light {
+  --bg-color: #ffffff;
+  --text-color: #14141e;
+  --accent-start: #7142c0;
+  --accent-end: #512d9b;
+  --surface-color: #f0f0f0;
+}
+
 body {
   margin: 0;
-  background: #0a0a0f;
-  color: #ffffff;
+  background: var(--bg-color);
+  color: var(--text-color);
   font-family: 'Inter', 'Poppins', sans-serif;
   display: flex;
   justify-content: center;
@@ -36,9 +55,12 @@ body {
   border: none;
   border-radius: 8px;
   font-size: 1.1rem;
-  color: #fff;
-  background: linear-gradient(45deg, #8355e2, #5140b4);
+  color: var(--text-color);
   cursor: pointer;
+}
+
+.connect-btn {
+  background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
 }
 
 .btn:active {
@@ -113,8 +135,8 @@ body {
   width: 100%;
   max-width: 320px;
   padding: 0.8rem 1.2rem;
-  background: #14141e;
-  color: #ffffff;
+  background: var(--surface-color);
+  color: var(--text-color);
   border-radius: 12px;
   cursor: pointer;
   margin-top: 1rem;
@@ -130,7 +152,7 @@ body {
   left: 0;
   right: 0;
   height: 60%;
-  background: #14141e;
+  background: var(--surface-color);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
   padding: 1.5rem;
@@ -150,8 +172,8 @@ body {
 .error {
   margin-top: 1rem;
   padding: 1rem;
-  border-left: 4px solid #e84a5f;
-  background: #33151b;
-  color: #f2c4c4;
+  border-left: 4px solid var(--error-border);
+  background: var(--error-bg);
+  color: var(--error-text);
   border-radius: 8px;
 }
