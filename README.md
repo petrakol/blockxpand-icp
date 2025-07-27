@@ -164,6 +164,7 @@ canister controller:
 - `LEDGER_RETRY_LIMIT` – attempts for ledger calls before giving up (default 3)
 - `MAX_HOLDINGS` – maximum holdings entries returned per query (default 500)
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
+- `MAX_STATE_BYTES` – fail upgrades if the stable snapshot exceeds this size (default 1000000)
 
 When any of these are unset a warning is logged and the fallback from
 `ledgers.toml` is used.  The file is watched for changes and duplicate watchers

@@ -3,6 +3,13 @@ pub mod ic_http;
 use async_graphql::{EmptyMutation, EmptySubscription, Object, Request as GqlRequest, Schema};
 use once_cell::sync::Lazy;
 
+const STABLE_VERSION: u32 = 1;
+static MAX_STATE_BYTES: Lazy<u64> = Lazy::new(|| {
+    option_env!("MAX_STATE_BYTES")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(1_000_000)
+});
+
 #[ic_cdk_macros::init]
 fn init() {
     aggregator::logging::init();
@@ -28,18 +35,40 @@ fn pre_upgrade() {
     let lp = aggregator::lp_cache::stable_save();
     let settings = aggregator::user_settings::stable_save();
     let metrics = aggregator::metrics::stable_save();
-    ic_cdk::storage::stable_save((log, meta, lp, settings, metrics)).unwrap();
+    let snapshot = (
+        STABLE_VERSION,
+        &log,
+        &meta,
+        &lp,
+        &settings,
+        &metrics,
+    );
+    let bytes = candid::encode_one(snapshot).expect("encode state");
+    if bytes.len() as u64 > *MAX_STATE_BYTES {
+        ic_cdk::trap(&format!(
+            "stable state {} bytes exceeds limit {}",
+            bytes.len(), *MAX_STATE_BYTES
+        ));
+    }
+    ic_cdk::storage::stable_save((STABLE_VERSION, log, meta, lp, settings, metrics)).unwrap();
 }
 
 #[ic_cdk_macros::post_upgrade]
 fn post_upgrade() {
-    if let Ok((log, meta, lp, settings, metrics)) = ic_cdk::storage::stable_restore::<(
+    if let Ok((ver, log, meta, lp, settings, metrics)) = ic_cdk::storage::stable_restore::<(
+        u32,
         Vec<String>,
         Vec<aggregator::ledger_fetcher::StableMeta>,
         Vec<aggregator::lp_cache::StableEntry>,
         Vec<aggregator::user_settings::StableEntry>,
         (u64, u64, u64, u64, u64, u64, u64, u64),
     )>() {
+        if ver != STABLE_VERSION {
+            ic_cdk::trap(&format!(
+                "incompatible state version {}, expected {}",
+                ver, STABLE_VERSION
+            ));
+        }
         aggregator::cycles::set_log(log);
         aggregator::ledger_fetcher::stable_restore(meta);
         aggregator::lp_cache::stable_restore(lp);
