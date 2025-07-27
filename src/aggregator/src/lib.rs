@@ -98,13 +98,30 @@ static CLAIM_COUNTS: Lazy<Mutex<HashMap<Principal, (u32, u64)>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(feature = "claim")]
-static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<u64> = Lazy::new(|| {
-    option_env!("CLAIM_ADAPTER_TIMEOUT_SECS")
+static CLAIM_COOLDOWN_NS: Lazy<u64> = Lazy::new(|| {
+    option_env!("CLAIM_COOLDOWN_SECS")
         .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(10)
+        .unwrap_or(60)
+        * 1_000_000_000u64
 });
 
-async fn calculate_holdings(principal: Principal) -> (Vec<Holding>, Vec<HoldingSummary>) {
+#[cfg(feature = "claim")]
+static CLAIM_COOLDOWN: Lazy<Mutex<HashMap<Principal, u64>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+#[cfg(feature = "claim")]
+static CLAIM_ADAPTER_TIMEOUT_SECS: Lazy<std::sync::atomic::AtomicU64> = Lazy::new(|| {
+    use std::sync::atomic::AtomicU64;
+    AtomicU64::new(
+        option_env!("CLAIM_ADAPTER_TIMEOUT_SECS")
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(10),
+    )
+});
+
+async fn calculate_holdings(
+    principal: Principal,
+) -> Result<(Vec<Holding>, Vec<HoldingSummary>), rust_decimal::Error> {
     let settings = user_settings::get(&principal);
     let ledger_filter = settings.as_ref().and_then(|s| s.ledgers.as_ref());
     let dex_filter = settings.as_ref().and_then(|s| s.dexes.as_ref());
@@ -123,8 +140,8 @@ async fn calculate_holdings(principal: Principal) -> (Vec<Holding>, Vec<HoldingS
     if holdings.len() > *MAX_HOLDINGS {
         holdings.truncate(*MAX_HOLDINGS);
     }
-    let summary = summarise(&holdings);
-    (holdings, summary)
+    let summary = summarise(&holdings)?;
+    Ok((holdings, summary))
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -154,9 +171,11 @@ pub fn pay_cycles(price: u128) {
 pub fn pay_cycles(_price: u128) {}
 
 #[ic_cdk_macros::query]
-pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
+pub async fn get_holdings(principal: Principal) -> Result<Vec<Holding>, String> {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
     let start = instructions();
     let now = now();
     {
@@ -169,12 +188,14 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
                     "get_holdings took {used} instructions ({:.2} B)",
                     used as f64 / 1_000_000_000f64
                 );
-                return cached;
+                return Ok(cached);
             }
         }
     }
 
-    let (holdings, summary) = calculate_holdings(principal).await;
+    let (holdings, summary) = calculate_holdings(principal)
+        .await
+        .map_err(|e| e.to_string())?;
 
     {
         cache::get().insert(principal, (holdings.clone(), summary, now));
@@ -184,7 +205,9 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
         "get_holdings took {used} instructions ({:.2} B)",
         used as f64 / 1_000_000_000f64
     );
-    holdings
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    Ok(holdings)
 }
 
 #[cfg(feature = "claim")]
@@ -192,6 +215,8 @@ pub async fn get_holdings(principal: Principal) -> Vec<Holding> {
 pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     metrics::inc_query();
     pay_cycles(*CLAIM_PRICE_CYCLES);
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
     metrics::inc_claim_attempt();
     let caller = ic_cdk::caller();
     if caller != principal && !CLAIM_WALLETS.contains(&caller) {
@@ -202,6 +227,17 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
     }
     if CLAIM_DENYLIST.contains(&principal) {
         ic_cdk::api::trap("denied");
+    }
+    {
+        let mut map = CLAIM_COOLDOWN.lock().unwrap();
+        let now = now();
+        map.retain(|_, exp| *exp > now);
+        if let Some(exp) = map.get(&principal) {
+            if *exp > now {
+                ic_cdk::api::trap("cooldown");
+            }
+        }
+        map.insert(principal, now + *CLAIM_COOLDOWN_NS);
     }
     {
         let mut counts = CLAIM_COUNTS.lock().unwrap();
@@ -253,18 +289,22 @@ pub async fn claim_all_rewards(principal: Principal) -> Vec<u64> {
         }
     }
     metrics::inc_claim_success();
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
     spent
 }
 
 #[cfg(feature = "claim")]
-async fn claim_with_timeout<F>(fut: F) -> Option<u64>
+pub(crate) async fn claim_with_timeout<F>(fut: F) -> Option<u64>
 where
     F: std::future::Future<Output = Result<u64, String>>,
 {
     #[cfg(not(target_arch = "wasm32"))]
     {
+        use std::sync::atomic::Ordering;
         use tokio::time::{timeout, Duration};
-        match timeout(Duration::from_secs(*CLAIM_ADAPTER_TIMEOUT_SECS), fut).await {
+        let secs = CLAIM_ADAPTER_TIMEOUT_SECS.load(Ordering::Relaxed);
+        match timeout(Duration::from_secs(secs), fut).await {
             Ok(Ok(v)) => Some(v),
             Ok(Err(e)) => {
                 tracing::error!("claim failed: {e}");
@@ -292,7 +332,12 @@ where
 pub fn pools_graphql(query: String) -> String {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
-    pool_registry::graphql(query)
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
+    let res = pool_registry::graphql(query);
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    res
 }
 
 #[derive(candid::CandidType, serde::Serialize)]
@@ -305,30 +350,42 @@ pub struct CertifiedHoldings {
 }
 
 #[ic_cdk_macros::update]
-pub async fn refresh_holdings(principal: Principal) {
+pub async fn refresh_holdings(principal: Principal) -> Result<(), String> {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
     let now = now();
-    let (holdings, summary) = calculate_holdings(principal).await;
+    let (holdings, summary) = calculate_holdings(principal)
+        .await
+        .map_err(|e| e.to_string())?;
     cache::get().insert(principal, (holdings.clone(), summary, now));
     cert::update(principal, &holdings);
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    Ok(())
 }
 
 #[ic_cdk_macros::query]
 pub fn get_holdings_cert(principal: Principal) -> CertifiedHoldings {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
     let holdings = cache::get()
         .get(&principal)
         .map(|v| v.value().0.clone())
         .unwrap_or_default();
     let certificate = ic_cdk::api::data_certificate().unwrap_or_default();
     let witness = cert::witness(principal);
-    CertifiedHoldings {
+    let out = CertifiedHoldings {
         holdings,
         certificate,
         witness,
-    }
+    };
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    out
 }
 
 #[derive(Clone, candid::CandidType, serde::Serialize, serde::Deserialize)]
@@ -338,34 +395,45 @@ pub struct HoldingSummary {
 }
 
 #[ic_cdk_macros::query]
-pub async fn get_holdings_summary(principal: Principal) -> Vec<HoldingSummary> {
+pub async fn get_holdings_summary(principal: Principal) -> Result<Vec<HoldingSummary>, String> {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
     let now = now();
     {
         if let Some(v) = cache::get().get(&principal) {
             let (_, summary, ts) = v.value().clone();
             if now - ts < MINUTE_NS {
-                return summary;
+                return Ok(summary);
             }
         }
     }
-    let (holdings, summary) = calculate_holdings(principal).await;
+    let (holdings, summary) = calculate_holdings(principal)
+        .await
+        .map_err(|e| e.to_string())?;
     cache::get().insert(principal, (holdings, summary.clone(), now));
-    summary
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    Ok(summary)
 }
 
-fn summarise(holdings: &[Holding]) -> Vec<HoldingSummary> {
+fn summarise(holdings: &[Holding]) -> Result<Vec<HoldingSummary>, rust_decimal::Error> {
+    use rust_decimal::prelude::{FromStr, ToPrimitive};
     use std::collections::BTreeMap;
-    let mut map: BTreeMap<String, f64> = BTreeMap::new();
+    let mut map: BTreeMap<String, rust_decimal::Decimal> = BTreeMap::new();
     for h in holdings {
-        if let Ok(v) = h.amount.parse::<f64>() {
-            *map.entry(h.token.clone()).or_insert(0.0) += v;
-        }
+        let v = rust_decimal::Decimal::from_str(&h.amount)?;
+        *map.entry(h.token.clone())
+            .or_insert(rust_decimal::Decimal::ZERO) += v;
     }
-    map.into_iter()
-        .map(|(token, total)| HoldingSummary { token, total })
-        .collect()
+    Ok(map
+        .into_iter()
+        .map(|(token, total)| HoldingSummary {
+            token,
+            total: total.to_f64().unwrap_or(0.0),
+        })
+        .collect())
 }
 
 #[derive(candid::CandidType, serde::Serialize)]
@@ -378,36 +446,55 @@ pub struct Version {
 pub fn get_version() -> Version {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
-    Version {
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
+    let out = Version {
         git_sha: option_env!("GIT_SHA").unwrap_or("unknown"),
         build_time: option_env!("BUILD_TIME").unwrap_or("unknown"),
-    }
+    };
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    out
 }
 
 #[ic_cdk_macros::query]
 pub fn get_cycles_log() -> Vec<String> {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
-    cycles::log()
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
+    let log = cycles::log();
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    log
 }
 
 #[ic_cdk_macros::query]
 pub fn get_user_settings(principal: Principal) -> user_settings::UserSettings {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
-    user_settings::get(&principal).unwrap_or_default()
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
+    let out = user_settings::get(&principal).unwrap_or_default();
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    out
 }
 
 #[ic_cdk_macros::update]
 pub fn update_user_settings(principal: Principal, settings: user_settings::UserSettings) {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
     let caller = ic_cdk::caller();
     if caller != principal {
         ic_cdk::api::trap("unauthorized");
     }
     user_settings::update(principal, settings);
     cache::get().remove(&principal);
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
 }
 
 #[cfg(feature = "claim")]
@@ -423,6 +510,8 @@ pub struct ClaimStatus {
 pub fn get_claim_status(principal: Principal) -> ClaimStatus {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
     let now = now();
     let (attempts, window_expires) = CLAIM_COUNTS
         .lock()
@@ -435,18 +524,26 @@ pub fn get_claim_status(principal: Principal) -> ClaimStatus {
         .unwrap()
         .get(&principal)
         .is_some_and(|exp| *exp > now);
-    ClaimStatus {
+    let out = ClaimStatus {
         attempts,
         window_expires,
         locked,
-    }
+    };
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    out
 }
 
 #[ic_cdk_macros::query]
 pub fn health_check() -> &'static str {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
-    "ok"
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
+    let out = "ok";
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    out
 }
 
 #[derive(candid::CandidType, serde::Serialize, serde::Deserialize)]
@@ -455,26 +552,60 @@ pub struct TokenTotal {
     pub total: f64,
 }
 
-fn summarize(holdings: &[Holding]) -> Vec<TokenTotal> {
+fn summarize(holdings: &[Holding]) -> Result<Vec<TokenTotal>, rust_decimal::Error> {
+    use rust_decimal::prelude::{FromStr, ToPrimitive};
     use std::collections::HashMap;
-    let mut map: HashMap<String, f64> = HashMap::new();
+    let mut map: HashMap<String, rust_decimal::Decimal> = HashMap::new();
     for h in holdings {
-        if let Ok(v) = h.amount.parse::<f64>() {
-            *map.entry(h.token.clone()).or_default() += v;
-        }
+        let v = rust_decimal::Decimal::from_str(&h.amount)?;
+        *map.entry(h.token.clone())
+            .or_insert(rust_decimal::Decimal::ZERO) += v;
     }
     let mut out: Vec<TokenTotal> = map
         .into_iter()
-        .map(|(token, total)| TokenTotal { token, total })
+        .map(|(token, total)| TokenTotal {
+            token,
+            total: total.to_f64().unwrap_or(0.0),
+        })
         .collect();
     out.sort_by(|a, b| a.token.cmp(&b.token));
-    out
+    Ok(out)
 }
 
 #[ic_cdk_macros::query]
-pub async fn get_summary(principal: Principal) -> Vec<TokenTotal> {
+pub async fn get_summary(principal: Principal) -> Result<Vec<TokenTotal>, String> {
     metrics::inc_query();
     pay_cycles(*CALL_PRICE_CYCLES);
-    let holdings = get_holdings(principal).await;
-    summarize(&holdings)
+    cycles::ensure_margin();
+    let start_cycles = cycles::available();
+    let holdings = get_holdings(principal).await?;
+    let res = summarize(&holdings).map_err(|e| e.to_string());
+    let used_cycles = start_cycles.saturating_sub(cycles::available());
+    metrics::record_query_cycles(used_cycles as u64);
+    res
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn claim_with_timeout_times_out() {
+        use std::sync::atomic::Ordering;
+        CLAIM_ADAPTER_TIMEOUT_SECS.store(1, Ordering::Relaxed);
+        let fut = async {
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+            Ok(1u64)
+        };
+        let res = claim_with_timeout(fut).await;
+        assert!(res.is_none());
+    }
+
+    #[test]
+    fn pay_cycles_noop_host() {
+        let before = metrics::get().cycles.collected;
+        pay_cycles(10);
+        let after = metrics::get().cycles.collected;
+        assert_eq!(before, after);
+    }
 }

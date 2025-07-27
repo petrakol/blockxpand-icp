@@ -50,33 +50,55 @@ struct LedgersConfig {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
+fn load_ledgers() -> Vec<Principal> {
+    use tracing::warn;
     let cfg: LedgersConfig =
         toml::from_str(include_str!("../../../config/ledgers.toml")).expect("invalid config");
-    let mut ids: Vec<Principal> = cfg
-        .ledgers
-        .values()
-        .map(|id| Principal::from_text(id).expect("invalid principal"))
-        .collect();
-    ids.sort();
-    ids.dedup();
+    let mut ids = Vec::with_capacity(cfg.ledgers.len());
+    let mut seen = std::collections::HashSet::with_capacity(cfg.ledgers.len());
+    for id_str in cfg.ledgers.values() {
+        match Principal::from_text(id_str) {
+            Ok(p) => {
+                if !seen.insert(p) {
+                    warn!("duplicate ledger id {}", p);
+                    continue;
+                }
+                ids.push(p);
+            }
+            Err(e) => warn!("invalid ledger id {id_str}: {e}"),
+        }
+    }
     ids
-});
+}
 
 #[cfg(not(target_arch = "wasm32"))]
-pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(|| {
-    let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+fn load_ledgers() -> Vec<Principal> {
+    use tracing::warn;
+    let path = crate::utils::ledgers_path();
     let text = std::fs::read_to_string(path).expect("cannot read ledgers.toml");
     let cfg: LedgersConfig = toml::from_str(&text).expect("invalid config");
-    let mut ids: Vec<Principal> = cfg
-        .ledgers
-        .values()
-        .map(|id| Principal::from_text(id).expect("invalid principal"))
-        .collect();
-    ids.sort();
-    ids.dedup();
+    let mut ids = Vec::with_capacity(cfg.ledgers.len());
+    let mut seen = std::collections::HashSet::with_capacity(cfg.ledgers.len());
+    for id_str in cfg.ledgers.values() {
+        match Principal::from_text(id_str) {
+            Ok(p) => {
+                if !seen.insert(p) {
+                    warn!("duplicate ledger id {}", p);
+                    continue;
+                }
+                ids.push(p);
+            }
+            Err(e) => warn!("invalid ledger id {id_str}: {e}"),
+        }
+    }
     ids
-});
+}
+
+#[cfg(target_arch = "wasm32")]
+pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(load_ledgers);
+
+#[cfg(not(target_arch = "wasm32"))]
+pub static LEDGERS: Lazy<Vec<Principal>> = Lazy::new(load_ledgers);
 
 /// Duration that cached metadata remains valid (default 24h)
 #[cfg(not(target_arch = "wasm32"))]
@@ -105,10 +127,12 @@ struct Meta {
     fee: u64,
     hash: [u8; 32],
     expires: u64,
+    last_used: u64,
 }
 #[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
 
+#[cfg(not(target_arch = "wasm32"))]
 static MAX_META_ENTRIES: Lazy<usize> = Lazy::new(|| {
     option_env!("META_CACHE_SIZE")
         .and_then(|v| v.parse::<usize>().ok())
@@ -123,6 +147,7 @@ pub struct StableMeta {
     fee: u64,
     hash: Vec<u8>,
     expires: u64,
+    last_used: u64,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -136,6 +161,7 @@ pub fn stable_save() -> Vec<StableMeta> {
             fee: e.value().fee,
             hash: e.value().hash.to_vec(),
             expires: e.value().expires,
+            last_used: e.value().last_used,
         })
         .collect()
 }
@@ -156,6 +182,7 @@ pub fn stable_restore(data: Vec<StableMeta>) {
                 fee: m.fee,
                 hash,
                 expires: m.expires,
+                last_used: m.last_used,
             },
         );
     }
@@ -173,7 +200,7 @@ fn evict_excess() {
     while META_CACHE.len() > *MAX_META_ENTRIES {
         if let Some(old_key) = META_CACHE
             .iter()
-            .min_by_key(|e| e.value().expires)
+            .min_by_key(|e| e.value().last_used)
             .map(|e| *e.key())
         {
             META_CACHE.remove(&old_key);
@@ -397,8 +424,9 @@ pub async fn fetch(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u64), FetchError> {
     evict_expired();
-    if let Some(meta) = META_CACHE.get(&cid) {
+    if let Some(mut meta) = META_CACHE.get_mut(&cid) {
         if meta.expires > now() {
+            meta.last_used = now();
             return Ok((meta.symbol.clone(), meta.decimals, meta.fee));
         }
     }
@@ -409,14 +437,11 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u6
     let hash: [u8; 32] = Sha256::digest(&encoded).into();
     if let Some(meta) = META_CACHE.get(&cid) {
         if meta.hash == hash {
-            META_CACHE.insert(
-                cid,
-                Meta {
-                    hash,
-                    expires: now() + *META_TTL_NS,
-                    ..meta.clone()
-                },
-            );
+            let mut updated = meta.clone();
+            updated.hash = hash;
+            updated.expires = now() + *META_TTL_NS;
+            updated.last_used = now();
+            META_CACHE.insert(cid, updated);
             return Ok((meta.symbol.clone(), meta.decimals, meta.fee));
         }
     }
@@ -452,6 +477,7 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u6
             fee,
             hash,
             expires: now() + *META_TTL_NS,
+            last_used: now(),
         },
     );
     evict_excess();
@@ -563,7 +589,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     #[serial_test::serial]
     async fn fetch_happy_path() {
-        std::env::set_var("LEDGERS_FILE", "tests/ledgers_single.toml");
+        std::env::set_var("LEDGERS_CONFIG", "tests/ledgers_single.toml");
         once_cell::sync::Lazy::force(&LEDGERS);
         set_mock_metadata(Ok(vec![
             ("icrc1:symbol".into(), IDLValue::Text("AAA".into())),
@@ -582,7 +608,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     #[serial_test::serial]
     async fn fetch_balance_error() {
-        std::env::set_var("LEDGERS_FILE", "tests/ledgers_single.toml");
+        std::env::set_var("LEDGERS_CONFIG", "tests/ledgers_single.toml");
         once_cell::sync::Lazy::force(&LEDGERS);
         set_mock_metadata(Ok(vec![
             ("icrc1:symbol".into(), IDLValue::Text("AAA".into())),
@@ -598,7 +624,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     #[serial_test::serial]
     async fn fetch_metadata_error() {
-        std::env::set_var("LEDGERS_FILE", "tests/ledgers_single.toml");
+        std::env::set_var("LEDGERS_CONFIG", "tests/ledgers_single.toml");
         once_cell::sync::Lazy::force(&LEDGERS);
         set_mock_metadata(Err("bad".into()));
         set_mock_balance(Ok(Nat::from(10u64)));

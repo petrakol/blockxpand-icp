@@ -1,6 +1,8 @@
+use super::DexAdapter;
+#[cfg(not(target_arch = "wasm32"))]
 use super::{
     dex_icpswap::IcpswapAdapter, dex_infinity::InfinityAdapter, dex_sonic::SonicAdapter,
-    sns_adapter::SnsAdapter, DexAdapter,
+    sns_adapter::SnsAdapter,
 };
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};
@@ -19,7 +21,7 @@ pub async fn load_adapters() {
     use std::fs;
     use std::path::Path;
 
-    let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    let path = crate::utils::ledgers_path();
     if !Path::new(&path).exists() {
         return;
     }

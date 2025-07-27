@@ -124,12 +124,19 @@ static CONFIG_LOCK: once_cell::sync::Lazy<tokio::sync::Mutex<()>> =
     once_cell::sync::Lazy::new(|| tokio::sync::Mutex::new(()));
 
 #[cfg(not(target_arch = "wasm32"))]
+pub fn ledgers_path() -> String {
+    std::env::var("LEDGERS_CONFIG")
+        .or_else(|_| std::env::var("LEDGERS_FILE"))
+        .unwrap_or_else(|_| "config/ledgers.toml".to_string())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn load_dex_config() {
     use std::path::Path;
     use tracing::{info, warn};
     let _guard = CONFIG_LOCK.lock().await;
 
-    let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    let path = ledgers_path();
     if !Path::new(&path).exists() {
         tracing::error!("dex config {path} missing");
         return;
@@ -325,7 +332,7 @@ pub fn watch_dex_config() {
         tracing::debug!("dex config watcher already running");
         return;
     }
-    let path = std::env::var("LEDGERS_FILE").unwrap_or_else(|_| "config/ledgers.toml".to_string());
+    let path = ledgers_path();
     if !Path::new(&path).exists() {
         tracing::error!("dex config {path} missing");
         return;

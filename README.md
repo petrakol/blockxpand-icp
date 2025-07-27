@@ -92,6 +92,7 @@ Below is a high‑level visualisation of the architecture.  It shows how callers
 
     # Call the canister
     dfx canister call aggregator_canister get_holdings '("<your-principal>")'
+    # Returns `record { ok = vec <Holding>; }` on success
 
 ### Example: Web UI
 
@@ -151,17 +152,20 @@ canister controller:
 - `CLAIM_ADAPTER_TIMEOUT_SECS` – per-adapter claim timeout (default 10)
 - `CLAIM_DAILY_LIMIT` – max `claim_all_rewards` attempts per user per day (default 5)
 - `CLAIM_LIMIT_WINDOW_SECS` – seconds before the claim counter resets (default 86400)
+- `CLAIM_COOLDOWN_SECS` – seconds a user must wait between claims (default 60)
 - `MAX_CLAIM_PER_CALL` – limit how many adapters are used per claim call (default unlimited)
 - `CLAIM_MAX_TOTAL` – maximum total reward units claimable per call (default unlimited)
 - `FETCH_ADAPTER_TIMEOUT_SECS` – per-adapter fetch timeout (default 5)
 - `CYCLE_BACKOFF_MAX` – max minutes between failed cycle refills (default 60)
 - `CALL_PRICE_CYCLES` – cycles required for most Candid calls (default 0)
 - `CLAIM_PRICE_CYCLES` – cycles required for `claim_all_rewards` (default 0)
+- `CYCLE_SAFE_MARGIN` – minimum balance required to serve queries (default 100000000000)
 - `WARM_QUEUE_SIZE` – maximum metadata warm queue size (default 128)
 - `META_TTL_SECS` – seconds ledger metadata stays cached (default 86400)
 - `LEDGER_RETRY_LIMIT` – attempts for ledger calls before giving up (default 3)
 - `MAX_HOLDINGS` – maximum holdings entries returned per query (default 500)
 - `LOG_LEVEL` – optional compile-time log level (trace, debug, info, warn, error)
+- `MAX_STATE_BYTES` – fail upgrades if the stable snapshot exceeds this size (default 1000000)
 
 When any of these are unset a warning is logged and the fallback from
 `ledgers.toml` is used.  The file is watched for changes and duplicate watchers
@@ -179,7 +183,7 @@ environment.
 ### Example environment
 
 ```
-export LEDGERS_FILE=config/ledgers.toml
+export LEDGERS_CONFIG=config/ledgers.toml
 export CYCLES_WALLET=aaaaa-aa
 export ICPSWAP_FACTORY=bbbbbb-bb
 export SONIC_ROUTER=cccccc-cc

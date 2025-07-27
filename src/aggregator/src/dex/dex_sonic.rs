@@ -118,7 +118,7 @@ async fn claim_impl(principal: Principal) -> Result<u64, String> {
     let holdings = fetch_positions_impl(principal)
         .await
         .map_err(|e| format!("{:?}", e))?;
-    let summary = crate::summarise(&holdings);
+    let summary = crate::summarise(&holdings).map_err(|e| e.to_string())?;
     cache::get().insert(principal, (holdings, summary, now()));
     Ok(spent)
 }

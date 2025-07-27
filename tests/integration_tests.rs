@@ -89,14 +89,14 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
 
         aggregator::utils::load_dex_config().await;
 
         aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert_eq!(holdings.len(), 4);
         assert_eq!(holdings[0].token, "MOCK");
         assert_eq!(holdings[0].status, "liquid");
@@ -134,7 +134,9 @@ mod tests {
             .call()
             .await
             .unwrap();
-        let res: Vec<Holding> = candid::Decode!(&bytes, Vec<Holding>).unwrap();
+        let res: Result<Vec<Holding>, String> =
+            candid::Decode!(&bytes, Result<Vec<Holding>, String>).unwrap();
+        let res = res.expect("get_holdings err");
         assert_eq!(res.len(), 3);
     }
 
@@ -165,7 +167,7 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
 
         aggregator::utils::load_dex_config().await;
 
@@ -259,13 +261,13 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("ICPSWAP_FACTORY", &dex_id);
 
         aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert!(holdings.iter().any(|h| h.source == "ICPSwap"));
     }
 
@@ -303,13 +305,13 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("SONIC_ROUTER", &dex_id);
 
         aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert!(holdings.iter().any(|h| h.source == "Sonic"));
     }
 
@@ -347,13 +349,13 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("INFINITY_VAULT", &dex_id);
 
         aggregator::utils::load_dex_config().await;
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert!(holdings.iter().any(|h| h.source == "InfinitySwap"));
     }
 
@@ -399,7 +401,7 @@ mod tests {
         writeln!(file, "[ledgers]\nMOCK = \"{ledger_id}\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("ICPSWAP_FACTORY", &icpswap_id);
         std::env::set_var("SONIC_ROUTER", &sonic_id);
 
@@ -484,10 +486,10 @@ mod tests {
         writeln!(file, "[ledgers]\nGOOD = \"{cid}\"\nBAD = \"aaaaa-aa\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
 
         let principal = Principal::anonymous();
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert_eq!(holdings.len(), 5);
         assert_eq!(holdings[0].token, "MOCK");
         assert_eq!(holdings[0].status, "liquid");
@@ -522,7 +524,7 @@ mod tests {
         writeln!(file, "[ledgers]\nGOOD = \"{cid}\"\nBAD = \"aaaaa-aa\"").unwrap();
 
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
 
         let principal = Principal::anonymous();
         let mut set = std::collections::HashSet::new();
@@ -535,7 +537,7 @@ mod tests {
             },
         );
 
-        let holdings = get_holdings(principal).await;
+        let holdings = get_holdings(principal).await.unwrap();
         assert_eq!(holdings.len(), 4);
     }
 
@@ -572,7 +574,7 @@ mod tests {
         let mut file = NamedTempFile::new().unwrap();
         writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
 
-        std::env::set_var("LEDGERS_FILE", file.path());
+        std::env::set_var("LEDGERS_CONFIG", file.path());
         std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
 
         aggregator::utils::load_dex_config().await;
@@ -600,16 +602,9 @@ mod tests {
             .call()
             .await
             .unwrap();
-        #[derive(serde::Deserialize)]
-        struct Metrics {
-            cycles: u64,
-            cycles_collected: u64,
-            query_count: u64,
-            heartbeat_count: u64,
-            last_heartbeat: u64,
-        }
         let json: String = candid::Decode!(&bytes, String).unwrap();
-        let m1: Metrics = serde_json::from_str(&json).unwrap();
+        let v1: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let m1 = v1["counters"]["heartbeat_count"].as_u64().unwrap();
 
         Command::new("dfx")
             .args(["deploy", "aggregator", "--network", "emulator"])
@@ -627,7 +622,120 @@ mod tests {
             .await
             .unwrap();
         let json2: String = candid::Decode!(&bytes2, String).unwrap();
-        let m2: Metrics = serde_json::from_str(&json2).unwrap();
-        assert!(m2.heartbeat_count >= m1.heartbeat_count);
+        let v2: serde_json::Value = serde_json::from_str(&json2).unwrap();
+        let m2 = v2["counters"]["heartbeat_count"].as_u64().unwrap();
+        assert!(m2 >= m1);
+    }
+
+    #[tokio::test]
+    async fn integration_http_json_and_graphql() {
+        if !ensure_dfx() {
+            eprintln!("dfx not found; skipping integration test");
+            return;
+        }
+
+        let replica = match Replica::start() {
+            Some(r) => r,
+            None => {
+                eprintln!("failed to start dfx; skipping test");
+                return;
+            }
+        };
+
+        let cid = match deploy(replica.dir.path(), "mock_ledger") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy mock ledger; skipping test");
+                return;
+            }
+        };
+
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[ledgers]\nMOCK = \"{cid}\"").unwrap();
+
+        std::env::set_var("LEDGER_URL", "http://127.0.0.1:4943");
+        std::env::set_var("LEDGERS_CONFIG", file.path());
+
+        aggregator::utils::load_dex_config().await;
+
+        let cfg_path = std::path::Path::new("config/ledgers.toml");
+        let original = std::fs::read_to_string(cfg_path).unwrap();
+        std::fs::write(cfg_path, format!("[ledgers]\nICP = \"{cid}\"\n")).unwrap();
+        struct Restore(String);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                let _ = std::fs::write("config/ledgers.toml", &self.0);
+            }
+        }
+        let _restore = Restore(original);
+
+        let aggr_id = match deploy(replica.dir.path(), "aggregator") {
+            Some(id) => id,
+            None => {
+                eprintln!("failed to deploy aggregator; skipping test");
+                return;
+            }
+        };
+
+        let agent = Agent::builder()
+            .with_url("http://127.0.0.1:4943")
+            .with_identity(AnonymousIdentity {})
+            .build()
+            .unwrap();
+        let _ = agent.fetch_root_key().await;
+
+        let principal = Principal::anonymous();
+
+        use serde_bytes::ByteBuf;
+        #[derive(candid::CandidType, serde::Deserialize)]
+        struct Request {
+            method: String,
+            url: String,
+            headers: Vec<(String, String)>,
+            body: ByteBuf,
+        }
+        #[derive(candid::CandidType, serde::Deserialize)]
+        struct Response {
+            status_code: u16,
+            headers: Vec<(String, String)>,
+            body: ByteBuf,
+        }
+
+        let req = Request {
+            method: "GET".into(),
+            url: format!("/summary/{principal}").into(),
+            headers: vec![],
+            body: ByteBuf::default(),
+        };
+        let arg = candid::Encode!(&req).unwrap();
+        let bytes = agent
+            .query(&Principal::from_text(&aggr_id).unwrap(), "http_request")
+            .with_arg(arg)
+            .call()
+            .await
+            .unwrap();
+        let resp: Response = candid::Decode!(&bytes, Response).unwrap();
+        assert_eq!(resp.status_code, 200);
+        let body = std::str::from_utf8(resp.body.as_ref()).unwrap();
+        assert!(body.contains("MOCK"));
+
+        let query = format!("{{ summary(principal: \"{principal}\") {{ token total }} }}");
+        let req = Request {
+            method: "POST".into(),
+            url: "/graphql".into(),
+            headers: vec![],
+            body: ByteBuf::from(serde_json::to_vec(&serde_json::json!({"query": query})).unwrap()),
+        };
+        let arg = candid::Encode!(&req).unwrap();
+        let bytes = agent
+            .query(&Principal::from_text(&aggr_id).unwrap(), "http_request")
+            .with_arg(arg)
+            .call()
+            .await
+            .unwrap();
+        let resp: Response = candid::Decode!(&bytes, Response).unwrap();
+        assert_eq!(resp.status_code, 200);
+        let body = std::str::from_utf8(resp.body.as_ref()).unwrap();
+        assert!(body.contains("MOCK"));
     }
 }

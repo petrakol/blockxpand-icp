@@ -10,11 +10,17 @@ static CLAIM_SUCCESSES: AtomicU64 = AtomicU64::new(0);
 static CYCLE_REFILL_ATTEMPTS: AtomicU64 = AtomicU64::new(0);
 static CYCLE_REFILL_SUCCESSES: AtomicU64 = AtomicU64::new(0);
 static CYCLES_COLLECTED: AtomicU64 = AtomicU64::new(0);
+static LAST_QUERY_CYCLES: AtomicU64 = AtomicU64::new(0);
 
 #[derive(CandidType, Serialize)]
 pub struct Metrics {
-    pub cycles: u128,
-    pub cycles_collected: u64,
+    pub counters: Counters,
+    pub cycles: CycleUsage,
+    pub caches: Caches,
+}
+
+#[derive(CandidType, Serialize)]
+pub struct Counters {
     pub query_count: u64,
     pub heartbeat_count: u64,
     pub last_heartbeat: u64,
@@ -22,9 +28,20 @@ pub struct Metrics {
     pub claim_successes: u64,
     pub cycle_refill_attempts: u64,
     pub cycle_refill_successes: u64,
-    pub holdings_cache: usize,
-    pub lp_cache: usize,
-    pub metadata_cache: usize,
+}
+
+#[derive(CandidType, Serialize)]
+pub struct CycleUsage {
+    pub current: u128,
+    pub collected: u64,
+    pub last_query: u64,
+}
+
+#[derive(CandidType, Serialize)]
+pub struct Caches {
+    pub holdings: usize,
+    pub lp: usize,
+    pub metadata: usize,
 }
 
 pub fn inc_query() {
@@ -51,6 +68,10 @@ pub fn add_cycles_collected(amount: u128) {
     CYCLES_COLLECTED.fetch_add(amount as u64, Ordering::Relaxed);
 }
 
+pub fn record_query_cycles(amount: u64) {
+    LAST_QUERY_CYCLES.store(amount, Ordering::Relaxed);
+}
+
 pub fn inc_heartbeat(now: u64) {
     HEARTBEAT_COUNT.fetch_add(1, Ordering::Relaxed);
     LAST_HEARTBEAT.store(now, Ordering::Relaxed);
@@ -63,18 +84,25 @@ pub fn get() -> Metrics {
         0
     };
     Metrics {
-        cycles,
-        cycles_collected: CYCLES_COLLECTED.load(Ordering::Relaxed),
-        query_count: QUERY_COUNT.load(Ordering::Relaxed),
-        heartbeat_count: HEARTBEAT_COUNT.load(Ordering::Relaxed),
-        last_heartbeat: LAST_HEARTBEAT.load(Ordering::Relaxed),
-        claim_attempts: CLAIM_ATTEMPTS.load(Ordering::Relaxed),
-        claim_successes: CLAIM_SUCCESSES.load(Ordering::Relaxed),
-        cycle_refill_attempts: CYCLE_REFILL_ATTEMPTS.load(Ordering::Relaxed),
-        cycle_refill_successes: CYCLE_REFILL_SUCCESSES.load(Ordering::Relaxed),
-        holdings_cache: crate::cache::get().len(),
-        lp_cache: crate::lp_cache::len(),
-        metadata_cache: crate::ledger_fetcher::len(),
+        cycles: CycleUsage {
+            current: cycles,
+            collected: CYCLES_COLLECTED.load(Ordering::Relaxed),
+            last_query: LAST_QUERY_CYCLES.load(Ordering::Relaxed),
+        },
+        counters: Counters {
+            query_count: QUERY_COUNT.load(Ordering::Relaxed),
+            heartbeat_count: HEARTBEAT_COUNT.load(Ordering::Relaxed),
+            last_heartbeat: LAST_HEARTBEAT.load(Ordering::Relaxed),
+            claim_attempts: CLAIM_ATTEMPTS.load(Ordering::Relaxed),
+            claim_successes: CLAIM_SUCCESSES.load(Ordering::Relaxed),
+            cycle_refill_attempts: CYCLE_REFILL_ATTEMPTS.load(Ordering::Relaxed),
+            cycle_refill_successes: CYCLE_REFILL_SUCCESSES.load(Ordering::Relaxed),
+        },
+        caches: Caches {
+            holdings: crate::cache::get().len(),
+            lp: crate::lp_cache::len(),
+            metadata: crate::ledger_fetcher::len(),
+        },
     }
 }
 

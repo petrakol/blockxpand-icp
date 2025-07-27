@@ -23,6 +23,13 @@ static WALLET: Lazy<Option<Principal>> =
 const MIN_BALANCE: u128 = 500_000_000_000; // 0.5 T
 
 #[cfg(target_arch = "wasm32")]
+static SAFE_MARGIN: Lazy<u128> = Lazy::new(|| {
+    option_env!("CYCLE_SAFE_MARGIN")
+        .and_then(|s| s.parse::<u128>().ok())
+        .unwrap_or(100_000_000_000)
+});
+
+#[cfg(target_arch = "wasm32")]
 const LOG_LIMIT: usize = 100;
 
 #[cfg(target_arch = "wasm32")]
@@ -47,6 +54,26 @@ fn max_backoff_minutes() -> u64 {
 fn compute_backoff_minutes(fails: u8, max: u64) -> u64 {
     (1u64 << fails.min(6) as u64).min(max.max(1))
 }
+
+#[cfg(target_arch = "wasm32")]
+pub fn available() -> u128 {
+    canister_balance128()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn available() -> u128 {
+    0
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn ensure_margin() {
+    if available() < *SAFE_MARGIN {
+        ic_cdk::api::trap("cycles below safe margin");
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn ensure_margin() {}
 
 #[cfg(target_arch = "wasm32")]
 pub async fn tick() {

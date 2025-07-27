@@ -3,6 +3,13 @@ pub mod ic_http;
 use async_graphql::{EmptyMutation, EmptySubscription, Object, Request as GqlRequest, Schema};
 use once_cell::sync::Lazy;
 
+const STABLE_VERSION: u32 = 1;
+static MAX_STATE_BYTES: Lazy<u64> = Lazy::new(|| {
+    option_env!("MAX_STATE_BYTES")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(1_000_000)
+});
+
 #[ic_cdk_macros::init]
 fn init() {
     aggregator::logging::init();
@@ -28,18 +35,40 @@ fn pre_upgrade() {
     let lp = aggregator::lp_cache::stable_save();
     let settings = aggregator::user_settings::stable_save();
     let metrics = aggregator::metrics::stable_save();
-    ic_cdk::storage::stable_save((log, meta, lp, settings, metrics)).unwrap();
+    let snapshot = (
+        STABLE_VERSION,
+        &log,
+        &meta,
+        &lp,
+        &settings,
+        &metrics,
+    );
+    let bytes = candid::encode_one(snapshot).expect("encode state");
+    if bytes.len() as u64 > *MAX_STATE_BYTES {
+        ic_cdk::trap(&format!(
+            "stable state {} bytes exceeds limit {}",
+            bytes.len(), *MAX_STATE_BYTES
+        ));
+    }
+    ic_cdk::storage::stable_save((STABLE_VERSION, log, meta, lp, settings, metrics)).unwrap();
 }
 
 #[ic_cdk_macros::post_upgrade]
 fn post_upgrade() {
-    if let Ok((log, meta, lp, settings, metrics)) = ic_cdk::storage::stable_restore::<(
+    if let Ok((ver, log, meta, lp, settings, metrics)) = ic_cdk::storage::stable_restore::<(
+        u32,
         Vec<String>,
         Vec<aggregator::ledger_fetcher::StableMeta>,
         Vec<aggregator::lp_cache::StableEntry>,
         Vec<aggregator::user_settings::StableEntry>,
         (u64, u64, u64, u64, u64, u64, u64, u64),
     )>() {
+        if ver != STABLE_VERSION {
+            ic_cdk::trap(&format!(
+                "incompatible state version {}, expected {}",
+                ver, STABLE_VERSION
+            ));
+        }
         aggregator::cycles::set_log(log);
         aggregator::ledger_fetcher::stable_restore(meta);
         aggregator::lp_cache::stable_restore(lp);
@@ -62,7 +91,6 @@ fn get_metrics() -> String {
 }
 
 use crate::ic_http::{Request as HttpRequest, Response as HttpResponse};
-use aggregator::{pay_cycles, CALL_PRICE_CYCLES};
 
 #[derive(async_graphql::SimpleObject)]
 struct GHolding {
@@ -106,20 +134,14 @@ struct QueryRoot;
 impl QueryRoot {
     async fn holdings(&self, principal: String) -> async_graphql::Result<Vec<GHolding>> {
         let p = candid::Principal::from_text(&principal)?;
-        Ok(aggregator::get_holdings(p)
-            .await
-            .into_iter()
-            .map(GHolding::from)
-            .collect())
+        let holdings = aggregator::get_holdings(p).await.map_err(async_graphql::Error::new)?;
+        Ok(holdings.into_iter().map(GHolding::from).collect())
     }
 
     async fn summary(&self, principal: String) -> async_graphql::Result<Vec<GTokenTotal>> {
         let p = candid::Principal::from_text(&principal)?;
-        Ok(aggregator::get_summary(p)
-            .await
-            .into_iter()
-            .map(GTokenTotal::from)
-            .collect())
+        let summary = aggregator::get_summary(p).await.map_err(async_graphql::Error::new)?;
+        Ok(summary.into_iter().map(GTokenTotal::from).collect())
     }
 }
 
@@ -145,7 +167,16 @@ pub async fn http_request(req: HttpRequest) -> HttpResponse {
                 Ok(p) => p,
                 Err(_) => return not_found(),
             };
-            let holdings = aggregator::get_holdings(principal).await;
+            let holdings = match aggregator::get_holdings(principal).await {
+                Ok(v) => v,
+                Err(e) => {
+                    return HttpResponse {
+                        status_code: 500,
+                        headers: vec![("Content-Type".into(), "application/json".into())],
+                        body: ByteBuf::from(format!("{{\"error\":\"{}\"}}", e)),
+                    };
+                }
+            };
             let body = serde_json::to_vec(&holdings).unwrap();
             HttpResponse {
                 status_code: 200,
@@ -167,7 +198,16 @@ pub async fn http_request(req: HttpRequest) -> HttpResponse {
                 Ok(p) => p,
                 Err(_) => return not_found(),
             };
-            let summary = aggregator::get_summary(principal).await;
+            let summary = match aggregator::get_summary(principal).await {
+                Ok(v) => v,
+                Err(e) => {
+                    return HttpResponse {
+                        status_code: 500,
+                        headers: vec![("Content-Type".into(), "application/json".into())],
+                        body: ByteBuf::from(format!("{{\"error\":\"{}\"}}", e)),
+                    };
+                }
+            };
             let body = serde_json::to_vec(&summary).unwrap();
             HttpResponse {
                 status_code: 200,
@@ -225,15 +265,20 @@ mod tests {
             },
         ];
         let summary = {
+            use rust_decimal::prelude::{FromStr, ToPrimitive};
             use std::collections::BTreeMap;
-            let mut map: BTreeMap<String, f64> = BTreeMap::new();
+            let mut map: BTreeMap<String, rust_decimal::Decimal> = BTreeMap::new();
             for h in &holdings {
-                if let Ok(v) = h.amount.parse::<f64>() {
-                    *map.entry(h.token.clone()).or_insert(0.0) += v;
+                if let Ok(v) = rust_decimal::Decimal::from_str(&h.amount) {
+                    *map.entry(h.token.clone())
+                        .or_insert(rust_decimal::Decimal::ZERO) += v;
                 }
             }
             map.into_iter()
-                .map(|(token, total)| aggregator::HoldingSummary { token, total })
+                .map(|(token, total)| aggregator::HoldingSummary {
+                    token,
+                    total: total.to_f64().unwrap_or(0.0),
+                })
                 .collect::<Vec<_>>()
         };
         cache::get().insert(p, (holdings.clone(), summary, aggregator::utils::now()));
