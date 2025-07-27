@@ -56,9 +56,9 @@ async fn heartbeat() {
 }
 
 #[ic_cdk_macros::query]
-fn get_metrics() -> aggregator::metrics::Metrics {
+fn get_metrics() -> String {
     pay_cycles(*CALL_PRICE_CYCLES);
-    aggregator::metrics::get()
+    serde_json::to_string(&aggregator::metrics::get()).unwrap()
 }
 
 use crate::ic_http::{Request as HttpRequest, Response as HttpResponse};
@@ -147,6 +147,15 @@ pub async fn http_request(req: HttpRequest) -> HttpResponse {
             };
             let holdings = aggregator::get_holdings(principal).await;
             let body = serde_json::to_vec(&holdings).unwrap();
+            HttpResponse {
+                status_code: 200,
+                headers: vec![("Content-Type".into(), "application/json".into())],
+                body: ByteBuf::from(body),
+            }
+        }
+        ["metrics"] => {
+            let metrics = aggregator::metrics::get();
+            let body = serde_json::to_vec(&metrics).unwrap();
             HttpResponse {
                 status_code: 200,
                 headers: vec![("Content-Type".into(), "application/json".into())],

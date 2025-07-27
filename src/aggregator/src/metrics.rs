@@ -22,6 +22,9 @@ pub struct Metrics {
     pub claim_successes: u64,
     pub cycle_refill_attempts: u64,
     pub cycle_refill_successes: u64,
+    pub holdings_cache: usize,
+    pub lp_cache: usize,
+    pub metadata_cache: usize,
 }
 
 pub fn inc_query() {
@@ -69,6 +72,9 @@ pub fn get() -> Metrics {
         claim_successes: CLAIM_SUCCESSES.load(Ordering::Relaxed),
         cycle_refill_attempts: CYCLE_REFILL_ATTEMPTS.load(Ordering::Relaxed),
         cycle_refill_successes: CYCLE_REFILL_SUCCESSES.load(Ordering::Relaxed),
+        holdings_cache: crate::cache::get().len(),
+        lp_cache: crate::lp_cache::len(),
+        metadata_cache: crate::ledger_fetcher::len(),
     }
 }
 

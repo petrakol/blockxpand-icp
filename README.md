@@ -230,6 +230,7 @@ method. The following endpoints are available:
 
 - `/holdings/<principal>` – returns an array of `Holding` records
 - `/summary/<principal>` – returns totals per token
+- `/metrics` – returns service metrics
 
 Requests return HTTP 200 on success with `Content-Type: application/json`
 or 404 if the path or principal is invalid.

@@ -13,6 +13,12 @@ struct Entry {
 
 static CACHE: Lazy<DashMap<(Principal, String), Entry>> = Lazy::new(DashMap::new);
 
+static MAX_ENTRIES: Lazy<usize> = Lazy::new(|| {
+    option_env!("LP_CACHE_SIZE")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(1024)
+});
+
 #[derive(candid::CandidType, serde::Serialize, serde::Deserialize)]
 pub struct StableEntry {
     principal: Principal,
@@ -52,6 +58,20 @@ pub fn stable_restore(entries: Vec<StableEntry>) {
     }
 }
 
+fn evict_excess() {
+    while CACHE.len() > *MAX_ENTRIES {
+        if let Some(old_key) = CACHE
+            .iter()
+            .min_by_key(|e| e.value().ts)
+            .map(|e| e.key().clone())
+        {
+            CACHE.remove(&old_key);
+        } else {
+            break;
+        }
+    }
+}
+
 const STALE_NS: u64 = WEEK_NS; // one week
 
 pub async fn get_or_fetch<F, Fut>(
@@ -79,12 +99,17 @@ where
             ts,
         },
     );
+    evict_excess();
     data
 }
 
 pub fn evict_stale() {
     let n = now();
     CACHE.retain(|_, v| n - v.ts < STALE_NS);
+}
+
+pub fn len() -> usize {
+    CACHE.len()
 }
 
 #[cfg(target_arch = "wasm32")]

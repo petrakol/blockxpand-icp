@@ -109,6 +109,12 @@ struct Meta {
 #[cfg(not(target_arch = "wasm32"))]
 static META_CACHE: Lazy<DashMap<Principal, Meta>> = Lazy::new(DashMap::new);
 
+static MAX_META_ENTRIES: Lazy<usize> = Lazy::new(|| {
+    option_env!("META_CACHE_SIZE")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(1024)
+});
+
 #[derive(candid::CandidType, serde::Deserialize, serde::Serialize)]
 pub struct StableMeta {
     cid: Principal,
@@ -153,6 +159,30 @@ pub fn stable_restore(data: Vec<StableMeta>) {
             },
         );
     }
+    evict_excess();
+}
+
+fn evict_expired() {
+    let now = now();
+    META_CACHE.retain(|_, v| v.expires > now);
+}
+
+fn evict_excess() {
+    while META_CACHE.len() > *MAX_META_ENTRIES {
+        if let Some(old_key) = META_CACHE
+            .iter()
+            .min_by_key(|e| e.value().expires)
+            .map(|e| *e.key())
+        {
+            META_CACHE.remove(&old_key);
+        } else {
+            break;
+        }
+    }
+}
+
+pub fn len() -> usize {
+    META_CACHE.len()
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -358,6 +388,7 @@ pub async fn fetch(_principal: Principal) -> Result<Vec<Holding>, FetchError> {
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u64), FetchError> {
+    evict_expired();
     if let Some(meta) = META_CACHE.get(&cid) {
         if meta.expires > now() {
             return Ok((meta.symbol.clone(), meta.decimals, meta.fee));
@@ -415,6 +446,7 @@ async fn fetch_metadata(agent: &Agent, cid: Principal) -> Result<(String, u8, u6
             expires: now() + *META_TTL_NS,
         },
     );
+    evict_excess();
     Ok((symbol, decimals, fee))
 }
 
