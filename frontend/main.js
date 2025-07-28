@@ -32,21 +32,23 @@ function init() {
 
   // Load the GLB model from the same folder
   const loader = new GLTFLoader();
-  loader.load('blockxpand_base.glb', (gltf) => {
-    model = gltf.scene;
-    model.scale.set(2.5, 2.5, 2.5);
-    // Tint the model to match your brand colours
-    model.traverse((child) => {
-      if (child.isMesh) {
-        child.material = child.material.clone();
-        child.material.color.set('#8355e2');
-        child.material.emissive.set('#302070');
-        child.material.emissiveIntensity = 0.5;
-      }
-    });
-    scene.add(model);
-    animate();
-  });
+  loader.load(
+    'blockxpand_base.glb',
+    (gltf) => {
+      console.log('✅ model loaded');
+      model = gltf.scene;
+      model.scale.set(3, 3, 3);
+      model.traverse((c) => {
+        if (c.isMesh) {
+          c.material = new THREE.MeshBasicMaterial({ color: '#8355e2' });
+        }
+      });
+      scene.add(model);
+      animate();
+    },
+    undefined,
+    (err) => console.error('❌ GLB load error:', err)
+  );
 
   window.addEventListener('resize', onResize);
 }
