@@ -36,22 +36,32 @@ function init() {
     'blockxpand_base.glb',
     (gltf) => {
       console.log('✅ model loaded');
+
       model = gltf.scene;
       model.scale.set(3, 3, 3);
+
+      // Make every mesh HOT-PINK wireframe so it can't hide
       model.traverse((c) => {
         if (c.isMesh) {
-          c.material = new THREE.MeshBasicMaterial({ color: '#8355e2' });
+          c.material = new THREE.MeshBasicMaterial({
+            color: 0xff00ff,
+            wireframe: true,
+          });
         }
       });
 
-      // Ensure the model is centered and framed by the camera
+      // Force grey background so we can see opaque black covers
+      scene.background = new THREE.Color('#202020');
+
+      // Center & frame
       const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3()).length();
+      const size = box.getSize(new THREE.Vector3()).length() || 1;
       const center = box.getCenter(new THREE.Vector3());
       model.position.sub(center);
-      const fov = camera.fov * (Math.PI / 180);
-      const distance = (size * 0.5) / Math.tan(fov / 2);
-      camera.position.set(0, 0, distance);
+
+      const fovRad = camera.fov * (Math.PI / 180);
+      const dist = (size * 0.6) / Math.tan(fovRad / 2);
+      camera.position.set(0, 0, dist);
       camera.lookAt(0, 0, 0);
 
       scene.add(model);
