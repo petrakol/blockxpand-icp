@@ -3,85 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BlockXpand Rewards</title>
+    <title>BlockXpand</title>
     <link rel="stylesheet" href="styles.css" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
-    <script>
-      window.CANISTER_ID = "<CANISTER_ID>";
-      window.DFX_NETWORK = "<DFX_NETWORK>";
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <header class="top-bar">
-      <img src="images/blockxpand copy logo only_v2.png" alt="" class="header-icon" />
-      <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme"></button>
+      <img src="images/blockxpand copy.png" alt="BlockXpand" class="logo-small" />
     </header>
-
-    <div class="container">
-      <img id="main-logo" src="images/blockxpand copy_w.png" alt="BlockXpand logo" class="logo large-logo" />
+    <div id="scene-container"></div>
+    <div class="hero">
+      <img id="hero-logo" src="images/blockxpand copy_w.png" alt="BlockXpand" class="hero-logo" />
       <h1 class="tagline">Unlock hidden value<br />across your tokens</h1>
-      <p class="description">
-        Unify your balances and claim rewards from all your wallets, neurons and pools with 1 click.
-      </p>
-      <button id="connect-btn" class="connect-btn">Connect Wallet</button>
-
-      <div
-        id="logo-spinner"
-        class="logo-spinner hidden"
-        role="status"
-        aria-live="polite"
-      >
-        <img
-          src="images/blockxpand copy logo only_v2.png"
-          alt=""
-          class="spinner-img"
-          aria-hidden="true"
-        />
-      </div>
-
-      <div id="summary-skeleton" class="summary-skeleton hidden" aria-hidden="true"></div>
-
-      <div
-        id="summary-bar"
-        class="summary-bar hidden"
-        tabindex="0"
-        aria-expanded="false"
-        aria-controls="summary-drawer"
-      >
-        <span id="summary-total"></span>
-        <span class="arrow">&#x25B6;</span>
-      </div>
-
-      <div
-        id="summary-drawer"
-        class="summary-drawer hidden"
-        role="dialog"
-        aria-labelledby="summary-bar"
-      ></div>
-
-      <div id="error-message" class="error hidden" role="alert"></div>
+      <button id="connect-btn" class="connect-btn">Connect</button>
     </div>
-    <script type="module" src="https://unpkg.com/@dfinity/agent@0.18.0/dist/agent.min.js"></script>
-    <script type="module" src="https://unpkg.com/@dfinity/auth-client@0.18.0/dist/auth-client.min.js"></script>
     <script type="module" src="main.js"></script>
-    <script>
-      const logo = document.getElementById('main-logo');
-      const toggleBtn = document.getElementById('theme-toggle');
-      function setLogo() {
-        if (document.body.classList.contains('light')) {
-          logo.src = 'images/blockxpand copy.png';
-        } else {
-          logo.src = 'images/blockxpand copy_w.png';
-        }
-      }
-      toggleBtn.addEventListener('click', () => {
-        document.body.classList.toggle('light');
-        setLogo();
-      });
-      setLogo();
-    </script>
   </body>
 </html>
