@@ -1,91 +1,66 @@
-import { HttpAgent, Actor } from "https://unpkg.com/@dfinity/agent@0.18.0/dist/agent.min.js";
-import { AuthClient } from "https://unpkg.com/@dfinity/auth-client@0.18.0/dist/auth-client.min.js";
-import { idlFactory, canisterId } from "../src/declarations/aggregator_canister/aggregator_canister.did.js";
+import * as THREE from 'https://unpkg.com/three@0.155.0/build/three.module.js';
+import { GLTFLoader } from 'https://unpkg.com/three@0.155.0/examples/jsm/loaders/GLTFLoader.js';
 
+const container = document.getElementById('scene-container');
 const connectBtn = document.getElementById('connect-btn');
-const summaryBar = document.getElementById('summary-bar');
-const summaryDrawer = document.getElementById('summary-drawer');
-const summaryTotal = document.getElementById('summary-total');
-const spinner = document.getElementById('logo-spinner');
-const skeleton = document.getElementById('summary-skeleton');
-const errorDiv = document.getElementById('error-message');
 
-let authClient = null;
-let actor = null;
+let renderer, scene, camera, model;
 
-function showError(msg) {
-  errorDiv.textContent = msg;
-  errorDiv.classList.remove('hidden');
-  setTimeout(() => errorDiv.classList.add('hidden'), 5000);
-}
+function init() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(
+    45,
+    container.clientWidth / container.clientHeight,
+    0.1,
+    100
+  );
+  camera.position.set(0, 0, 4);
 
-function showLoading() {
-  spinner.classList.remove('hidden');
-  skeleton.classList.remove('hidden');
-}
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer.domElement);
 
-function hideLoading() {
-  spinner.classList.add('hidden');
-  skeleton.classList.add('hidden');
-}
+  const light1 = new THREE.DirectionalLight(0xffffff, 0.9);
+  light1.position.set(1, 1, 2);
+  scene.add(light1);
 
-function isMainnet() {
-  return (window.DFX_NETWORK || 'local') === 'ic';
-}
+  const light2 = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(light2);
 
-async function createActor() {
-  const identity = await authClient.getIdentity();
-  const agent = new HttpAgent({ identity });
-  if (!isMainnet()) {
-    await agent.fetchRootKey();
-  }
-  actor = Actor.createActor(idlFactory, { agent, canisterId: window.CANISTER_ID || canisterId });
-}
-
-async function loadSummary() {
-  try {
-    const principal = (await authClient.getIdentity()).getPrincipal().toText();
-    const res = await actor.get_holdings_summary(principal);
-    if ('Ok' in res) {
-      const total = res.Ok.reduce((acc, t) => acc + t.total, 0);
-      summaryTotal.textContent = `Total Rewards: ${total.toFixed(4)} ICP`;
-      summaryDrawer.innerHTML = res.Ok.map(t => `<div>${t.token}: ${t.total.toFixed(4)}</div>`).join('');
-      summaryBar.classList.remove('hidden');
-    } else {
-      showError(res.Err);
-    }
-  } catch (err) {
-    showError('Failed to load your summary. ' + err.message);
-  } finally {
-    hideLoading();
-  }
-}
-
-async function init() {
-  authClient = await AuthClient.create();
-
-  connectBtn.addEventListener('click', async () => {
-    await authClient.login({
-      identityProvider: 'https://identity.ic0.app/#authorize',
-      onSuccess: async () => {
-        await createActor();
-        await loadSummary();
-      },
-    });
+  const loader = new GLTFLoader();
+  loader.load('blockXpand_base.glb', (gltf) => {
+    model = gltf.scene;
+    model.scale.set(1.2, 1.2, 1.2);
+    scene.add(model);
+    animate();
   });
 
-  summaryBar.addEventListener('click', () => {
-    const expanded = summaryDrawer.classList.toggle('open');
-    summaryBar.setAttribute('aria-expanded', expanded);
-  });
-
-  if (await authClient.isAuthenticated()) {
-    await createActor();
-    await loadSummary();
-  } else {
-    hideLoading();
-  }
+  window.addEventListener('resize', onResize);
 }
 
-showLoading();
+function onResize() {
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (model) model.rotation.y += 0.01;
+  renderer.render(scene, camera);
+}
+
+connectBtn.addEventListener('click', async () => {
+  connectBtn.disabled = true;
+  const original = connectBtn.textContent;
+  connectBtn.textContent = 'Connecting...';
+  // TODO: integrate actual wallet authentication
+  await new Promise((r) => setTimeout(r, 1000));
+  connectBtn.textContent = original;
+  connectBtn.disabled = false;
+});
+
 init();
