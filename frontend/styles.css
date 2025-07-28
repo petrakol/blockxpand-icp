@@ -45,7 +45,6 @@ body {
   pointer-events: none; /* allow click-through to button */
 }
 
-/* Hero container */
 .hero {
   position: relative;
   z-index: 1;
@@ -57,18 +56,19 @@ body {
   text-align: center;
   padding: 0 1rem;
 }
-
-.hero-logo {
-  width: 500px;
-  max-width: 90%;
-  margin-bottom: 2.5rem;
+.wordmark {
+  font-size: 6rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  text-transform: lowercase;
+  margin: 0 0 2.5rem;
 }
 
-.hero-tagline {
+.tagline {
   font-size: 1.5rem;
   font-weight: 500;
   color: #d3cfe8;
-  margin-bottom: 2rem;
+  margin-top: 2rem;
   max-width: 600px;
 }
 
@@ -97,13 +97,12 @@ body {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .hero-logo {
-    width: 300px;
-    margin-bottom: 2rem;
+  .wordmark {
+    font-size: 4.5rem;
   }
-  .hero-tagline {
+  .tagline {
     font-size: 1.25rem;
-    margin-bottom: 1.5rem;
+    margin-top: 1.5rem;
   }
   .connect-btn {
     padding: 0.75rem 2rem;
@@ -113,13 +112,12 @@ body {
 }
 
 @media (max-width: 480px) {
-  .hero-logo {
-    width: 220px;
-    margin-bottom: 1.5rem;
+  .wordmark {
+    font-size: 3.2rem;
   }
-  .hero-tagline {
+  .tagline {
     font-size: 1rem;
-    margin-bottom: 1rem;
+    margin-top: 1rem;
   }
   .connect-btn {
     padding: 0.6rem 1.8rem;

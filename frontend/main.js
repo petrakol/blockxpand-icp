@@ -34,7 +34,7 @@ function init() {
   const loader = new GLTFLoader();
   loader.load('blockxpand_base.glb', (gltf) => {
     model = gltf.scene;
-    model.scale.set(3, 3, 3);
+    model.scale.set(2.5, 2.5, 2.5);
     // Tint the model to match your brand colours
     model.traverse((child) => {
       if (child.isMesh) {
