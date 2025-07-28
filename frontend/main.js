@@ -30,46 +30,77 @@ function init() {
   const ambient = new THREE.AmbientLight(0xffffff, 0.4);
   scene.add(ambient);
 
-  // Load the GLB model from the same folder
+  /* ----------------------------------------------------------------------------
+     1) NETWORK PROBE – fetch the GLB “by hand” to confirm 200 + correct MIME
+  --------------------------------------------------------------------------- */
+  fetch('blockxpand_base.glb')
+    .then((r) => {
+      console.log('ℹ️ fetch status', r.status, r.headers.get('content-type'));
+      return r.arrayBuffer();
+    })
+    .catch((err) => console.error('❌ fetch failed', err));
+
+  /* ----------------------------------------------------------------------------
+     2) GLB LOAD (with DRACOLoader support in case the file is Draco‑compressed)
+  --------------------------------------------------------------------------- */
   const loader = new GLTFLoader();
-  loader.load(
-    'blockxpand_base.glb',
-    (gltf) => {
-      console.log('✅ model loaded');
+  import('https://unpkg.com/three@0.155.0/examples/jsm/loaders/DRACOLoader.js').then(
+    (mod) => {
+      const draco = new mod.DRACOLoader();
+      draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+      loader.setDRACOLoader(draco);
 
-      model = gltf.scene;
-      model.scale.set(3, 3, 3);
+      loader.load(
+        'blockxpand_base.glb',
+        (gltf) => {
+          console.log('✅ GLB parsed');
+          model = gltf.scene;
+          model.scale.set(3, 3, 3);
 
-      /* ***** DEBUG MATERIAL – hot pink wireframe ***** */
-      model.traverse((c) => {
-        if (c.isMesh) {
-          c.material = new THREE.MeshBasicMaterial({
-            color: 0xff00ff,
-            wireframe: true,
+          /* ***** DEBUG MATERIAL – hot pink wireframe ***** */
+          model.traverse((c) => {
+            if (c.isMesh) {
+              c.material = new THREE.MeshBasicMaterial({
+                color: 0xff00ff,
+                wireframe: true,
+              });
+            }
           });
-        }
-      });
 
-      /* Center and frame the model so it’s guaranteed on screen */
-      const box    = new THREE.Box3().setFromObject(model);
-      const size   = box.getSize(new THREE.Vector3()).length() || 1;
-      const center = box.getCenter(new THREE.Vector3());
-      model.position.sub(center);
+          /* 2a) GEOMETRY PROBE – print bounding‑box length */
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3()).length();
+          console.log('📐 GLB size (bbox length):', size);
 
-      const fovRad  = camera.fov * (Math.PI / 180);
-      const dist    = (size * 0.6) / Math.tan(fovRad / 2);
-      camera.position.set(0, 0, dist);
-      camera.lookAt(0, 0, 0);
+          if (size < 0.001) {
+            console.warn('⚠️ size ~0 – maybe the geometry is nested; using first child');
+            if (model.children[0]) model = model.children[0];
+          }
 
-      /* Optional grey background so object never blends into black */
-      scene.background = new THREE.Color('#202020');
+          /* Center / frame */
+          const center = box.getCenter(new THREE.Vector3());
+          model.position.sub(center);
+          const dist = (size || 5) / Math.tan((camera.fov * Math.PI) / 180 / 2);
+          camera.position.set(0, 0, dist);
 
-      scene.add(model);
-      animate();
-    },
-    undefined,
-    (err) => console.error('❌ GLB load error:', err)
+          scene.add(model);
+          animate();
+        },
+        undefined,
+        (err) => console.error('❌ GLB load error:', err)
+      );
+    }
   );
+
+  /* ----------------------------------------------------------------------------
+     3) FALLBACK CUBE – always visible if renderer works
+  --------------------------------------------------------------------------- */
+  const debugCube = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+  );
+  debugCube.position.set(-3, 0, 0);
+  scene.add(debugCube);
 
   window.addEventListener('resize', onResize);
 }
