@@ -73,7 +73,8 @@ function init() {
           /* Center / frame */
           center = center || box.getCenter(new THREE.Vector3());
           model.position.sub(center);
-          const dist = (size || 5) / Math.tan((camera.fov * Math.PI) / 180 / 2);
+          const fovRad = (camera.fov * Math.PI) / 180;
+          const dist = (size * 0.6) / Math.tan(fovRad / 2);
           camera.position.set(0, 0, dist);
           camera.lookAt(0, 0, 0);
 
