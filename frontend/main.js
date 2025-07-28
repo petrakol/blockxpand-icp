@@ -40,7 +40,7 @@ function init() {
       model = gltf.scene;
       model.scale.set(3, 3, 3);
 
-      // Make every mesh HOT-PINK wireframe so it can't hide
+      /* ***** DEBUG MATERIAL – hot pink wireframe ***** */
       model.traverse((c) => {
         if (c.isMesh) {
           c.material = new THREE.MeshBasicMaterial({
@@ -50,19 +50,19 @@ function init() {
         }
       });
 
-      // Force grey background so we can see opaque black covers
-      scene.background = new THREE.Color('#202020');
-
-      // Center & frame
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3()).length() || 1;
+      /* Center and frame the model so it’s guaranteed on screen */
+      const box    = new THREE.Box3().setFromObject(model);
+      const size   = box.getSize(new THREE.Vector3()).length() || 1;
       const center = box.getCenter(new THREE.Vector3());
       model.position.sub(center);
 
-      const fovRad = camera.fov * (Math.PI / 180);
-      const dist = (size * 0.6) / Math.tan(fovRad / 2);
+      const fovRad  = camera.fov * (Math.PI / 180);
+      const dist    = (size * 0.6) / Math.tan(fovRad / 2);
       camera.position.set(0, 0, dist);
       camera.lookAt(0, 0, 0);
+
+      /* Optional grey background so object never blends into black */
+      scene.background = new THREE.Color('#202020');
 
       scene.add(model);
       animate();

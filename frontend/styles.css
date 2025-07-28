@@ -42,12 +42,16 @@ body {
   width: 100%;
   height: 100%;
   z-index: 0;
+  /* DEBUG – red outline so you can see the canvas bounds */
+  outline: 2px dashed red;
   pointer-events: none; /* allow click-through to button */
 }
 
 .hero {
   position: relative;
   z-index: 1;
+  /* DEBUG – allow clicks to pass so canvas is never blocked */
+  pointer-events: none;
   height: 100vh;
   display: flex;
   flex-direction: column;
