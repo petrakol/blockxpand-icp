@@ -227,6 +227,14 @@ and a summary of totals per token. Clicking **Claim Rewards** triggers
 `claim_all_rewards`, refreshes the holdings and displays success or error
 messages in the status area at the bottom of the page.
 
+### Frontend assets
+
+Static files live directly in `frontend/`. Two logo variants are under
+`frontend/images/` and the 3D model `blockxpand_base.glb` sits alongside
+`index.html` and `main.js`. Ensure the relative paths in the HTML and
+JavaScript match this layout when developing locally or deploying to
+Cloudflare Pages.
+
 ## HTTP API
 
 The canister exposes a simple JSON interface via the `http_request` query
