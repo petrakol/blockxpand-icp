@@ -56,20 +56,19 @@ body {
   text-align: center;
   padding: 0 1rem;
 }
-.wordmark {
-  font-size: 6rem;
-  font-weight: 800;
-  letter-spacing: -0.05em;
-  text-transform: lowercase;
-  margin: 0 0 2.5rem;
+.hero-logo {
+  width: 500px;
+  max-width: 90%;
+  margin-bottom: 2rem;
 }
 
-.tagline {
+.hero-tagline {
   font-size: 1.5rem;
   font-weight: 500;
   color: #d3cfe8;
-  margin-top: 2rem;
+  margin-bottom: 2rem;
   max-width: 600px;
+  text-align: center;
 }
 
 .connect-btn {
@@ -97,13 +96,8 @@ body {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .wordmark {
-    font-size: 4.5rem;
-  }
-  .tagline {
-    font-size: 1.25rem;
-    margin-top: 1.5rem;
-  }
+  .hero-logo { width: 300px; margin-bottom: 1.5rem; }
+  .hero-tagline { font-size: 1.25rem; margin-bottom: 1.5rem; }
   .connect-btn {
     padding: 0.75rem 2rem;
     font-size: 1rem;
@@ -112,13 +106,8 @@ body {
 }
 
 @media (max-width: 480px) {
-  .wordmark {
-    font-size: 3.2rem;
-  }
-  .tagline {
-    font-size: 1rem;
-    margin-top: 1rem;
-  }
+  .hero-logo { width: 220px; margin-bottom: 1rem; }
+  .hero-tagline { font-size: 1rem; margin-bottom: 1rem; }
   .connect-btn {
     padding: 0.6rem 1.8rem;
     font-size: 0.9rem;
