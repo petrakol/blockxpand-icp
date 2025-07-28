@@ -30,23 +30,59 @@ function init() {
   const ambient = new THREE.AmbientLight(0xffffff, 0.4);
   scene.add(ambient);
 
-  // Load the GLB model from the same folder
+
+  // Load the GLB model with DRACOLoader support
   const loader = new GLTFLoader();
-  loader.load('blockxpand_base.glb', (gltf) => {
-    model = gltf.scene;
-    model.scale.set(2.5, 2.5, 2.5);
-    // Tint the model to match your brand colours
-    model.traverse((child) => {
-      if (child.isMesh) {
-        child.material = child.material.clone();
-        child.material.color.set('#8355e2');
-        child.material.emissive.set('#302070');
-        child.material.emissiveIntensity = 0.5;
-      }
-    });
-    scene.add(model);
-    animate();
-  });
+  import('https://unpkg.com/three@0.155.0/examples/jsm/loaders/DRACOLoader.js').then(
+    (mod) => {
+      const draco = new mod.DRACOLoader();
+      draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+      loader.setDRACOLoader(draco);
+
+      loader.load(
+        'blockxpand_base.glb',
+        (gltf) => {
+          console.log('✅ model loaded');
+          model = gltf.scene;
+          model.scale.set(3, 3, 3);
+
+          model.traverse((c) => {
+            if (c.isMesh) {
+              c.material = new THREE.MeshStandardMaterial({
+                color: "#8355e2",
+                metalness: 0.4,
+                roughness: 0.4,
+              });
+            }
+          });
+          const box = new THREE.Box3().setFromObject(model);
+          let size = box.getSize(new THREE.Vector3()).length();
+          let center;
+
+          if (size < 0.001) {
+            if (model.children[0]) {
+              model = model.children[0];
+              box.setFromObject(model);
+              size = box.getSize(new THREE.Vector3()).length();
+              center = box.getCenter(new THREE.Vector3());
+            }
+          }
+
+          /* Center / frame */
+          center = center || box.getCenter(new THREE.Vector3());
+          model.position.sub(center);
+          const dist = (size || 5) / Math.tan((camera.fov * Math.PI) / 180 / 2);
+          camera.position.set(0, 0, dist);
+          camera.lookAt(0, 0, 0);
+
+          scene.add(model);
+          animate();
+        },
+        undefined,
+        (err) => console.error('❌ GLB load error:', err)
+      );
+    }
+  );
 
   window.addEventListener('resize', onResize);
 }
