@@ -69,16 +69,24 @@ function init() {
 
           /* 2a) GEOMETRY PROBE – print bounding‑box length */
           const box = new THREE.Box3().setFromObject(model);
-          const size = box.getSize(new THREE.Vector3()).length();
+          let size = box.getSize(new THREE.Vector3()).length();
+          let center;
           console.log('📐 GLB size (bbox length):', size);
 
           if (size < 0.001) {
-            console.warn('⚠️ size ~0 – maybe the geometry is nested; using first child');
-            if (model.children[0]) model = model.children[0];
+            console.warn(
+              '⚠️ size ~0 – maybe the geometry is nested; using first child'
+            );
+            if (model.children[0]) {
+              model = model.children[0];
+              box.setFromObject(model);
+              size = box.getSize(new THREE.Vector3()).length();
+              center = box.getCenter(new THREE.Vector3());
+            }
           }
 
           /* Center / frame */
-          const center = box.getCenter(new THREE.Vector3());
+          center = center || box.getCenter(new THREE.Vector3());
           model.position.sub(center);
           const dist = (size || 5) / Math.tan((camera.fov * Math.PI) / 180 / 2);
           camera.position.set(0, 0, dist);
