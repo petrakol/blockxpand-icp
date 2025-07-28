@@ -43,6 +43,17 @@ function init() {
           c.material = new THREE.MeshBasicMaterial({ color: '#8355e2' });
         }
       });
+
+      // Ensure the model is centered and framed by the camera
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3()).length();
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.sub(center);
+      const fov = camera.fov * (Math.PI / 180);
+      const distance = (size * 0.5) / Math.tan(fov / 2);
+      camera.position.set(0, 0, distance);
+      camera.lookAt(0, 0, 0);
+
       scene.add(model);
       animate();
     },
