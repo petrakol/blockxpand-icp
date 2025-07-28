@@ -1,37 +1,49 @@
 import * as THREE from 'https://unpkg.com/three@0.155.0/build/three.module.js';
 import { GLTFLoader } from 'https://unpkg.com/three@0.155.0/examples/jsm/loaders/GLTFLoader.js';
 
-const container = document.getElementById('scene-container');
-const connectBtn = document.getElementById('connect-btn');
+const canvas   = document.getElementById('scene');
+const connectBtn = document.getElementById('connect');
 
 let renderer, scene, camera, model;
 
 function init() {
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(
-    45,
-    container.clientWidth / container.clientHeight,
-    0.1,
-    100
-  );
-  camera.position.set(0, 0, 4);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(container.clientWidth, container.clientHeight);
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+  camera.position.set(0, 0, 7);
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio);
-  container.appendChild(renderer.domElement);
+  renderer.setSize(width, height);
 
-  const light1 = new THREE.DirectionalLight(0xffffff, 0.9);
-  light1.position.set(1, 1, 2);
-  scene.add(light1);
+  // Add multiple lights for depth
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.1);
+  keyLight.position.set(5, 5, 10);
+  scene.add(keyLight);
 
-  const light2 = new THREE.AmbientLight(0xffffff, 0.6);
-  scene.add(light2);
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  fillLight.position.set(-5, -3, 5);
+  scene.add(fillLight);
 
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambient);
+
+  // Load the GLB model from the same folder
   const loader = new GLTFLoader();
-  loader.load('blockXpand_base.glb', (gltf) => {
+  loader.load('blockxpand_base.glb', (gltf) => {
     model = gltf.scene;
-    model.scale.set(1.2, 1.2, 1.2);
+    model.scale.set(2.5, 2.5, 2.5);
+    // Tint the model to match your brand colours
+    model.traverse((child) => {
+      if (child.isMesh) {
+        child.material = child.material.clone();
+        child.material.color.set('#8355e2');
+        child.material.emissive.set('#302070');
+        child.material.emissiveIntensity = 0.5;
+      }
+    });
     scene.add(model);
     animate();
   });
@@ -40,25 +52,29 @@ function init() {
 }
 
 function onResize() {
-  const w = container.clientWidth;
-  const h = container.clientHeight;
-  camera.aspect = w / h;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
+  renderer.setSize(width, height);
 }
 
 function animate() {
   requestAnimationFrame(animate);
-  if (model) model.rotation.y += 0.01;
+  if (model) {
+    model.rotation.y += 0.015;
+    model.rotation.x += 0.0075;
+  }
   renderer.render(scene, camera);
 }
 
+// Connect button stub
 connectBtn.addEventListener('click', async () => {
   connectBtn.disabled = true;
   const original = connectBtn.textContent;
-  connectBtn.textContent = 'Connecting...';
-  // TODO: integrate actual wallet authentication
-  await new Promise((r) => setTimeout(r, 1000));
+  connectBtn.textContent = 'Connecting…';
+  // TODO: integrate your wallet provider (Plug, Stoic, Internet Identity)
+  await new Promise((resolve) => setTimeout(resolve, 1000));
   connectBtn.textContent = original;
   connectBtn.disabled = false;
 });

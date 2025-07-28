@@ -1,22 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BlockXpand</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <header class="top-bar">
-      <img src="images/blockxpand copy.png" alt="BlockXpand" class="logo-small" />
-    </header>
-    <div id="scene-container"></div>
-    <div class="hero">
-      <img id="hero-logo" src="images/blockxpand copy_w.png" alt="BlockXpand" class="hero-logo" />
-      <h1 class="tagline">Unlock hidden value<br />across your tokens</h1>
-      <button id="connect-btn" class="connect-btn">Connect</button>
-    </div>
-    <script type="module" src="main.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BlockXpand</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top-bar">
+    <img src="images/blockxpand_copy.png" alt="BlockXpand" class="logo-small">
+  </header>
+  <canvas id="scene"></canvas>
+  <section class="hero">
+    <img src="images/blockxpand_copy_w.png" alt="BlockXpand logo" class="hero-logo">
+    <p class="hero-tagline">Unlock hidden value across your tokens</p>
+    <button id="connect" class="connect-btn">Connect Wallet</button>
+  </section>
+  <script type="module" src="main.js"></script>
+</body>
 </html>
