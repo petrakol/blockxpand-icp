@@ -32,7 +32,7 @@ function init() {
 
   // Load the GLB model from the same folder
   const loader = new GLTFLoader();
-  loader.load('blockXpand_base.glb', (gltf) => {
+  loader.load('blockxpand_base.glb', (gltf) => {
     model = gltf.scene;
     model.scale.set(3, 3, 3);
     // Tint the model to match your brand colours

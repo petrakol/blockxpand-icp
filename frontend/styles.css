@@ -59,9 +59,9 @@ body {
 }
 
 .hero-logo {
-  width: 380px;
-  max-width: 80%;
-  margin-bottom: 2rem;
+  width: 500px;
+  max-width: 90%;
+  margin-bottom: 2.5rem;
 }
 
 .hero-tagline {
@@ -98,8 +98,8 @@ body {
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .hero-logo {
-    width: 280px;
-    margin-bottom: 1.5rem;
+    width: 300px;
+    margin-bottom: 2rem;
   }
   .hero-tagline {
     font-size: 1.25rem;
@@ -115,7 +115,7 @@ body {
 @media (max-width: 480px) {
   .hero-logo {
     width: 220px;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
   }
   .hero-tagline {
     font-size: 1rem;
